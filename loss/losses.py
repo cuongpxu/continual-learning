@@ -90,6 +90,7 @@ class OTFL(nn.Module):
         self.reduction = reduction
 
         self.anchors = torch.zeros((n_classes, 1, n_dim), requires_grad=True).to(self.device)
+        print(self.anchors.device)
 
     def get_anchor_batch(self, grads, targets):
         anchor_batch = torch.zeros(targets.size(0), self.n_dim).to(self.device)
@@ -149,6 +150,7 @@ class OTFL(nn.Module):
             grad_outputs=torch.ones_like(ce_a).to(self.device),
             create_graph=True
         )[0]
+        # print(grad_x.size(), grad_a.size())
         anchor_batch = self.get_anchor_batch(grad_a, y)
         negative_batch = self.get_negative_batch(grad_x.view(grad_x.size(0), grad_x.size(1), -1), y)
 
@@ -169,7 +171,8 @@ class OTFL(nn.Module):
             if ce_m.size(0) != 0:
                 min_m = torch.min(ce_m)
                 idx = ce_x == min_m
-                self.anchors[m] = x[idx][0].view(-1).unsqueeze(dim=0).data.clone().to(self.device)
+                print('x device: {}'.format(x[idx][0].device))
+                self.anchors[m] = x[idx][0].view(-1).unsqueeze(dim=0).data.clone()
 
         if self.reduction == 'mean':
             return torch.mean(loss)
