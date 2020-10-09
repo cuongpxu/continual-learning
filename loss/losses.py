@@ -169,7 +169,7 @@ class OTFL(nn.Module):
             if ce_m.size(0) != 0:
                 min_m = torch.min(ce_m)
                 idx = ce_x == min_m
-                self.anchors[m] = x[idx][0].view(-1).unsqueeze(dim=0).data.clone()
+                self.anchors[m] = x[idx][0].view(-1).unsqueeze(dim=0).data.clone().to(self.device)
 
         if self.reduction == 'mean':
             return torch.mean(loss)
