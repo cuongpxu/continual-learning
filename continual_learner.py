@@ -31,6 +31,9 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
         self.emp_FI = False     #-> if True, use provided labels to calculate FI ("empirical FI"); else predicted labels
         self.EWC_task_count = 0 #-> keeps track of number of quadratic loss terms (for "offline EWC")
 
+        # -OTFL
+        self.otfl_lambda = 0.5  #-> hyperparam: how strong to weigh EWC-loss ("regularisation strength")
+
     def _device(self):
         return next(self.parameters()).device
 
@@ -144,7 +147,6 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
         # Set model back to its initial mode
         self.train(mode=mode)
 
-
     def ewc_loss(self):
         '''Calculate EWC-loss.'''
         if self.EWC_task_count>0:
@@ -167,9 +169,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             # EWC-loss is 0 if there are no stored mode and precision yet
             return torch.tensor(0., device=self._device())
 
-
     #------------- "Synaptic Intelligence Synapses"-specifc functions -------------#
-
     def update_omega(self, W, epsilon):
         '''After completing training on a task, update the per-parameter regularization strength.
 
@@ -195,7 +195,6 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                 # Store these new values in the model
                 self.register_buffer('{}_SI_prev_task'.format(n), p_current)
                 self.register_buffer('{}_SI_omega'.format(n), omega_new)
-
 
     def surrogate_loss(self):
         '''Calculate SI's surrogate loss.'''

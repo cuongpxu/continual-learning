@@ -19,6 +19,7 @@ from continual_learner import ContinualLearner
 from exemplars import ExemplarHandler
 from replayer import Replayer
 from param_values import set_default_values
+from loss.losses import OTFL
 
 
 parser = argparse.ArgumentParser('./main.py', description='Run individual continual learning experiment.')
@@ -40,9 +41,13 @@ loss_params = parser.add_argument_group('Loss Parameters')
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
 loss_params.add_argument('--bce-distill', action='store_true', help='distilled loss on previous classes for new'
                                                                     ' examples (only if --bce & --scenario="class")')
-
+loss_params.add_argument('--otfl', action='store_true', help="use online triplet forgetting loss")
+loss_params.add_argument('--otfl_var', default='all', help="selecting variant of online triplet forgetting loss")
+loss_params.add_argument('--otfl_alpha', type=float,  default=0.5, help="controlling parameter")
+loss_params.add_argument('--otfl_margin', type=float,  default=0.0, help="margin hyperparameter")
 # model architecture parameters
 model_params = parser.add_argument_group('Model Parameters')
+model_params.add_argument('--model_arc', type=str, default='MLP', help='Type of network used in experiment')
 model_params.add_argument('--fc-layers', type=int, default=3, dest='fc_lay', help="# of fully-connected layers")
 model_params.add_argument('--fc-units', type=int, metavar="N", help="# of units in first fc-layers")
 model_params.add_argument('--fc-drop', type=float, default=0., help="dropout probability for fc-units")
@@ -221,7 +226,7 @@ def run(args, verbose=False):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
             fc_bn=True if args.fc_bn=="yes" else False, excit_buffer=True if args.xdg and args.gating_prop>0 else False,
-            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem,
+            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem, otfl=args.otfl
         ).to(device)
 
     # Define optimizer (only include parameters that "requires_grad")
@@ -433,6 +438,8 @@ def run(args, verbose=False):
         generator=generator, gen_iters=args.g_iters, gen_loss_cbs=generator_loss_cbs,
         sample_cbs=sample_cbs, eval_cbs=eval_cbs, loss_cbs=generator_loss_cbs if args.feedback else solver_loss_cbs,
         metric_cbs=metric_cbs, use_exemplars=args.use_exemplars, add_exemplars=args.add_exemplars,
+        otfl_loss=OTFL(alpha=args.otfl_alpha, margin=args.otfl_margin, var=args.otfl_var,
+                   n_dim=(config['size'] ** 2) * config['channels'], n_classes=config['classes']) if args.otfl else None
     )
     # Get total training-time in seconds, and write to file
     if args.time:

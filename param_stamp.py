@@ -122,10 +122,14 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
     binLoss_stamp = ""
     if hasattr(args, 'bce') and args.bce:
         binLoss_stamp = '--BCE_dist' if (args.bce_distill and args.scenario=="class") else '--BCE'
-
+    if hasattr(args, 'otfl') and args.otfl:
+        otflLoss_stamp = '--OTFL-{}-a{}-m{}'.format(args.otfl_var, args.otfl_alpha, args.otfl_margin)
+    else:
+        otflLoss_stamp = ''
     # --> combine
-    param_stamp = "{}--{}--{}{}{}{}{}{}{}".format(
-        task_stamp, model_stamp, hyper_stamp, ewc_stamp, xdg_stamp, replay_stamp, exemplar_stamp, binLoss_stamp,
+    param_stamp = "{}--{}--{}{}{}{}{}{}{}{}".format(
+        task_stamp, model_stamp, hyper_stamp, ewc_stamp, xdg_stamp, replay_stamp, exemplar_stamp,
+        binLoss_stamp, otflLoss_stamp,
         "-s{}".format(args.seed) if not args.seed==0 else "",
     )
 

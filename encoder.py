@@ -12,7 +12,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
     def __init__(self, image_size, image_channels, classes,
                  fc_layers=3, fc_units=1000, fc_drop=0, fc_bn=False, fc_nl="relu", gated=False,
-                 bias=True, excitability=False, excit_buffer=False, binaryCE=False, binaryCE_distill=False, AGEM=False):
+                 bias=True, excitability=False, excit_buffer=False, binaryCE=False, binaryCE_distill=False, AGEM=False,
+                 otfl=False):
 
         # configurations
         super().__init__()
@@ -26,7 +27,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                                  #   predicted probs as binary targets (only in Class-IL with binaryCE)
         self.AGEM = AGEM  #-> use gradient of replayed data as inequality constraint for (instead of adding it to)
                           #   the gradient of the current data (as in A-GEM, see Chaudry et al., 2019; ICLR)
-
+        self.otfl = otfl
         # check whether there is at least 1 fc-layer
         if fc_layers<1:
             raise ValueError("The classifier needs to have at least 1 fully-connected layer.")
@@ -67,7 +68,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         return self.fcE(self.flatten(images))
 
 
-    def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5, active_classes=None, task=1):
+    def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5, active_classes=None, task=1, otfl_loss=None):
         '''Train model for one batch ([x],[y]), possibly supplemented with replayed data ([x_],[y_/scores_]).
 
         [x]               <tensor> batch of inputs (could be None, in which case only 'replayed' data is used)
@@ -195,9 +196,13 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 predL = None if y is None else F.binary_cross_entropy_with_logits(
                     input=y_hat, target=binary_targets, reduction='none'
                 ).sum(dim=1).mean()     #--> sum over classes, then average over batch
+            elif self.otfl:
+                if otfl_loss is not None:
+                    y_anchors = self(otfl_loss.anchors)
+                    predL = otfl_loss(x, y_hat, y_anchors, y)
             else:
                 # -multiclass prediction loss
-                predL = None if y is None else F.cross_entropy(input=y_hat, target=y, reduction='mean')
+                predL = None if y is None else F.cross_entropy(input=y_hat, target=y)
 
             # Weigh losses
             loss_cur = predL
@@ -232,7 +237,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         ewc_loss = self.ewc_loss()
         if self.ewc_lambda>0:
             loss_total += self.ewc_lambda * ewc_loss
-
 
         # Backpropagate errors (if not yet done)
         if not gradient_per_task:
