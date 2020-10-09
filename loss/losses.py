@@ -90,7 +90,6 @@ class OTFL(nn.Module):
         self.reduction = reduction
 
         self.anchors = torch.zeros((n_classes, 1, n_dim), requires_grad=True).to(self.device)
-        print(self.anchors.device)
 
     def get_anchor_batch(self, grads, targets):
         anchor_batch = torch.zeros(targets.size(0), self.n_dim).to(self.device)
@@ -171,7 +170,6 @@ class OTFL(nn.Module):
             if ce_m.size(0) != 0:
                 min_m = torch.min(ce_m)
                 idx = ce_x == min_m
-                print('x device: {}'.format(x[idx][0].device))
                 self.anchors[m] = x[idx][0].view(-1).unsqueeze(dim=0).data.clone()
 
         if self.reduction == 'mean':

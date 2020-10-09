@@ -438,7 +438,7 @@ def run(args, verbose=False):
         generator=generator, gen_iters=args.g_iters, gen_loss_cbs=generator_loss_cbs,
         sample_cbs=sample_cbs, eval_cbs=eval_cbs, loss_cbs=generator_loss_cbs if args.feedback else solver_loss_cbs,
         metric_cbs=metric_cbs, use_exemplars=args.use_exemplars, add_exemplars=args.add_exemplars,
-        otfl_loss=OTFL(alpha=args.otfl_alpha, margin=args.otfl_margin, var=args.otfl_var,
+        otfl_loss=OTFL(alpha=args.otfl_alpha, margin=args.otfl_margin, var=args.otfl_var, device=device,
                    n_dim=(config['size'] ** 2) * config['channels'], n_classes=config['classes']) if args.otfl else None
     )
     # Get total training-time in seconds, and write to file
