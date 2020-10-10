@@ -199,9 +199,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             elif self.loss == 'otfl':
                 y_anchors = self(loss_fn.anchors)
                 predL = loss_fn(x, y_hat, y_anchors, y)
-            elif self.loss == 'fgfl':
+            elif self.loss in  ['fgfl', 'gbfg']:
                 predL = loss_fn(x, y_hat, y)
-            elif self.loss in ['focal', 'ce', 'gbfg']:
+            elif self.loss in ['focal', 'ce']:
                 predL = loss_fn(y_hat, y)
             else:
                 # -multiclass prediction loss
