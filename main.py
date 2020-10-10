@@ -46,6 +46,9 @@ loss_params.add_argument('--otfl', action='store_true', help="use online triplet
 loss_params.add_argument('--otfl_var', default='all', help="selecting variant of online triplet forgetting loss")
 loss_params.add_argument('--otfl_alpha', type=float,  default=0.5, help="controlling parameter")
 loss_params.add_argument('--otfl_margin', type=float,  default=0.0, help="margin hyperparameter")
+
+loss_params.add_argument('--fgfl_gamma', type=float,  default=0.25, help="controlling hyperparameter 1")
+loss_params.add_argument('--fgfl_delta', type=float,  default=0.25, help="controlling hyperparameter 2")
 # model architecture parameters
 model_params = parser.add_argument_group('Model Parameters')
 model_params.add_argument('--model_arc', type=str, default='MLP', help='Type of network used in experiment')
@@ -436,7 +439,7 @@ def run(args, verbose=False):
         loss_fn = OTFL(alpha=args.otfl_alpha, margin=args.otfl_margin, var=args.otfl_var, device=device,
                    n_dim=(config['size'] ** 2) * config['channels'], n_classes=config['classes'])
     elif args.loss == 'fgfl':
-        loss_fn = FGFL(gamma=0.25, delta=0.25, device=device, n_classes=config['classes'])
+        loss_fn = FGFL(gamma=args.fgfl_gamma, delta=args.fgfl_delta, device=device, n_classes=config['classes'])
     elif args.loss == 'focal':
         loss_fn = FocalLoss(alpha=0.25, gamma=0.25)
     elif args.loss == 'ce':
