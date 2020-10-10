@@ -19,7 +19,7 @@ from continual_learner import ContinualLearner
 from exemplars import ExemplarHandler
 from replayer import Replayer
 from param_values import set_default_values
-from loss.losses import OTFL
+from loss.losses import OTFL, FGFL, FocalLoss
 
 
 parser = argparse.ArgumentParser('./main.py', description='Run individual continual learning experiment.')
@@ -38,6 +38,7 @@ task_params.add_argument('--tasks', type=int, help='number of tasks')
 
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
+loss_params.add_argument('--loss', type=str, default='bce', choices=['bce', 'bce-distill', 'otfl', 'fgfl', 'focal', 'ce'])
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
 loss_params.add_argument('--bce-distill', action='store_true', help='distilled loss on previous classes for new'
                                                                     ' examples (only if --bce & --scenario="class")')
@@ -226,7 +227,7 @@ def run(args, verbose=False):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
             fc_bn=True if args.fc_bn=="yes" else False, excit_buffer=True if args.xdg and args.gating_prop>0 else False,
-            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem, otfl=args.otfl
+            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem, loss=args.loss
         ).to(device)
 
     # Define optimizer (only include parameters that "requires_grad")
@@ -429,6 +430,19 @@ def run(args, verbose=False):
 
     if verbose:
         print("\nTraining...")
+
+    # Define loss function
+    if args.loss == 'otfl':
+        loss_fn = OTFL(alpha=args.otfl_alpha, margin=args.otfl_margin, var=args.otfl_var, device=device,
+                   n_dim=(config['size'] ** 2) * config['channels'], n_classes=config['classes'])
+    elif args.loss == 'fgfl':
+        loss_fn = FGFL(gamma=0.25, delta=0.25, device=device, n_classes=config['classes'])
+    elif args.loss == 'focal':
+        loss_fn = FocalLoss(alpha=0.25, gamma=0.25)
+    elif args.loss == 'ce':
+        loss_fn = torch.nn.CrossEntropyLoss()
+    else:
+        loss_fn = None
     # Keep track of training-time
     start = time.time()
     # Train model
@@ -438,8 +452,7 @@ def run(args, verbose=False):
         generator=generator, gen_iters=args.g_iters, gen_loss_cbs=generator_loss_cbs,
         sample_cbs=sample_cbs, eval_cbs=eval_cbs, loss_cbs=generator_loss_cbs if args.feedback else solver_loss_cbs,
         metric_cbs=metric_cbs, use_exemplars=args.use_exemplars, add_exemplars=args.add_exemplars,
-        otfl_loss=OTFL(alpha=args.otfl_alpha, margin=args.otfl_margin, var=args.otfl_var, device=device,
-                   n_dim=(config['size'] ** 2) * config['channels'], n_classes=config['classes']) if args.otfl else None
+        loss_fn=loss_fn
     )
     # Get total training-time in seconds, and write to file
     if args.time:

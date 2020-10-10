@@ -120,16 +120,23 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
 
     # -for binary classification loss
     binLoss_stamp = ""
-    if hasattr(args, 'bce') and args.bce:
-        binLoss_stamp = '--BCE_dist' if (args.bce_distill and args.scenario=="class") else '--BCE'
-    if hasattr(args, 'otfl') and args.otfl:
-        otflLoss_stamp = '--OTFL-{}-a{}-m{}'.format(args.otfl_var, args.otfl_alpha, args.otfl_margin)
+    if args.loss == 'bce':
+        if hasattr(args, 'bce') and args.bce:
+            binLoss_stamp = '--BCE_dist' if (args.bce_distill and args.scenario=="class") else '--BCE'
+    elif args.loss == 'otfl':
+        binLoss_stamp = '--OTFL-{}-a{}-m{}'.format(args.otfl_var, args.otfl_alpha, args.otfl_margin)
+    elif args.loss == 'fgfl':
+        binLoss_stamp = '--FGFL-g0.25-d0.25'
+    elif args.loss == 'focal':
+        binLoss_stamp = '--FocalLoss-a0.25-g0.25'
+    elif args.loss == 'ce':
+        binLoss_stamp = '--CE'
     else:
-        otflLoss_stamp = ''
+        binLoss_stamp = ''
     # --> combine
-    param_stamp = "{}--{}--{}{}{}{}{}{}{}{}".format(
+    param_stamp = "{}--{}--{}{}{}{}{}{}{}".format(
         task_stamp, model_stamp, hyper_stamp, ewc_stamp, xdg_stamp, replay_stamp, exemplar_stamp,
-        binLoss_stamp, otflLoss_stamp,
+        binLoss_stamp,
         "-s{}".format(args.seed) if not args.seed==0 else "",
     )
 

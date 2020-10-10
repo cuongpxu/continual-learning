@@ -26,37 +26,24 @@ class FocalLoss(nn.Module):
 
 
 class FGFL(nn.Module):
-    def __init__(self, gamma=2, delta=1, n_classes=2, gpus='-1', reduction='mean'):
+    def __init__(self, gamma=2, delta=1, n_classes=2, device='cpu', reduction='mean'):
         super(FGFL, self).__init__()
         self.gamma = gamma
         self.delta = delta
         self.reduction = reduction
-        self.c = torch.zeros(n_classes)
 
-        s_gpus = gpus.split(',')
-        self.gpus = [int(ix) for ix in s_gpus]
-        self.use_cuda = True if len(self.gpus) > 1 or self.gpus[0] != -1 else False
-        if self.use_cuda:
-            if len(self.gpus) > 1:
-                self.c = self.c.cuda()
-            else:
-                self.c = self.c.cuda(self.gpus[0])
+        self.device = device
+        self.c = torch.zeros(n_classes).to(self.device)
 
     def forward(self, inputs, outputs, targets):
         uq, counts = torch.unique(targets, return_counts=True)
         self.c[uq] += counts
         ce_loss = F.cross_entropy(outputs, targets, reduction='none')
-        grad_out = torch.FloatTensor(ce_loss.size()).fill_(1)
-        if self.use_cuda:
-            if len(self.gpus) > 1:
-                grad_out = grad_out.cuda()
-            else:
-                grad_out = grad_out.cuda(self.gpus[0])
 
         grad = torch.autograd.grad(
             outputs=ce_loss,
             inputs=inputs,
-            grad_outputs=grad_out,
+            grad_outputs=torch.ones_like(ce_loss).to(self.device),
             create_graph=True
         )[0]
         min_idx = torch.argmin(ce_loss)
@@ -67,7 +54,7 @@ class FGFL(nn.Module):
         grad_min = grad[min_idx.item()].view(-1, 1).unsqueeze(dim=0)
         grad_min = grad_min.expand(grad.size(0), grad_min.size(1), 1)  # Broad-cast grad_min batch-wise
 
-        forget_loss = torch.bmm(grad, grad_min).reshape(-1)
+        forget_loss = torch.bmm(grad.view(grad.size(0), grad.size(1), -1), grad_min).reshape(-1)
         focal_loss -= self.delta * forget_loss
 
         if self.reduction == 'mean':
@@ -179,63 +166,3 @@ class OTFL(nn.Module):
         else:
             return loss
 
-
-class OTFL2(nn.Module):
-    def __init__(self, n_dim=10, n_classes=2, alpha=0.5, margin=0.05, strategy='batch-all', gpus='-1', reduction='mean'):
-        super(OTFL2, self).__init__()
-        self.n_dim = n_dim
-        self.n_classes = n_classes
-        self.alpha = alpha
-        self.margin = margin
-        self.strategy = strategy
-        s_gpus = gpus.split(',')
-        self.gpus = [int(ix) for ix in s_gpus]
-        self.use_cuda = True if len(self.gpus) > 1 or self.gpus[0] != -1 else False
-        self.reduction = reduction
-
-        self.grad_anchors = torch.zeros((n_classes, n_dim), requires_grad=True)
-        self.grad_anchors = self.move_to_cuda(self.grad_anchors)
-
-    def move_to_cuda(self, t: torch.Tensor):
-        if self.use_cuda:
-            if len(self.gpus) > 1:
-                t = t.cuda()
-            else:
-                t = t.cuda(self.gpus[0])
-        return t
-
-    def forward(self, inputs, outputs, targets):
-        ce_loss = F.cross_entropy(outputs, targets, reduction='none')
-        grad_out = torch.ones_like(ce_loss)
-        if self.use_cuda:
-            if len(self.gpus) > 1:
-                grad_out = grad_out.cuda()
-            else:
-                grad_out = grad_out.cuda(self.gpus[0])
-
-        grad = torch.autograd.grad(
-            outputs=ce_loss,
-            inputs=inputs,
-            grad_outputs=grad_out,
-            create_graph=True
-        )[0]
-
-        # # Store gradient of the last min loss instance along with its target label
-        # min_idx = torch.argmin(ce_loss)
-        # self.grad_anchors[targets[min_idx.item()]] = grad[min_idx.item()].data.clone()
-
-        # Implementation using 3rd online triplet loss library
-        if self.strategy == 'batch-all':
-            triplet_fg_loss, _ = batch_all_triplet_loss(targets, grad.squeeze(), self.margin)
-        else:
-            triplet_fg_loss, _ = batch_hard_triplet_loss(targets, grad.squeeze(), self.margin)
-        # print(triplet_fg_loss)
-
-        loss = ce_loss + self.alpha * triplet_fg_loss
-
-        if self.reduction == 'mean':
-            return torch.mean(loss)
-        elif self.reduction == 'sum':
-            return torch.sum(loss)
-        else:
-            return loss

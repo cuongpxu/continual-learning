@@ -13,7 +13,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def __init__(self, image_size, image_channels, classes,
                  fc_layers=3, fc_units=1000, fc_drop=0, fc_bn=False, fc_nl="relu", gated=False,
                  bias=True, excitability=False, excit_buffer=False, binaryCE=False, binaryCE_distill=False, AGEM=False,
-                 otfl=False):
+                 loss='bce'):
 
         # configurations
         super().__init__()
@@ -27,7 +27,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                                  #   predicted probs as binary targets (only in Class-IL with binaryCE)
         self.AGEM = AGEM  #-> use gradient of replayed data as inequality constraint for (instead of adding it to)
                           #   the gradient of the current data (as in A-GEM, see Chaudry et al., 2019; ICLR)
-        self.otfl = otfl
+        self.loss = loss
+
         # check whether there is at least 1 fc-layer
         if fc_layers<1:
             raise ValueError("The classifier needs to have at least 1 fully-connected layer.")
@@ -47,7 +48,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         # classifier
         self.classifier = fc_layer(mlp_output_size, classes, excit_buffer=True, nl='none', drop=fc_drop)
 
-
     def list_init_layers(self):
         '''Return list of modules whose parameters could be initialized differently (i.e., conv- or fc-layers).'''
         list = []
@@ -59,7 +59,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def name(self):
         return "{}_c{}".format(self.fcE.name, self.classes)
 
-
     def forward(self, x):
         final_features = self.fcE(self.flatten(x))
         return self.classifier(final_features)
@@ -67,8 +66,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def feature_extractor(self, images):
         return self.fcE(self.flatten(images))
 
-
-    def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5, active_classes=None, task=1, otfl_loss=None):
+    def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
+                      active_classes=None, task=1, loss_fn=None):
         '''Train model for one batch ([x],[y]), possibly supplemented with replayed data ([x_],[y_/scores_]).
 
         [x]               <tensor> batch of inputs (could be None, in which case only 'replayed' data is used)
@@ -186,7 +185,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 y_hat = y_hat[:, class_entries]
 
             # Calculate prediction loss
-            if self.binaryCE:
+            if self.loss == 'bce':
                 # -binary prediction loss
                 binary_targets = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
                 if self.binaryCE_distill and (scores is not None):
@@ -195,11 +194,15 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     binary_targets = torch.cat([torch.sigmoid(scores / self.KD_temp), binary_targets], dim=1)
                 predL = None if y is None else F.binary_cross_entropy_with_logits(
                     input=y_hat, target=binary_targets, reduction='none'
-                ).sum(dim=1).mean()     #--> sum over classes, then average over batch
-            elif self.otfl:
-                if otfl_loss is not None:
-                    y_anchors = self(otfl_loss.anchors)
-                    predL = otfl_loss(x, y_hat, y_anchors, y)
+                ).sum(dim=1).mean()  # --> sum over classes, then average over batch
+
+            elif self.loss == 'otfl':
+                y_anchors = self(loss_fn.anchors)
+                predL = loss_fn(x, y_hat, y_anchors, y)
+            elif self.loss == 'fgfl':
+                predL = loss_fn(x, y_hat, y)
+            elif self.loss == 'focal' or self.loss == 'ce':
+                predL = loss_fn(y_hat, y)
             else:
                 # -multiclass prediction loss
                 predL = None if y is None else F.cross_entropy(input=y_hat, target=y)
