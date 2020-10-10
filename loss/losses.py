@@ -25,6 +25,38 @@ class FocalLoss(nn.Module):
             return focal_loss
 
 
+class GBFG(nn.Module):
+    def __init__(self, delta=1,  device='cpu', reduction='mean'):
+        super(GBFG, self).__init__()
+        self.delta = delta
+        self.reduction = reduction
+        self.device = device
+
+    def forward(self, inputs, outputs, targets):
+        ce_loss = F.cross_entropy(outputs, targets, reduction='none')
+
+        grad = torch.autograd.grad(
+            outputs=ce_loss,
+            inputs=inputs,
+            grad_outputs=torch.ones_like(ce_loss).to(self.device),
+            create_graph=True
+        )[0]
+        min_idx = torch.argmin(ce_loss)
+
+        grad_min = grad[min_idx.item()].view(-1, 1).unsqueeze(dim=0)
+        grad_min = grad_min.expand(grad.size(0), grad_min.size(1), 1)  # Broad-cast grad_min batch-wise
+
+        forget_loss = self.delta * torch.bmm(grad.view(grad.size(0), grad.size(1), -1), grad_min).reshape(-1)
+        loss = ce_loss - forget_loss
+
+        if self.reduction == 'mean':
+            return torch.mean(loss)
+        elif self.reduction == 'sum':
+            return torch.sum(loss)
+        else:
+            return loss
+
+
 class FGFL(nn.Module):
     def __init__(self, gamma=2, delta=1, n_classes=2, device='cpu', reduction='mean'):
         super(FGFL, self).__init__()

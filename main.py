@@ -19,7 +19,7 @@ from continual_learner import ContinualLearner
 from exemplars import ExemplarHandler
 from replayer import Replayer
 from param_values import set_default_values
-from loss.losses import OTFL, FGFL, FocalLoss
+from loss.losses import OTFL, FGFL, FocalLoss, GBFG
 
 
 parser = argparse.ArgumentParser('./main.py', description='Run individual continual learning experiment.')
@@ -38,7 +38,8 @@ task_params.add_argument('--tasks', type=int, help='number of tasks')
 
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
-loss_params.add_argument('--loss', type=str, default='bce', choices=['bce', 'bce-distill', 'otfl', 'fgfl', 'focal', 'ce'])
+loss_params.add_argument('--loss', type=str, default='bce',
+                         choices=['bce', 'bce-distill', 'otfl', 'fgfl', 'focal', 'ce', 'gbfg'])
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
 loss_params.add_argument('--bce-distill', action='store_true', help='distilled loss on previous classes for new'
                                                                     ' examples (only if --bce & --scenario="class")')
@@ -49,6 +50,8 @@ loss_params.add_argument('--otfl_margin', type=float,  default=0.0, help="margin
 
 loss_params.add_argument('--fgfl_gamma', type=float,  default=0.25, help="controlling hyperparameter 1")
 loss_params.add_argument('--fgfl_delta', type=float,  default=0.25, help="controlling hyperparameter 2")
+
+loss_params.add_argument('--gbfg_delta', type=float, default=1.0, help='controlling hyperparameter')
 # model architecture parameters
 model_params = parser.add_argument_group('Model Parameters')
 model_params.add_argument('--model_arc', type=str, default='MLP', help='Type of network used in experiment')
@@ -440,6 +443,8 @@ def run(args, verbose=False):
                    n_dim=(config['size'] ** 2) * config['channels'], n_classes=config['classes'])
     elif args.loss == 'fgfl':
         loss_fn = FGFL(gamma=args.fgfl_gamma, delta=args.fgfl_delta, device=device, n_classes=config['classes'])
+    elif args.loss == 'gbfg':
+        loss_fn = GBFG(delta=args.gbfg_delta, device=device)
     elif args.loss == 'focal':
         loss_fn = FocalLoss(alpha=0.25, gamma=0.25)
     elif args.loss == 'ce':
