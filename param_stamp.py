@@ -127,6 +127,8 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
         binLoss_stamp = '--OTFL-{}-a{}-m{}'.format(args.otfl_var, args.otfl_alpha, args.otfl_margin)
     elif args.loss == 'fgfl':
         binLoss_stamp = '--FGFL-g{}-d{}'.format(args.fgfl_gamma, args.fgfl_delta)
+    elif args.loss == 'gbfg':
+        binLoss_stamp = '--GBFG-d{}'.format(args.gbfg_delta)
     elif args.loss == 'focal':
         binLoss_stamp = '--FocalLoss-a0.25-g0.25'
     elif args.loss == 'ce':
