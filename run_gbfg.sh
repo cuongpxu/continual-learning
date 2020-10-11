@@ -1,0 +1,19 @@
+#!/bin/bash
+python main.py --scenario task --loss gbfg --gbfg_delta 0.5 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 1.0 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 1.5 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 2.0 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 2.5 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 3.0 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 3.5 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 4.0 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 5.5 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 6.0 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 6.5 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 7.0 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 7.5 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 8.0 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 8.5 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 9.0 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 9.5 --metrics --pdf --results-dir ./results_gbfg
+python main.py --scenario task --loss gbfg --gbfg_delta 10.0 --metrics --pdf --results-dir ./results_gbfg
