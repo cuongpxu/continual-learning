@@ -86,6 +86,24 @@ class SubDataset(Dataset):
         return sample
 
 
+class OnlineExemplarDataset(Dataset):
+    '''Create dataset from list of <np.arrays> with shape (N, C, H, W) (i.e., with N images each).
+    '''
+    def __init__(self, exemplar_sets):
+        super().__init__()
+        images, labels = zip(*exemplar_sets)
+        self.images = torch.from_numpy(np.concatenate(images, axis=0))
+        self.labels = torch.from_numpy(np.concatenate(labels, axis=0))
+
+    def __len__(self):
+        return self.images.size(0)
+
+    def __getitem__(self, index):
+        image = self.images[index]
+        label = self.labels[index]
+        return image, label
+
+
 class ExemplarDataset(Dataset):
     '''Create dataset from list of <np.arrays> with shape (N, C, H, W) (i.e., with N images each).
 

@@ -25,6 +25,11 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         self.norm_exemplars = True
         self.herding = True
 
+        # Proposed method
+        self.online_exemplar_sets = []  # --> each exemplar_set is an <np.array> of N images with shape (N, Ch, H, W)
+                                        # and its corresponding true label
+        self.online_memory_budget = 1000
+
     def _device(self):
         return next(self.parameters()).device
 
@@ -37,6 +42,19 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
 
 
     ####----MANAGING EXEMPLAR SETS----####
+    def check_online_budget(self):
+        total = 0
+        for i in range(len(self.exemplar_sets)):
+            total += len(self.exemplar_sets[i])
+        return total < self.online_memory_budget
+
+    def add_instances_to_online_exemplar_sets(self, x, y):
+        if self.check_online_budget():
+        # if len(self.online_exemplar_sets) < self.online_memory_budget:
+            self.online_exemplar_sets.append((x.detach().numpy(), y.detach().numpy()))
+        else:
+            # Drop old instances in exemplar to make available memory for very last instances
+            pass
 
     def reduce_exemplar_sets(self, m):
         for y, P_y in enumerate(self.exemplar_sets):

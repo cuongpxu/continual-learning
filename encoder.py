@@ -206,7 +206,15 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 predL = loss_fn(y_hat, y)
             else:
                 # -multiclass prediction loss
-                predL = None if y is None else F.cross_entropy(input=y_hat, target=y)
+                y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
+                # Select instances in the batch for replay later
+                # C1: Select instances which is corrected classify
+                selected_index = y == y_hat.max(1)[1]
+                selected_x = x[selected_index]
+                selected_y = y[selected_index]
+                self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
+                # C2: Select instances which have min loss value for each class
+                predL = None if y is None else y_score.mean()
 
             # Weigh losses
             loss_cur = predL

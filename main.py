@@ -38,8 +38,8 @@ task_params.add_argument('--tasks', type=int, help='number of tasks')
 
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
-loss_params.add_argument('--loss', type=str, default='bce',
-                         choices=['bce', 'bce-distill', 'otfl', 'fgfl', 'focal', 'ce', 'gbfg'])
+loss_params.add_argument('--loss', type=str, default='none',
+                         choices=['bce', 'bce-distill', 'otfl', 'fgfl', 'focal', 'ce', 'gbfg', 'none'])
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
 loss_params.add_argument('--bce-distill', action='store_true', help='distilled loss on previous classes for new'
                                                                     ' examples (only if --bce & --scenario="class")')
@@ -74,7 +74,7 @@ train_params.add_argument('--optimizer', type=str, choices=['adam', 'adam_reset'
 replay_params = parser.add_argument_group('Replay Parameters')
 replay_params.add_argument('--feedback', action="store_true", help="equip model with feedback connections")
 replay_params.add_argument('--z-dim', type=int, default=100, help='size of latent representation (default: 100)')
-replay_choices = ['offline', 'exact', 'generative', 'none', 'current', 'exemplars']
+replay_choices = ['offline', 'exact', 'generative', 'none', 'current', 'exemplars', 'online']
 replay_params.add_argument('--replay', type=str, default='none', choices=replay_choices)
 replay_params.add_argument('--distill', action='store_true', help="use distillation for replay?")
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
@@ -112,6 +112,7 @@ store_params.add_argument('--budget', type=int, default=1000, dest="budget", hel
 store_params.add_argument('--herding', action='store_true', help="use herding to select stored data (instead of random)")
 store_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
 
+store_params.add_argument('--online_memory_budget', type=int, default=1000, help="how many sample can be stored?")
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
 eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
@@ -259,6 +260,8 @@ def run(args, verbose=False):
         model.norm_exemplars = args.norm_exemplars
         model.herding = args.herding
 
+    if isinstance(model, ExemplarHandler) and args.replay == 'online':
+        model.online_memory_budget = args.online_memory_budget
 
     #-------------------------------------------------------------------------------------------------#
 
