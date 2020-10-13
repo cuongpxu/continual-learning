@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from torch.nn import functional as F
 from linear_nets import MLP,fc_layer
 from exemplars import ExemplarHandler
@@ -209,11 +210,31 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
                 # Select instances in the batch for replay later
                 # C1: Select instances which is corrected classify
-                selected_index = y == y_hat.max(1)[1]
-                selected_x = x[selected_index]
-                selected_y = y[selected_index]
-                self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
+                # selected_index = y == y_hat.max(1)[1]
+                # selected_x = x[selected_index]
+                # selected_y = y[selected_index]
+                # self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
+
                 # C2: Select instances which have min loss value for each class
+                selected_x = None
+                selected_y = None
+                for m in range(len(np.ravel(active_classes))):
+                    mask = y == m
+                    ce_m = y_score[mask]
+                    if ce_m.size(0) != 0:
+                        min_m = torch.min(ce_m)
+                        idx = y_score == min_m
+                        if selected_x is None and selected_y is None:
+                            selected_x = x[idx]
+                            selected_y = y[idx]
+                        else:
+                            selected_x = torch.cat((selected_x, x[idx]), dim=0)
+                            selected_y = torch.cat((selected_y, y[idx]), dim=0)
+                # min_index = torch.argmin(y_score, keepdim=True)
+                # selected_x = x[min_index].unsqueeze(dim=0)
+                # selected_y = y[min_index]
+                self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
+
                 predL = None if y is None else y_score.mean()
 
             # Weigh losses

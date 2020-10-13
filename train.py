@@ -233,9 +233,10 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 scores_ = scores_ if (model.replay_targets == "soft") else None
 
             ##-->> Online Replay <<--##
-            if replay_mode == 'online' and len(model.online_exemplar_sets) > 0:
+            if replay_mode == 'online' and model.online_exemplar_image_sets is not None:
                 # Build dataset from online exemplar sets
-                online_replay_dataset = OnlineExemplarDataset(model.online_exemplar_sets)
+                online_replay_dataset = OnlineExemplarDataset(model.online_exemplar_image_sets,
+                                                              model.online_exemplar_label_sets)
                 online_data_loader = iter(utils.get_data_loader(online_replay_dataset, batch_size,
                                                                 cuda=cuda, drop_last=False))
                 # Get replayed data (i.e., [x_]) -- selected data of previous batches
