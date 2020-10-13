@@ -211,29 +211,30 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 predL = None if y is None else y_score.mean()
 
                 # Select instances in the batch for replay later
-                # C1: Select instances which is corrected classify
-                # selected_index = y == y_hat.max(1)[1]
-                # selected_x = x[selected_index]
-                # selected_y = y[selected_index]
-                # self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
+                if replay_mode == 'online':
+                    # C1: Select instances which is corrected classify
+                    selected_index = y == y_hat.max(1)[1]
+                    selected_x = x[selected_index]
+                    selected_y = y[selected_index]
+                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
 
                 # C2: Select instances which have min loss value for each class
-                if replay_mode == 'online':
-                    selected_x = None
-                    selected_y = None
-                    for m in range(len(np.ravel(active_classes))):
-                        mask = y == m
-                        ce_m = y_score[mask]
-                        if ce_m.size(0) != 0:
-                            min_m = torch.min(ce_m)
-                            idx = y_score == min_m
-                            if selected_x is None and selected_y is None:
-                                selected_x = x[idx]
-                                selected_y = y[idx]
-                            else:
-                                selected_x = torch.cat((selected_x, x[idx]), dim=0)
-                                selected_y = torch.cat((selected_y, y[idx]), dim=0)
-                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
+                #     if replay_mode == 'online':
+                #         selected_x = None
+                #         selected_y = None
+                #         for m in range(len(np.ravel(active_classes))):
+                #             mask = y == m
+                #             ce_m = y_score[mask]
+                #             if ce_m.size(0) != 0:
+                #                 min_m = torch.min(ce_m)
+                #                 idx = y_score == min_m
+                #                 if selected_x is None and selected_y is None:
+                #                     selected_x = x[idx]
+                #                     selected_y = y[idx]
+                #                 else:
+                #                     selected_x = torch.cat((selected_x, x[idx]), dim=0)
+                #                     selected_y = torch.cat((selected_y, y[idx]), dim=0)
+                #         self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
 
             # Weigh losses
             loss_cur = predL
