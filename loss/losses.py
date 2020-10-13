@@ -39,7 +39,9 @@ class GBFG(nn.Module):
             outputs=ce_loss,
             inputs=inputs,
             grad_outputs=torch.ones_like(ce_loss).to(self.device),
-            create_graph=True
+            create_graph=True,
+            retain_graph=True,
+            allow_unused=True
         )[0]
         min_idx = torch.argmin(ce_loss)
 
