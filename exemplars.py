@@ -59,16 +59,16 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         print('Exemplar size: {}, adding size {}'.format(self.get_online_exemplar_size(), x.size(0)))
         if self.check_online_budget(x.size(0)):
             if self.online_exemplar_image_sets is None or self.online_exemplar_label_sets is None:
-                self.online_exemplar_image_sets = x.detach().numpy()
-                self.online_exemplar_label_sets = y.detach().numpy()
+                self.online_exemplar_image_sets = x.cpu().detach().numpy()
+                self.online_exemplar_label_sets = y.cpu().detach().numpy()
             else:
-                self.online_exemplar_image_sets = np.concatenate((self.online_exemplar_image_sets, x.detach().numpy()), axis=0)
-                self.online_exemplar_label_sets = np.concatenate((self.online_exemplar_label_sets, y.detach().numpy()), axis=0)
+                self.online_exemplar_image_sets = np.concatenate((self.online_exemplar_image_sets, x.cpu().detach().numpy()), axis=0)
+                self.online_exemplar_label_sets = np.concatenate((self.online_exemplar_label_sets, y.cpu().detach().numpy()), axis=0)
         else:
             # Drop old instances in exemplar to make available memory for very last instances
             self.drop_old_instances(x.size(0))
-            self.online_exemplar_image_sets = np.concatenate((self.online_exemplar_image_sets, x.detach().numpy()), axis=0)
-            self.online_exemplar_label_sets = np.concatenate((self.online_exemplar_label_sets, y.detach().numpy()), axis=0)
+            self.online_exemplar_image_sets = np.concatenate((self.online_exemplar_image_sets, x.cpu().detach().numpy()), axis=0)
+            self.online_exemplar_label_sets = np.concatenate((self.online_exemplar_label_sets, y.cpu().detach().numpy()), axis=0)
 
     def reduce_exemplar_sets(self, m):
         for y, P_y in enumerate(self.exemplar_sets):
