@@ -56,7 +56,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
                                                     axis=0)
 
     def add_instances_to_online_exemplar_sets(self, x, y):
-        print('Exemplar size: {}, adding size {}'.format(self.get_online_exemplar_size(), x.size(0)))
+        # print('Exemplar size: {}, adding size {}'.format(self.get_online_exemplar_size(), x.size(0)))
         if self.check_online_budget(x.size(0)):
             if self.online_exemplar_image_sets is None or self.online_exemplar_label_sets is None:
                 self.online_exemplar_image_sets = x.cpu().detach().numpy()

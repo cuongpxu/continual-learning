@@ -241,6 +241,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                                                                 cuda=cuda, drop_last=False))
                 # Get replayed data (i.e., [x_]) -- selected data of previous batches
                 x_, y_ = next(online_data_loader)
+                x_, y_ = x_.to(device), y_.to(device)
 
             # ---> Train MAIN MODEL
             if batch_index <= iters:
