@@ -26,9 +26,10 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         self.herding = True
 
         # Proposed method
-        self.online_exemplar_image_sets = None  # --> exemplar_set is an <np.array> of N images with shape (N, Ch, H, W) and its corresponding true label
+        self.online_exemplar_sets = []  # --> exemplar_set is an <np.array> of N images with shape (N, Ch, H, W) and its corresponding true label
         self.online_exemplar_label_sets = None
         self.online_memory_budget = 1000
+        self.online_classes_so_far = []
 
     def _device(self):
         return next(self.parameters()).device
@@ -43,32 +44,68 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
 
     ####----MANAGING EXEMPLAR SETS----####
     def get_online_exemplar_size(self):
-        return self.online_exemplar_image_sets.shape[0] if self.online_exemplar_image_sets is not None else 0
+        total = 0
+        for i in range(len(self.online_exemplar_sets)):
+            total += self.online_exemplar_sets[i][0].shape[0]
+        return total
 
-    def check_online_budget(self, n_new):
-        return (self.get_online_exemplar_size() + n_new) < self.online_memory_budget
+    def check_online_budget(self):
+        return self.get_online_exemplar_size() < self.online_memory_budget
 
-    def drop_old_instances(self, n_new):
-        memory_left = self.online_memory_budget - self.get_online_exemplar_size()
-        self.online_exemplar_image_sets = np.delete(self.online_exemplar_image_sets, np.arange(n_new - memory_left),
-                                                    axis=0)
-        self.online_exemplar_label_sets = np.delete(self.online_exemplar_label_sets, np.arange(n_new - memory_left),
-                                                    axis=0)
+    def check_online_budget_for_each_class(self, n_new, m):
+        n_exemplar_of_m = self.online_exemplar_sets[m][0].shape[0]
+        return (n_exemplar_of_m + n_new) < (self.online_memory_budget // len(self.online_classes_so_far))
 
-    def add_instances_to_online_exemplar_sets(self, x, y):
-        print('Exemplar size: {}, adding size {}'.format(self.get_online_exemplar_size(), x.size(0)))
-        if self.check_online_budget(x.size(0)):
-            if self.online_exemplar_image_sets is None or self.online_exemplar_label_sets is None:
-                self.online_exemplar_image_sets = x.cpu().detach().numpy()
-                self.online_exemplar_label_sets = y.cpu().detach().numpy()
+    def drop_old_instances(self, n_new, m):
+        # print('Drop old instances to make memory available for current instances')
+        class_budget = self.online_memory_budget // len(self.online_classes_so_far)
+        n_exemplar_of_m = self.online_exemplar_sets[m][0].shape[0]
+        memory_left = class_budget - n_exemplar_of_m
+        self.online_exemplar_sets[m][0] = np.delete(self.online_exemplar_sets[m][0], np.arange(n_new - memory_left), axis=0)
+        self.online_exemplar_sets[m][1] = np.delete(self.online_exemplar_sets[m][1], np.arange(n_new - memory_left), axis=0)
+
+    def reduce_memory_for_new_classes(self):
+        # print('Reduce memory for new class')
+        for m in self.online_classes_so_far:
+            n_exemplar_of_m = self.online_exemplar_sets[m][0].shape[0]
+            class_budget = self.online_memory_budget // (len(self.online_classes_so_far) + 1)
+            if class_budget == 0:
+                raise ValueError('Memory budget is too small, increase it to cover all classes so far!!!')
+
+            if class_budget < n_exemplar_of_m:
+                self.online_exemplar_sets[m][0] = np.delete(self.online_exemplar_sets[m][0],
+                                                            np.arange(n_exemplar_of_m - class_budget), axis=0)
+                self.online_exemplar_sets[m][1] = np.delete(self.online_exemplar_sets[m][1],
+                                                            np.arange(n_exemplar_of_m - class_budget), axis=0)
+
+    def add_instances_to_online_exemplar_sets(self, x, y, m):
+        if x is not None and y is not None:
+            # print('Exemplar size: {}, adding size {}, class {}'.format(self.get_online_exemplar_size(), x.size(0), m))
+            if m not in self.online_classes_so_far:
+                # Reduce instances in every class to make room for new classes
+                if not self.check_online_budget():
+                    self.reduce_memory_for_new_classes()
+                self.online_classes_so_far.append(m)
+                self.online_exemplar_sets.append([x.cpu().detach().numpy(), y.cpu().detach().numpy()])
             else:
-                self.online_exemplar_image_sets = np.concatenate((self.online_exemplar_image_sets, x.cpu().detach().numpy()), axis=0)
-                self.online_exemplar_label_sets = np.concatenate((self.online_exemplar_label_sets, y.cpu().detach().numpy()), axis=0)
-        else:
-            # Drop old instances in exemplar to make available memory for very last instances
-            self.drop_old_instances(x.size(0))
-            self.online_exemplar_image_sets = np.concatenate((self.online_exemplar_image_sets, x.cpu().detach().numpy()), axis=0)
-            self.online_exemplar_label_sets = np.concatenate((self.online_exemplar_label_sets, y.cpu().detach().numpy()), axis=0)
+                if self.check_online_budget_for_each_class(y.size(0), m):
+                    self.online_exemplar_sets.append([x.cpu().detach().numpy(), y.cpu().detach().numpy()])
+                    # if self.online_exemplar_sets is None or self.online_exemplar_label_sets is None:
+                    #     self.online_exemplar_sets = x.cpu().detach().numpy()
+                    #     self.online_exemplar_label_sets = y.cpu().detach().numpy()
+                    # else:
+                    #     self.online_exemplar_sets = np.concatenate((self.online_exemplar_sets, x.cpu().detach().numpy()), axis=0)
+                    #     self.online_exemplar_label_sets = np.concatenate((self.online_exemplar_label_sets, y.cpu().detach().numpy()), axis=0)
+                else:
+                    # Drop old instances in exemplar to make available memory for very last instances
+                    self.drop_old_instances(x.size(0), m)
+                    self.online_exemplar_sets[m][0] = np.concatenate(
+                        (self.online_exemplar_sets[m][0], x.cpu().detach().numpy()), axis=0)
+                    self.online_exemplar_sets[m][1] = np.concatenate(
+                        (self.online_exemplar_sets[m][1], y.cpu().detach().numpy()), axis=0)
+                    # self.online_exemplar_sets = np.concatenate((self.online_exemplar_sets, x.cpu().detach().numpy()), axis=0)
+                    # self.online_exemplar_label_sets = np.concatenate((self.online_exemplar_label_sets, y.cpu().detach().numpy()), axis=0)
+                    # pass
 
     def reduce_exemplar_sets(self, m):
         for y, P_y in enumerate(self.exemplar_sets):

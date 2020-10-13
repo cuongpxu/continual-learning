@@ -214,38 +214,31 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 if replay_mode == 'online':
                     if online_replay_mode == 'c1':
                         # C1: Select instances which is corrected classify
-                        selected_index = y == y_hat.max(1)[1]
-                        selected_x = x[selected_index]
-                        selected_y = y[selected_index]
-                        self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
+                        for m in range(len(np.ravel(active_classes))):
+                            selected_index = (y == y_hat.max(1)[1] & y == m)
+                            selected_x = x[selected_index]
+                            selected_y = y[selected_index]
+                            self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
                     else:
                         # C2: Select instances which have min loss value for each class
-                        selected_x = None
-                        selected_y = None
                         for m in range(len(np.ravel(active_classes))):
                             mask = y == m
                             ce_m = y_score[mask]
                             if ce_m.size(0) != 0:
                                 # Select min loss instances
                                 min_m = torch.min(ce_m)
-                                idx = y_score == min_m
-                                if selected_x is None and selected_y is None:
-                                    selected_x = x[idx]
-                                    selected_y = y[idx]
-                                else:
-                                    selected_x = torch.cat((selected_x, x[idx]), dim=0)
-                                    selected_y = torch.cat((selected_y, y[idx]), dim=0)
+                                min_idx = y_score == min_m
                                 # Select max loss instances
                                 max_m = torch.max(ce_m)
-                                idx = y_score == max_m
-                                if selected_x is None and selected_y is None:
-                                    selected_x = x[idx]
-                                    selected_y = y[idx]
+                                max_idx = y_score == max_m
+                                if torch.all(torch.eq(min_idx, max_idx)):
+                                    selected_x = x[min_idx]
+                                    selected_y = y[min_idx]
                                 else:
-                                    selected_x = torch.cat((selected_x, x[idx]), dim=0)
-                                    selected_y = torch.cat((selected_y, y[idx]), dim=0)
+                                    selected_x = torch.cat((x[min_idx], x[max_idx]), dim=0)
+                                    selected_y = torch.cat((y[min_idx], y[max_idx]), dim=0)
 
-                        self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
+                                self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
 
             # Weigh losses
             loss_cur = predL

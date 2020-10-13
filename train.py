@@ -10,8 +10,8 @@ from continual_learner import ContinualLearner
 
 
 def train_cl(model, train_datasets, replay_mode="none", scenario="class", classes_per_task=None, iters=2000,
-             batch_size=32,
-             generator=None, gen_iters=0, gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
+             batch_size=32, generator=None, gen_iters=0,
+             gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
              use_exemplars=True, add_exemplars=False, metric_cbs=list(),
              loss_fn=None, online_replay_mode='c1'):
     '''Train a model (with a "train_a_batch" method) on multiple tasks, with replay-strategy specified by [replay_mode].
@@ -236,10 +236,9 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 scores_ = scores_ if (model.replay_targets == "soft") else None
 
             ##-->> Online Replay <<--##
-            if replay_mode == 'online' and model.online_exemplar_image_sets is not None:
+            if replay_mode == 'online' and len(model.online_exemplar_sets) > 0:
                 # Build dataset from online exemplar sets
-                online_replay_dataset = OnlineExemplarDataset(model.online_exemplar_image_sets,
-                                                              model.online_exemplar_label_sets)
+                online_replay_dataset = OnlineExemplarDataset(model.online_exemplar_sets)
                 online_data_loader = iter(utils.get_data_loader(online_replay_dataset, batch_size,
                                                                 cuda=cuda, drop_last=False))
                 # Get replayed data (i.e., [x_]) -- selected data of previous batches
