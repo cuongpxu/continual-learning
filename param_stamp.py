@@ -105,6 +105,8 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
                 hasattr(args, "gen_iters") and (replay_model_name is not None) and (not args.iters==args.gen_iters)
             ) else ""
         )
+        if args.replay == 'online':
+            replay_stamp = '{}-b{}-{}'.format(replay_stamp, args.online_memory_budget, args.online_replay_mode)
         if verbose:
             print(" --> replay:        " + replay_stamp)
     replay_stamp = "--{}".format(replay_stamp) if replay else ""

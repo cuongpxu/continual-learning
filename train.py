@@ -13,7 +13,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
              batch_size=32,
              generator=None, gen_iters=0, gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
              use_exemplars=True, add_exemplars=False, metric_cbs=list(),
-             loss_fn=None):
+             loss_fn=None, online_replay_mode='c1'):
     '''Train a model (with a "train_a_batch" method) on multiple tasks, with replay-strategy specified by [replay_mode].
 
     [model]             <nn.Module> main model to optimize across all tasks
@@ -249,7 +249,8 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 # Train the main model with this batch
                 loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
                                                 active_classes=active_classes, task=task, rnt=1. / task,
-                                                loss_fn=loss_fn, replay_mode=replay_mode)
+                                                loss_fn=loss_fn, replay_mode=replay_mode,
+                                                online_replay_mode=online_replay_mode)
 
                 # Update running parameter importance estimates in W
                 if isinstance(model, ContinualLearner) and (model.si_c > 0):
