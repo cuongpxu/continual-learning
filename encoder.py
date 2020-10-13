@@ -68,7 +68,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         return self.fcE(self.flatten(images))
 
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
-                      active_classes=None, task=1, loss_fn=None):
+                      active_classes=None, task=1, loss_fn=None, replay_mode='none'):
         '''Train model for one batch ([x],[y]), possibly supplemented with replayed data ([x_],[y_/scores_]).
 
         [x]               <tensor> batch of inputs (could be None, in which case only 'replayed' data is used)
@@ -208,6 +208,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             else:
                 # -multiclass prediction loss
                 y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
+                predL = None if y is None else y_score.mean()
+
                 # Select instances in the batch for replay later
                 # C1: Select instances which is corrected classify
                 # selected_index = y == y_hat.max(1)[1]
@@ -216,26 +218,22 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 # self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
 
                 # C2: Select instances which have min loss value for each class
-                selected_x = None
-                selected_y = None
-                for m in range(len(np.ravel(active_classes))):
-                    mask = y == m
-                    ce_m = y_score[mask]
-                    if ce_m.size(0) != 0:
-                        min_m = torch.min(ce_m)
-                        idx = y_score == min_m
-                        if selected_x is None and selected_y is None:
-                            selected_x = x[idx]
-                            selected_y = y[idx]
-                        else:
-                            selected_x = torch.cat((selected_x, x[idx]), dim=0)
-                            selected_y = torch.cat((selected_y, y[idx]), dim=0)
-                # min_index = torch.argmin(y_score, keepdim=True)
-                # selected_x = x[min_index].unsqueeze(dim=0)
-                # selected_y = y[min_index]
-                self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
-
-                predL = None if y is None else y_score.mean()
+                if replay_mode == 'online':
+                    selected_x = None
+                    selected_y = None
+                    for m in range(len(np.ravel(active_classes))):
+                        mask = y == m
+                        ce_m = y_score[mask]
+                        if ce_m.size(0) != 0:
+                            min_m = torch.min(ce_m)
+                            idx = y_score == min_m
+                            if selected_x is None and selected_y is None:
+                                selected_x = x[idx]
+                                selected_y = y[idx]
+                            else:
+                                selected_x = torch.cat((selected_x, x[idx]), dim=0)
+                                selected_y = torch.cat((selected_y, y[idx]), dim=0)
+                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
 
             # Weigh losses
             loss_cur = predL

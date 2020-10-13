@@ -247,7 +247,8 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 # print('Training batch: {}'.format(batch_index))
                 # Train the main model with this batch
                 loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
-                                                active_classes=active_classes, task=task, rnt=1. / task, loss_fn=loss_fn)
+                                                active_classes=active_classes, task=task, rnt=1. / task,
+                                                loss_fn=loss_fn, replay_mode=replay_mode)
 
                 # Update running parameter importance estimates in W
                 if isinstance(model, ContinualLearner) and (model.si_c > 0):
