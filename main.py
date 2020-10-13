@@ -113,7 +113,7 @@ store_params.add_argument('--herding', action='store_true', help="use herding to
 store_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
 
 store_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
-store_params.add_argument('--online-replay-mode', type=str, default='c1', choices=['c1', 'c2'], help="how sample be selected?")
+store_params.add_argument('--online-replay-mode', type=str, default='c2', choices=['c1', 'c2'], help="how sample be selected?")
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
 eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
