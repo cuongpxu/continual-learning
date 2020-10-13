@@ -226,6 +226,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                             mask = y == m
                             ce_m = y_score[mask]
                             if ce_m.size(0) != 0:
+                                # Select min loss instances
                                 min_m = torch.min(ce_m)
                                 idx = y_score == min_m
                                 if selected_x is None and selected_y is None:
@@ -234,6 +235,16 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                 else:
                                     selected_x = torch.cat((selected_x, x[idx]), dim=0)
                                     selected_y = torch.cat((selected_y, y[idx]), dim=0)
+                                # Select max loss instances
+                                max_m = torch.max(ce_m)
+                                idx = y_score == max_m
+                                if selected_x is None and selected_y is None:
+                                    selected_x = x[idx]
+                                    selected_y = y[idx]
+                                else:
+                                    selected_x = torch.cat((selected_x, x[idx]), dim=0)
+                                    selected_y = torch.cat((selected_y, y[idx]), dim=0)
+
                         self.add_instances_to_online_exemplar_sets(selected_x, selected_y)
 
             # Weigh losses
