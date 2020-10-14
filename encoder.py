@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from torch.nn import functional as F
-from linear_nets import MLP,fc_layer
+from linear_nets import MLP,fc_layer,rp_layer
 from exemplars import ExemplarHandler
 from continual_learner import ContinualLearner
 from replayer import Replayer
@@ -14,7 +14,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def __init__(self, image_size, image_channels, classes,
                  fc_layers=3, fc_units=1000, fc_drop=0, fc_bn=False, fc_nl="relu", gated=False,
                  bias=True, excitability=False, excit_buffer=False, binaryCE=False, binaryCE_distill=False, AGEM=False,
-                 loss='bce'):
+                 loss='bce', use_rp=False):
 
         # configurations
         super().__init__()
@@ -43,7 +43,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         # fully connected hidden layers
         self.fcE = MLP(input_size=image_channels*image_size**2, output_size=fc_units, layers=fc_layers-1,
                        hid_size=fc_units, drop=fc_drop, batch_norm=fc_bn, nl=fc_nl, bias=bias,
-                       excitability=excitability, excit_buffer=excit_buffer, gated=gated)
+                       excitability=excitability, excit_buffer=excit_buffer, gated=gated, use_rp=use_rp)
         mlp_output_size = fc_units if fc_layers>1 else image_channels*image_size**2
 
         # classifier
@@ -186,18 +186,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 y_hat = y_hat[:, class_entries]
 
             # Calculate prediction loss
-            if self.loss == 'bce':
-                # -binary prediction loss
-                binary_targets = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
-                if self.binaryCE_distill and (scores is not None):
-                    classes_per_task = int(y_hat.size(1) / task)
-                    binary_targets = binary_targets[:, -(classes_per_task):]
-                    binary_targets = torch.cat([torch.sigmoid(scores / self.KD_temp), binary_targets], dim=1)
-                predL = None if y is None else F.binary_cross_entropy_with_logits(
-                    input=y_hat, target=binary_targets, reduction='none'
-                ).sum(dim=1).mean()  # --> sum over classes, then average over batch
-
-            elif self.loss == 'otfl':
+            if self.loss == 'otfl':
                 y_anchors = self(loss_fn.anchors)
                 predL = loss_fn(x, y_hat, y_anchors, y)
             elif self.loss in ['fgfl', 'gbfg']:
@@ -206,72 +195,83 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             elif self.loss in ['focal', 'ce']:
                 predL = loss_fn(y_hat, y)
             else:
-                # -multiclass prediction loss
-                y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
-                predL = None if y is None else y_score.mean()
+                if self.binaryCE:
+                    # -binary prediction loss
+                    binary_targets = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
+                    if self.binaryCE_distill and (scores is not None):
+                        classes_per_task = int(y_hat.size(1) / task)
+                        binary_targets = binary_targets[:, -(classes_per_task):]
+                        binary_targets = torch.cat([torch.sigmoid(scores / self.KD_temp), binary_targets], dim=1)
+                    predL = None if y is None else F.binary_cross_entropy_with_logits(
+                        input=y_hat, target=binary_targets, reduction='none'
+                    ).sum(dim=1).mean()  # --> sum over classes, then average over batch
+                else:
+                    # -multiclass prediction loss
+                    y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
+                    predL = None if y is None else y_score.mean()
 
-                # Select instances in the batch for replay later
-                if replay_mode == 'online':
-                    if online_replay_mode == 'c1':
-                        # C1: Select instances which is corrected classify
-                        for m in range(len(np.ravel(active_classes))):
-                            selected_index = (y == y_hat.max(1)[1]) & (y == m)
-                            selected_x = x[selected_index]
-                            selected_y = y[selected_index]
-                            self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
-                    elif online_replay_mode == 'c2':
-                        # C2: Select instances which have min loss value for each class
-                        for m in range(len(np.ravel(active_classes))):
-                            mask = y == m
-                            ce_m = y_score[mask]
-                            if ce_m.size(0) != 0:
-                                # Select min loss instances
-                                min_m = torch.min(ce_m)
-                                min_idx = y_score == min_m
-                                # Select max loss instances
-                                max_m = torch.max(ce_m)
-                                max_idx = y_score == max_m
-                                if torch.all(torch.eq(min_idx, max_idx)):
-                                    selected_x = x[min_idx]
-                                    selected_y = y[min_idx]
-                                else:
-                                    selected_x = torch.cat((x[min_idx], x[max_idx]), dim=0)
-                                    selected_y = torch.cat((y[min_idx], y[max_idx]), dim=0)
-
+                    # Select instances in the batch for replay later
+                    if replay_mode == 'online':
+                        if online_replay_mode == 'c1':
+                            # C1: Select instances which is corrected classify
+                            for m in range(len(np.ravel(active_classes))):
+                                selected_index = (y == y_hat.max(1)[1]) & (y == m)
+                                selected_x = x[selected_index]
+                                selected_y = y[selected_index]
                                 self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
-                    else:
-                        # C3: Select a triplet instances in which the anchor has min loss value and
-                        # a hard positive instance as well as a hard negative instance
-                        for m in range(len(np.ravel(active_classes))):
-                            mask = y == m
-                            mask_neg = y != m
-                            ce_m = y_score[mask]
-                            if ce_m.size(0) != 0:
-                                # Select anchor and hard positive instances for class m
-                                positive_batch = x[mask]
-                                anchor_idx = torch.argmin(ce_m)
-                                anchor_x = positive_batch[anchor_idx].unsqueeze(dim=0)
-                                # anchor should not equal positive
-                                positive_batch = torch.cat((positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
+                        elif online_replay_mode == 'c2':
+                            # C2: Select instances which have min loss value for each class
+                            for m in range(len(np.ravel(active_classes))):
+                                mask = y == m
+                                ce_m = y_score[mask]
+                                if ce_m.size(0) != 0:
+                                    # Select min loss instances
+                                    min_m = torch.min(ce_m)
+                                    min_idx = y_score == min_m
+                                    # Select max loss instances
+                                    max_m = torch.max(ce_m)
+                                    max_idx = y_score == max_m
+                                    if torch.all(torch.eq(min_idx, max_idx)):
+                                        selected_x = x[min_idx]
+                                        selected_y = y[min_idx]
+                                    else:
+                                        selected_x = torch.cat((x[min_idx], x[max_idx]), dim=0)
+                                        selected_y = torch.cat((y[min_idx], y[max_idx]), dim=0)
 
-                                anchor_batch = anchor_x.expand(positive_batch.size())  # Broad-cast grad_min batch-wise
-                                positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                           positive_batch.view(positive_batch.size(0), -1))
-                                hard_positive_idx = torch.argmax(positive_dist)
-                                hard_positive_x = positive_batch[hard_positive_idx].unsqueeze(dim=0)
+                                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
+                        else:
+                            # C3: Select a triplet instances in which the anchor has min loss value and
+                            # a hard positive instance as well as a hard negative instance
+                            for m in range(len(np.ravel(active_classes))):
+                                mask = y == m
+                                mask_neg = y != m
+                                ce_m = y_score[mask]
+                                if ce_m.size(0) != 0:
+                                    # Select anchor and hard positive instances for class m
+                                    positive_batch = x[mask]
+                                    anchor_idx = torch.argmin(ce_m)
+                                    anchor_x = positive_batch[anchor_idx].unsqueeze(dim=0)
+                                    # anchor should not equal positive
+                                    positive_batch = torch.cat((positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
 
-                                # Select hard negative instances
-                                negative_batch = x[mask_neg]
-                                anchor_batch = anchor_x.expand(negative_batch.size())  # Broad-cast grad_min batch-wise
-                                negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                                    negative_batch.view(negative_batch.size(0), -1))
-                                hard_negative_idx = torch.argmin(negative_dist)
-                                hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
-                                hard_negative_y = y[mask_neg][hard_negative_idx]
+                                    anchor_batch = anchor_x.expand(positive_batch.size())  # Broad-cast grad_min batch-wise
+                                    positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                               positive_batch.view(positive_batch.size(0), -1))
+                                    hard_positive_idx = torch.argmax(positive_dist)
+                                    hard_positive_x = positive_batch[hard_positive_idx].unsqueeze(dim=0)
 
-                                selected_x = torch.cat((anchor_x, hard_positive_x, hard_negative_x), dim=0)
-                                selected_y = torch.from_numpy(np.array([m, m, hard_negative_y.item()]))
-                                self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
+                                    # Select hard negative instances
+                                    negative_batch = x[mask_neg]
+                                    anchor_batch = anchor_x.expand(negative_batch.size())  # Broad-cast grad_min batch-wise
+                                    negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                                        negative_batch.view(negative_batch.size(0), -1))
+                                    hard_negative_idx = torch.argmin(negative_dist)
+                                    hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
+                                    hard_negative_y = y[mask_neg][hard_negative_idx]
+
+                                    selected_x = torch.cat((anchor_x, hard_positive_x, hard_negative_x), dim=0)
+                                    selected_y = torch.from_numpy(np.array([m, m, hard_negative_y.item()]))
+                                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
 
             # Weigh losses
             loss_cur = predL

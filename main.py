@@ -39,19 +39,18 @@ task_params.add_argument('--tasks', type=int, help='number of tasks')
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
 loss_params.add_argument('--loss', type=str, default='none',
-                         choices=['bce', 'bce-distill', 'otfl', 'fgfl', 'focal', 'ce', 'gbfg', 'none'])
+                         choices=['otfl', 'fgfl', 'focal', 'ce', 'gbfg', 'none'])
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
 loss_params.add_argument('--bce-distill', action='store_true', help='distilled loss on previous classes for new'
                                                                     ' examples (only if --bce & --scenario="class")')
-loss_params.add_argument('--otfl', action='store_true', help="use online triplet forgetting loss")
-loss_params.add_argument('--otfl_var', default='all', help="selecting variant of online triplet forgetting loss")
-loss_params.add_argument('--otfl_alpha', type=float,  default=0.5, help="controlling parameter")
-loss_params.add_argument('--otfl_margin', type=float,  default=0.0, help="margin hyperparameter")
+loss_params.add_argument('--otfl-var', default='all', help="selecting variant of online triplet forgetting loss")
+loss_params.add_argument('--otfl-alpha', type=float,  default=1.0, help="controlling parameter")
+loss_params.add_argument('--otfl-margin', type=float,  default=0.0, help="margin hyperparameter")
 
-loss_params.add_argument('--fgfl_gamma', type=float,  default=0.25, help="controlling hyperparameter 1")
-loss_params.add_argument('--fgfl_delta', type=float,  default=0.25, help="controlling hyperparameter 2")
+loss_params.add_argument('--fgfl-gamma', type=float,  default=0.25, help="controlling hyperparameter 1")
+loss_params.add_argument('--fgfl-delta', type=float,  default=0.25, help="controlling hyperparameter 2")
 
-loss_params.add_argument('--gbfg_delta', type=float, default=1.0, help='controlling hyperparameter')
+loss_params.add_argument('--gbfg-delta', type=float, default=1.0, help='controlling hyperparameter')
 # model architecture parameters
 model_params = parser.add_argument_group('Model Parameters')
 model_params.add_argument('--model_arc', type=str, default='MLP', help='Type of network used in experiment')
