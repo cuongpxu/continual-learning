@@ -89,7 +89,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
                                                             np.arange(n_exemplar_of_m - class_budget), axis=0)
 
     def add_instances_to_online_exemplar_sets(self, x, y, m):
-        print('Exemplar size: {}, adding size {}, class {}'.format(self.get_online_exemplar_size(), x.size(0), m))
+        # print('Exemplar size: {}, adding size {}, class {}'.format(self.get_online_exemplar_size(), x.size(0), m))
         if m not in self.online_classes_so_far:
             x, y = self.drop_instances_out_of_class_budget(x, y, len(self.online_classes_so_far) + 1)
             # Reduce instances in each class to make room for new classes
