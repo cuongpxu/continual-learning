@@ -16,7 +16,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         super().__init__()
 
         # list with exemplar-sets
-        self.exemplar_sets = []   #--> each exemplar_set is an <np.array> of N images with shape (N, Ch, H, W)
+        self.exemplar_sets = []  # --> each exemplar_set is an <np.array> of N images with shape (N, Ch, H, W)
         self.exemplar_means = []
         self.compute_means = True
 
@@ -41,7 +41,6 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
     def feature_extractor(self, images):
         pass
 
-
     ####----MANAGING EXEMPLAR SETS----####
     def get_online_exemplar_size(self):
         total = 0
@@ -61,8 +60,10 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         class_budget = self.online_memory_budget // len(self.online_classes_so_far)
         n_exemplar_of_m = self.online_exemplar_sets[m][0].shape[0]
         memory_left = class_budget - n_exemplar_of_m
-        self.online_exemplar_sets[m][0] = np.delete(self.online_exemplar_sets[m][0], np.arange(n_new - memory_left), axis=0)
-        self.online_exemplar_sets[m][1] = np.delete(self.online_exemplar_sets[m][1], np.arange(n_new - memory_left), axis=0)
+        self.online_exemplar_sets[m][0] = np.delete(self.online_exemplar_sets[m][0], np.arange(n_new - memory_left),
+                                                    axis=0)
+        self.online_exemplar_sets[m][1] = np.delete(self.online_exemplar_sets[m][1], np.arange(n_new - memory_left),
+                                                    axis=0)
 
     def reduce_memory_for_new_classes(self):
         # print('Reduce memory for new class')
@@ -79,33 +80,26 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
                                                             np.arange(n_exemplar_of_m - class_budget), axis=0)
 
     def add_instances_to_online_exemplar_sets(self, x, y, m):
-        if x is not None and y is not None:
-            # print('Exemplar size: {}, adding size {}, class {}'.format(self.get_online_exemplar_size(), x.size(0), m))
-            if m not in self.online_classes_so_far:
-                # Reduce instances in every class to make room for new classes
-                if not self.check_online_budget():
-                    self.reduce_memory_for_new_classes()
-                self.online_classes_so_far.append(m)
-                self.online_exemplar_sets.append([x.cpu().detach().numpy(), y.cpu().detach().numpy()])
+        # print('Exemplar size: {}, adding size {}, class {}'.format(self.get_online_exemplar_size(), x.size(0), m))
+        if m not in self.online_classes_so_far:
+            # Reduce instances in every class to make room for new classes
+            if not self.check_online_budget():
+                self.reduce_memory_for_new_classes()
+            self.online_classes_so_far.append(m)
+            self.online_exemplar_sets.append([x.cpu().detach().numpy(), y.cpu().detach().numpy()])
+        else:
+            if self.check_online_budget_for_each_class(y.size(0), m):
+                self.online_exemplar_sets[m][0] = np.concatenate(
+                    (self.online_exemplar_sets[m][0], x.cpu().detach().numpy()), axis=0)
+                self.online_exemplar_sets[m][1] = np.concatenate(
+                    (self.online_exemplar_sets[m][1], y.cpu().detach().numpy()), axis=0)
             else:
-                if self.check_online_budget_for_each_class(y.size(0), m):
-                    self.online_exemplar_sets.append([x.cpu().detach().numpy(), y.cpu().detach().numpy()])
-                    # if self.online_exemplar_sets is None or self.online_exemplar_label_sets is None:
-                    #     self.online_exemplar_sets = x.cpu().detach().numpy()
-                    #     self.online_exemplar_label_sets = y.cpu().detach().numpy()
-                    # else:
-                    #     self.online_exemplar_sets = np.concatenate((self.online_exemplar_sets, x.cpu().detach().numpy()), axis=0)
-                    #     self.online_exemplar_label_sets = np.concatenate((self.online_exemplar_label_sets, y.cpu().detach().numpy()), axis=0)
-                else:
-                    # Drop old instances in exemplar to make available memory for very last instances
-                    self.drop_old_instances(x.size(0), m)
-                    self.online_exemplar_sets[m][0] = np.concatenate(
-                        (self.online_exemplar_sets[m][0], x.cpu().detach().numpy()), axis=0)
-                    self.online_exemplar_sets[m][1] = np.concatenate(
-                        (self.online_exemplar_sets[m][1], y.cpu().detach().numpy()), axis=0)
-                    # self.online_exemplar_sets = np.concatenate((self.online_exemplar_sets, x.cpu().detach().numpy()), axis=0)
-                    # self.online_exemplar_label_sets = np.concatenate((self.online_exemplar_label_sets, y.cpu().detach().numpy()), axis=0)
-                    # pass
+                # Drop old instances in exemplar to make available memory for very last instances
+                self.drop_old_instances(x.size(0), m)
+                self.online_exemplar_sets[m][0] = np.concatenate(
+                    (self.online_exemplar_sets[m][0], x.cpu().detach().numpy()), axis=0)
+                self.online_exemplar_sets[m][1] = np.concatenate(
+                    (self.online_exemplar_sets[m][1], y.cpu().detach().numpy()), axis=0)
 
     def reduce_exemplar_sets(self, m):
         for y, P_y in enumerate(self.exemplar_sets):
@@ -148,9 +142,9 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
             exemplar_features = torch.zeros_like(features[:min(n, n_max)])
             list_of_selected = []
             for k in range(min(n, n_max)):
-                if k>0:
+                if k > 0:
                     exemplar_sum = torch.sum(exemplar_features[:k], dim=0).unsqueeze(0)
-                    features_means = (features + exemplar_sum)/(k+1)
+                    features_means = (features + exemplar_sum) / (k + 1)
                     features_dists = features_means - class_mean
                 else:
                     features_dists = features - class_mean
@@ -175,7 +169,6 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         # set mode of model back
         self.train(mode=mode)
 
-
     ####----CLASSIFICATION----####
 
     def classify_with_exemplars(self, x, allowed_classes=None):
@@ -194,7 +187,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
 
         # Do the exemplar-means need to be recomputed?
         if self.compute_means:
-            exemplar_means = []  #--> list of 1D-tensors (of size [feature_size]), list is of length [n_classes]
+            exemplar_means = []  # --> list of 1D-tensors (of size [feature_size]), list is of length [n_classes]
             for P_y in self.exemplar_sets:
                 exemplars = []
                 # Collect all exemplars in P_y into a <tensor> and extract their features
@@ -209,7 +202,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
                 mu_y = features.mean(dim=0, keepdim=True)
                 if self.norm_exemplars:
                     mu_y = F.normalize(mu_y, p=2, dim=1)
-                exemplar_means.append(mu_y.squeeze())       # -> squeeze removes all dimensions of size 1
+                exemplar_means.append(mu_y.squeeze())  # -> squeeze removes all dimensions of size 1
             # Update model's attributes
             self.exemplar_means = exemplar_means
             self.compute_means = False
@@ -218,17 +211,17 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         exemplar_means = self.exemplar_means if allowed_classes is None else [
             self.exemplar_means[i] for i in allowed_classes
         ]
-        means = torch.stack(exemplar_means)        # (n_classes, feature_size)
+        means = torch.stack(exemplar_means)  # (n_classes, feature_size)
         means = torch.stack([means] * batch_size)  # (batch_size, n_classes, feature_size)
-        means = means.transpose(1, 2)              # (batch_size, feature_size, n_classes)
+        means = means.transpose(1, 2)  # (batch_size, feature_size, n_classes)
 
         # Extract features for input data (and reorganize)
         with torch.no_grad():
-            feature = self.feature_extractor(x)    # (batch_size, feature_size)
+            feature = self.feature_extractor(x)  # (batch_size, feature_size)
         if self.norm_exemplars:
             feature = F.normalize(feature, p=2, dim=1)
-        feature = feature.unsqueeze(2)             # (batch_size, feature_size, 1)
-        feature = feature.expand_as(means)         # (batch_size, feature_size, n_classes)
+        feature = feature.unsqueeze(2)  # (batch_size, feature_size, 1)
+        feature = feature.expand_as(means)  # (batch_size, feature_size, n_classes)
 
         # For each data-point in [x], find which exemplar-mean is closest to its extracted features
         dists = (feature - means).pow(2).sum(dim=1).squeeze()  # (batch_size, n_classes)
@@ -238,4 +231,3 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         self.train(mode=mode)
 
         return preds
-

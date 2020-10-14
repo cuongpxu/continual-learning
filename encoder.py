@@ -215,7 +215,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     if online_replay_mode == 'c1':
                         # C1: Select instances which is corrected classify
                         for m in range(len(np.ravel(active_classes))):
-                            selected_index = (y == y_hat.max(1)[1] & y == m)
+                            selected_index = (y == y_hat.max(1)[1]) & (y == m)
                             selected_x = x[selected_index]
                             selected_y = y[selected_index]
                             self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
