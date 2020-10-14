@@ -1,8 +1,52 @@
-from torch import nn
+import torch
+import math
 import numpy as np
 import utils
 import excitability_modules as em
+from torch import nn
+from torch.nn.parameter import Parameter
 
+
+class rp_layer(nn.Module):
+    def __init__(self, p, type='normal', update_rp=False):
+        super(rp_layer, self).__init__()
+        self.p = p
+        self.q = 2 * math.ceil(np.log2(self.p))
+        self.type = type
+        self.weight = Parameter(self.create_rp_matrix(), requires_grad=update_rp)
+
+    def create_rp_matrix(self):
+        if self.type == 'bernoulli':
+            r = torch.zeros([self.p, self.q])
+            for i in range(self.p):
+                for j in range(self.q):
+                    if torch.rand(1) >= 0.5:
+                        r[i, j] = 1
+                    else:
+                        r[i, j] = -1
+            r = r * (1/math.sqrt(self.q))
+        elif self.type == 'achlioptas':
+            r = torch.zeros([self.p, self.q])
+            for i in range(self.p):
+                for j in range(self.q):
+                    if torch.rand(1) > (1/6):
+                        r[i, j] = 0
+                    else:
+                        if torch.rand(1) >= 0.5:
+                            r[i, j] = math.sqrt(3)
+                        else:
+                            r[i, j] = -math.sqrt(3)
+            r = r * (1/math.sqrt(self.q))
+        elif self.type == 'normal':
+            r = torch.randn([self.p, self.q])
+            r = r * (1 / math.sqrt(self.q))
+        else:
+            raise Exception('Not implemented random projection type')
+        return r
+
+    def forward(self, input):
+        out = torch.matmul(input, self.weight)
+        return out
 
 
 class fc_layer(nn.Module):
@@ -76,7 +120,7 @@ class MLP(nn.Module):
 
     def __init__(self, input_size=1000, output_size=10, layers=2, hid_size=1000, hid_smooth=None, size_per_layer=None,
                  drop=0, batch_norm=True, nl="relu", bias=True, excitability=False, excit_buffer=False, gated=False,
-                 output='normal'):
+                 output='normal', use_rp=False):
         '''sizes: 0th=[input], 1st=[hid_size], ..., 1st-to-last=[hid_smooth], last=[output].
         [input_size]       # of inputs
         [output_size]      # of units in final layer
