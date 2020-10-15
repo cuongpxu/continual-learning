@@ -93,7 +93,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         ##--(1)-- REPLAYED DATA --##
 
         if x_ is not None:
-            print('y_: ', torch.unique(y_))
             if replay_mode == 'online':
 
                 loss_replay = [None]
@@ -227,7 +226,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         ##--(2)-- CURRENT DATA --##
 
         if x is not None:
-            print(torch.unique(y), active_classes, task)
             # If requested, apply correct task-specific mask
             if self.mask_dict is not None:
                 self.apply_XdGmask(task=task)
