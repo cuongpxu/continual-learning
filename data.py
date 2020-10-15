@@ -101,7 +101,7 @@ class OnlineExemplarDataset(Dataset):
 
     def __getitem__(self, index):
         image = self.images[index]
-        label = self.labels[index]
+        label = self.labels[index] if self.target_transform is None else self.target_transform(self.labels[index])
         return image.float(), label.long()
 
 

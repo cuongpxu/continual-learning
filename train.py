@@ -143,6 +143,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 x, y = next(data_loader)  # --> sample training data of current task
                 y = y - classes_per_task * (
                             task - 1) if scenario == "task" else y  # --> ITL: adjust y-targets to 'active range'
+                y = y.long()
                 x, y = x.to(device), y.to(device)  # --> transfer them to correct device
                 x.requires_grad_(requires_grad=True)
                 # If --bce, --bce-distill & scenario=="class", calculate scores of current batch with previous model
@@ -238,7 +239,14 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
             ##-->> Online Replay <<--##
             if replay_mode == 'online' and len(model.online_exemplar_sets) > 0:
                 # Build dataset from online exemplar sets
-                online_replay_dataset = OnlineExemplarDataset(model.online_exemplar_sets)
+                # if scenario == 'task':
+                #     target_transform = (lambda y, x=classes_per_task * task: y + x)
+                # else:
+                #     target_transform = (lambda y, x=classes_per_task: y % x) if scenario == "domain" else None
+
+                target_transform = None
+                online_replay_dataset = OnlineExemplarDataset(model.online_exemplar_sets, target_transform)
+
                 online_data_loader = iter(utils.get_data_loader(online_replay_dataset, batch_size,
                                                                 cuda=cuda, drop_last=False))
                 # Get replayed data (i.e., [x_]) -- selected data of previous batches

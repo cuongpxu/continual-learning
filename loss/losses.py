@@ -106,7 +106,7 @@ class OTFL(nn.Module):
 
     def forward(self, x, px, y):
         uq = torch.unique(y).cpu().numpy()
-        ce_x = F.cross_entropy(px, y.long(), reduction='none')
+        ce_x = F.cross_entropy(px, y, reduction='none')
         # Compute grad wrt the current batch
         grad_x = torch.autograd.grad(
             outputs=ce_x,
@@ -115,6 +115,7 @@ class OTFL(nn.Module):
             create_graph=True
         )[0]
 
+        selected_data = {}
         triplet_fg_loss = 0.0
         for m in uq:
             mask = y == m
@@ -133,6 +134,7 @@ class OTFL(nn.Module):
                 positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
                                                     positive_batch.view(positive_batch.size(0), -1))
                 hard_positive_idx = torch.argmax(positive_dist)
+                hard_positive_x = positive_batch[hard_positive_idx].unsqueeze(dim=0)
                 grad_p = grad_x[mask][hard_positive_idx]
                 # Select hard negative instances
                 negative_batch = x[mask_neg]
@@ -140,18 +142,25 @@ class OTFL(nn.Module):
                 negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
                                                     negative_batch.view(negative_batch.size(0), -1))
                 hard_negative_idx = torch.argmin(negative_dist)
+                hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
+                hard_negative_y = y[mask_neg][hard_negative_idx]
                 grad_n = grad_x[mask_neg][hard_negative_idx]
+
+                selected_x = torch.cat((anchor, hard_positive_x, hard_negative_x), dim=0)
+                selected_y = torch.from_numpy(np.array([m, m, hard_negative_y.item()]))
 
                 triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
                                    - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
 
+                selected_data[m] = [selected_x, selected_y]
+        # Compute loss value
         triplet_fg_loss /= len(uq)
         loss = ce_x - self.alpha * triplet_fg_loss
 
         if self.reduction == 'mean':
-            return torch.mean(loss)
+            return torch.mean(loss), selected_data
         elif self.reduction == 'sum':
-            return torch.sum(loss)
+            return torch.sum(loss), selected_data
         else:
-            return loss
+            return loss, selected_data
 

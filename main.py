@@ -110,7 +110,7 @@ store_params.add_argument('--herding', action='store_true', help="use herding to
 store_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
 
 store_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
-store_params.add_argument('--online-replay-mode', type=str, default='c2', choices=['c1', 'c2', 'c3'], help="how sample be selected?")
+store_params.add_argument('--online-replay-mode', type=str, default='c3', choices=['c1', 'c2', 'c3'], help="how sample be selected?")
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
 eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
@@ -123,7 +123,6 @@ eval_params.add_argument('--prec-log', type=int, default=200, metavar="N", help=
 eval_params.add_argument('--prec-n', type=int, default=1024, help="# samples for evaluating solver's precision")
 eval_params.add_argument('--sample-log', type=int, default=500, metavar="N", help="# iters after which to plot samples")
 eval_params.add_argument('--sample-n', type=int, default=64, help="# images to show")
-
 
 
 def run(args, verbose=False):
