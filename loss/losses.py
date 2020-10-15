@@ -98,60 +98,15 @@ class FGFL(nn.Module):
 
 
 class OTFL(nn.Module):
-    def __init__(self, n_dim=10, n_classes=2, alpha=2.0, margin=0.05, var='all', device='cpu', reduction='mean'):
+    def __init__(self, alpha=2.0, device='cpu', reduction='mean'):
         super(OTFL, self).__init__()
-        self.n_dim = n_dim
-        self.n_classes = n_classes
         self.alpha = alpha
-        self.margin = margin
-        self.var = var
         self.device = device
         self.reduction = reduction
 
-        self.anchors = torch.zeros((n_classes, 1, n_dim), requires_grad=True).to(self.device)
-
-    def get_anchor_batch(self, grads, targets):
-        anchor_batch = torch.zeros(targets.size(0), self.n_dim).to(self.device)
-        for i in range(targets.size(0)):
-            anchor_batch[i] = grads[targets[i]].data.clone()
-        anchor_batch.requires_grad_(True)
-        return anchor_batch
-
-    def get_negative_batch(self, grads, targets):
-        uq = torch.unique(targets, return_counts=False)
-        negative_batch = torch.zeros(grads.size(0), self.n_dim).to(self.device)
-        for i in range(grads.size(0)):
-            diff = uq[uq != targets[i]]
-            if len(diff) != 0:
-                if self.var == 'ran':
-                    # Select negative sample randomly
-                    diff_class = diff[np.random.randint(len(diff))]
-                    for j in range(grads.size(0)):
-                        if targets[j] == diff_class:
-                            negative_batch[i] = grads[j].data.clone()
-                            break
-                elif self.var == 'all':
-                    # Compute with all negative samples in the batch
-                    for j in range(grads.size(0)):
-                        if targets[j] in diff:
-                            negative_batch[i] += grads[j].squeeze().data.clone()
-                elif self.var == 'min':
-                    # Compute with selected negative samples in terms of some constraints
-                    res = []
-                    index = []
-                    with torch.no_grad():
-                        for j in range(grads.size(0)):
-                            if targets[j] in diff:
-                                res.append(torch.dot(grads[i].squeeze(), grads[j].squeeze()))
-                                index.append(j)
-                    negative_batch[i] += grads[index[np.argmin(res)]].squeeze().data.clone()
-                else:
-                    raise NotImplementedError('Not implemented {} version of OTFL'.format(self.var))
-        negative_batch.requires_grad_(True)
-        return negative_batch
-
-    def forward(self, x, px, pa, y):
-        ce_x = F.cross_entropy(px, y, reduction='none')
+    def forward(self, x, px, y):
+        uq = torch.unique(y).cpu().numpy()
+        ce_x = F.cross_entropy(px, y.long(), reduction='none')
         # Compute grad wrt the current batch
         grad_x = torch.autograd.grad(
             outputs=ce_x,
@@ -160,36 +115,38 @@ class OTFL(nn.Module):
             create_graph=True
         )[0]
 
-        # Compute grad wrt the anchors
-        ce_a = F.cross_entropy(pa, torch.arange(self.n_classes).long().to(self.device), reduction='none')
-        grad_a = torch.autograd.grad(
-            outputs=ce_a,
-            inputs=self.anchors,
-            grad_outputs=torch.ones_like(ce_a).to(self.device),
-            create_graph=True
-        )[0]
-        # print(grad_x.size(), grad_a.size())
-        anchor_batch = self.get_anchor_batch(grad_a, y)
-        negative_batch = self.get_negative_batch(grad_x.view(grad_x.size(0), grad_x.size(1), -1), y)
-
-        anchor_positive = torch.bmm(grad_x.view(grad_x.size(0), grad_x.size(1), -1), anchor_batch.unsqueeze(dim=2))
-        anchor_negative = torch.bmm(negative_batch.unsqueeze(dim=1), anchor_batch.unsqueeze(dim=2))
-
-        triplet_fg_loss = anchor_negative.squeeze() - anchor_positive.squeeze() + self.margin
-
-        loss = ce_x + self.alpha * triplet_fg_loss
-
-        # Store gradient of the last min loss instance of every class label
-        # min_idx = torch.argmin(ce_x)
-        # self.grad_anchors[y[min_idx.item()]] = grad_x[min_idx.item()].data.clone()
-        # Store min loss instance for each class label
-        for m in range(self.n_classes):
+        triplet_fg_loss = 0.0
+        for m in uq:
             mask = y == m
+            mask_neg = y != m
             ce_m = ce_x[mask]
             if ce_m.size(0) != 0:
-                min_m = torch.min(ce_m)
-                idx = ce_x == min_m
-                self.anchors[m] = x[idx][0].view(-1).unsqueeze(dim=0).data.clone()
+                # Select anchor and hard positive instances for class m
+                positive_batch = x[mask]
+                anchor_idx = torch.argmin(ce_m)
+                anchor = positive_batch[anchor_idx].unsqueeze(dim=0)
+                grad_a = grad_x[mask][anchor_idx]
+                # anchor should not equal positive
+                positive_batch = torch.cat((positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
+
+                anchor_batch = anchor.expand(positive_batch.size())  # Broad-cast grad_min batch-wise
+                positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                    positive_batch.view(positive_batch.size(0), -1))
+                hard_positive_idx = torch.argmax(positive_dist)
+                grad_p = grad_x[mask][hard_positive_idx]
+                # Select hard negative instances
+                negative_batch = x[mask_neg]
+                anchor_batch = anchor.expand(negative_batch.size())  # Broad-cast grad_min batch-wise
+                negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                    negative_batch.view(negative_batch.size(0), -1))
+                hard_negative_idx = torch.argmin(negative_dist)
+                grad_n = grad_x[mask_neg][hard_negative_idx]
+
+                triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
+                                   - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
+
+        triplet_fg_loss /= len(uq)
+        loss = ce_x - self.alpha * triplet_fg_loss
 
         if self.reduction == 'mean':
             return torch.mean(loss)

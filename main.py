@@ -442,8 +442,7 @@ def run(args, verbose=False):
 
     # Define loss function
     if args.loss == 'otfl':
-        loss_fn = OTFL(alpha=args.otfl_alpha, margin=args.otfl_margin, var=args.otfl_var, device=device,
-                   n_dim=(config['size'] ** 2) * config['channels'], n_classes=config['classes'])
+        loss_fn = OTFL(alpha=args.otfl_alpha, device=device)
     elif args.loss == 'fgfl':
         loss_fn = FGFL(gamma=args.fgfl_gamma, delta=args.fgfl_delta, device=device, n_classes=config['classes'])
     elif args.loss == 'gbfg':

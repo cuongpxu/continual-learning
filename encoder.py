@@ -186,12 +186,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 y_hat = y_hat[:, class_entries]
 
             # Calculate prediction loss
-            if self.loss == 'otfl':
-                y_anchors = self(loss_fn.anchors)
-                predL = loss_fn(x, y_hat, y_anchors, y)
-            elif self.loss in ['fgfl', 'gbfg']:
-                px = F.log_softmax(y_hat, dim=1)
-                predL = loss_fn(x, px, y)
+            if self.loss in ['otfl','fgfl', 'gbfg']:
+                predL = loss_fn(x, y_hat, y)
             elif self.loss in ['focal', 'ce']:
                 predL = loss_fn(y_hat, y)
             else:
