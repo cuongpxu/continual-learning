@@ -143,16 +143,25 @@ class OTFL(nn.Module):
                                                     negative_batch.view(negative_batch.size(0), -1))
                 hard_negative_idx = torch.argmin(negative_dist)
                 hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
-                hard_negative_y = y[mask_neg][hard_negative_idx]
+                hard_negative_y = y[mask_neg][hard_negative_idx].unsqueeze(dim=0)
                 grad_n = grad_x[mask_neg][hard_negative_idx]
 
-                selected_x = torch.cat((anchor, hard_positive_x, hard_negative_x), dim=0)
-                selected_y = torch.from_numpy(np.array([m, m, hard_negative_y.item()]))
+                x_m = torch.cat((anchor, hard_positive_x), dim=0)
+                y_m = torch.tensor([m, m])
 
                 triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
                                    - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
 
-                selected_data[m] = [selected_x, selected_y]
+                if m not in selected_data:
+                    selected_data[m] = [x_m, y_m]
+                else:
+                    selected_data[m] = [torch.cat((selected_data[m][0], x_m), dim=0), torch.cat((selected_data[m][1], y_m), dim=0)]
+
+                if hard_negative_y.item() not in selected_data:
+                    selected_data[hard_negative_y.item()] = [hard_negative_x, hard_negative_y]
+                else:
+                    selected_data[hard_negative_y.item()] = [torch.cat((selected_data[hard_negative_y.item()][0], hard_negative_x), dim=0),
+                                                             torch.cat((selected_data[hard_negative_y.item()][1], hard_negative_y), dim=0)]
         # Compute loss value
         triplet_fg_loss /= len(uq)
         loss = ce_x - self.alpha * triplet_fg_loss

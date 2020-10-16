@@ -237,21 +237,15 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 scores_ = scores_ if (model.replay_targets == "soft") else None
 
             ##-->> Online Replay <<--##
-            if replay_mode == 'online' and len(model.online_exemplar_sets) > 0:
-                # Build dataset from online exemplar sets
-                # if scenario == 'task':
-                #     target_transform = (lambda y, x=classes_per_task * task: y + x)
-                # else:
-                #     target_transform = (lambda y, x=classes_per_task: y % x) if scenario == "domain" else None
-
-                target_transform = None
-                online_replay_dataset = OnlineExemplarDataset(model.online_exemplar_sets, target_transform)
-
-                online_data_loader = iter(utils.get_data_loader(online_replay_dataset, batch_size,
-                                                                cuda=cuda, drop_last=False))
-                # Get replayed data (i.e., [x_]) -- selected data of previous batches
-                x_, y_ = next(online_data_loader)
-                x_, y_ = x_.to(device), y_.to(device)
+            # if replay_mode == 'online' and len(model.online_exemplar_sets) > 0:
+            #     target_transform = None
+            #     online_replay_dataset = OnlineExemplarDataset(model.online_exemplar_sets, target_transform)
+            #
+            #     online_data_loader = iter(utils.get_data_loader(online_replay_dataset, batch_size,
+            #                                                     cuda=cuda, drop_last=False))
+            #     # Get replayed data (i.e., [x_]) -- selected data of previous batches
+            #     x_, y_ = next(online_data_loader)
+            #     x_, y_ = x_.to(device), y_.to(device)
 
             # ---> Train MAIN MODEL
             if batch_index <= iters:
@@ -259,7 +253,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 # Train the main model with this batch
                 loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
                                                 active_classes=active_classes, task=task, rnt=1. / task,
-                                                loss_fn=loss_fn, replay_mode=replay_mode,
+                                                scenario=scenario, loss_fn=loss_fn, replay_mode=replay_mode,
                                                 online_replay_mode=online_replay_mode)
 
                 # Update running parameter importance estimates in W
@@ -349,10 +343,23 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
             previous_generator = copy.deepcopy(generator).eval() if generator is not None else previous_model
         elif replay_mode == 'current':
             Current = True
-        elif replay_mode in ('exemplars', 'exact'):
+        elif replay_mode in ('exemplars', 'exact', 'online'):
             Exact = True
             if replay_mode == "exact":
                 previous_datasets = train_datasets[:task]
+            elif replay_mode == 'online':
+                if scenario == 'task':
+                    previous_datasets = []
+                    for task_id in range(task):
+                        previous_datasets.append(
+                            OnlineExemplarDataset(
+                                model.online_exemplar_sets[
+                                (classes_per_task * task_id):(classes_per_task * (task_id + 1))],
+                                target_transform=lambda y, x=classes_per_task * task_id: y + x)
+                        )
+                else:
+                    target_transform = (lambda y, x=classes_per_task: y % x) if scenario == "domain" else None
+                    previous_datasets = [OnlineExemplarDataset(model.online_exemplar_sets, target_transform)]
             else:
                 if scenario == "task":
                     previous_datasets = []

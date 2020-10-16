@@ -669,7 +669,6 @@ def run(args, verbose=False):
             print("\nGenerated plot: {}\n".format(plot_name))
 
 
-
 if __name__ == '__main__':
     # -load input-arguments
     args = parser.parse_args()

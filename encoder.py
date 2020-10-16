@@ -67,7 +67,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         return self.fcE(self.flatten(images))
 
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
-                      active_classes=None, task=1, loss_fn=None, replay_mode='none', online_replay_mode='c1'):
+                      active_classes=None, task=1, scenario='class', loss_fn=None, replay_mode='none',
+                      online_replay_mode='c1'):
         '''Train model for one batch ([x],[y]), possibly supplemented with replayed data ([x_],[y_/scores_]).
 
         [x]               <tensor> batch of inputs (could be None, in which case only 'replayed' data is used)
@@ -93,121 +94,67 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         ##--(1)-- REPLAYED DATA --##
 
         if x_ is not None:
-            if replay_mode == 'online':
+            # print(y_, task)
+            # In the Task-IL scenario, [y_] or [scores_] is a list and [x_] needs to be evaluated on each of them
+            # (in case of 'exact' or 'exemplar' replay, [x_] is also a list!
+            TaskIL = (type(y_) == list) if (y_ is not None) else (type(scores_) == list)
+            if not TaskIL:
+                y_ = [y_]
+                scores_ = [scores_]
+                active_classes = [active_classes] if (active_classes is not None) else None
+            n_replays = len(y_) if (y_ is not None) else len(scores_)
 
-                loss_replay = [None]
-                predL_r = [None]
-                distilL_r = [None]
+            # Prepare lists to store losses for each replay
+            loss_replay = [None] * n_replays
+            predL_r = [None] * n_replays
+            distilL_r = [None] * n_replays
 
-                # In the online replay mode, x_ and y_ is a tensor contain a batch of replayed instances
-                # If requested, apply correct task-specific mask
-                if self.mask_dict is not None:
-                    self.apply_XdGmask(task=task)
+            # Run model (if [x_] is not a list with separate replay per task and there is no task-specific mask)
+            if (not type(x_) == list) and (self.mask_dict is None):
+                y_hat_all = self(x_)
 
-                # Run model
-                y_hat = self(x_)
-                # -if needed, remove predictions for classes not in current task
-                if active_classes is not None:
-                    class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
-                    y_hat = y_hat[:, class_entries]
+            # Loop to evalute predictions on replay according to each previous task
+            for replay_id in range(n_replays):
 
-                if self.binaryCE:
-                    # -binary prediction loss
-                    binary_targets = utils.to_one_hot(y_.cpu(), y_hat.size(1)).to(y.device)
-                    predL_r[0] = None if y_ is None else F.binary_cross_entropy_with_logits(
-                        input=y_hat, target=binary_targets, reduction='none'
-                    ).sum(dim=1).mean()  # --> sum over classes, then average over batch
-                else:
-                    # -multiclass prediction loss
-                    y_score = F.cross_entropy(input=y_hat, target=y_, reduction='none')
-                    predL_r[0] = None if y_ is None else y_score.mean()
+                # -if [x_] is a list with separate replay per task, evaluate model on this task's replay
+                if (type(x_) == list) or (self.mask_dict is not None):
+                    x_temp_ = x_[replay_id] if type(x_) == list else x_
+                    if self.mask_dict is not None:
+                        self.apply_XdGmask(task=replay_id + 1)
+                    y_hat_all = self(x_temp_)
 
-                if self.binaryCE_distill and (scores is not None):
-                    classes_per_task = int(y_hat.size(1) / task)
-                    binary_targets = utils.to_one_hot(y_.cpu(), y_hat.size(1)).to(y.device)
-                    binary_targets = binary_targets[:, -(classes_per_task):]
-                    binary_targets = torch.cat([torch.sigmoid(scores / self.KD_temp), binary_targets], dim=1)
-                    distilL_r[0] = None if y_ is None else F.binary_cross_entropy_with_logits(
-                        input=y_hat, target=binary_targets, reduction='none'
-                    ).sum(dim=1).mean()
+                # -if needed (e.g., Task-IL or Class-IL scenario), remove predictions for classes not in replayed task
+                y_hat = y_hat_all if (active_classes is None) else y_hat_all[:, active_classes[replay_id]]
 
-                n_replays = 1
-
+                # Calculate losses
+                if (y_ is not None) and (y_[replay_id] is not None):
+                    if self.binaryCE:
+                        binary_targets_ = utils.to_one_hot(y_[replay_id].cpu(), y_hat.size(1)).to(y_[replay_id].device)
+                        predL_r[replay_id] = F.binary_cross_entropy_with_logits(
+                            input=y_hat, target=binary_targets_, reduction='none'
+                        ).sum(dim=1).mean()  # --> sum over classes, then average over batch
+                    else:
+                        predL_r[replay_id] = F.cross_entropy(y_hat, y_[replay_id], reduction='mean')
+                if (scores_ is not None) and (scores_[replay_id] is not None):
+                    # n_classes_to_consider = scores.size(1) #--> with this version, no zeroes are added to [scores]!
+                    n_classes_to_consider = y_hat.size(1)  # --> zeros will be added to [scores] to make it this size!
+                    kd_fn = utils.loss_fn_kd_binary if self.binaryCE else utils.loss_fn_kd
+                    distilL_r[replay_id] = kd_fn(scores=y_hat[:, :n_classes_to_consider],
+                                                 target_scores=scores_[replay_id], T=self.KD_temp)
                 # Weigh losses
                 if self.replay_targets == "hard":
-                    loss_replay[0] = predL_r[0]
+                    loss_replay[replay_id] = predL_r[replay_id]
                 elif self.replay_targets == "soft":
-                    loss_replay[0] = distilL_r[0]
+                    loss_replay[replay_id] = distilL_r[replay_id]
 
                 # If needed, perform backward pass before next task-mask (gradients of all tasks will be accumulated)
                 if gradient_per_task:
                     weight = 1 if self.AGEM else (1 - rnt)
-                    weighted_replay_loss_this_task = weight * loss_replay[0] / n_replays
+                    weighted_replay_loss_this_task = weight * loss_replay[replay_id] / n_replays
                     weighted_replay_loss_this_task.backward()
 
-                loss_replay = sum(loss_replay) / n_replays
-            else:
-
-                # In the Task-IL scenario, [y_] or [scores_] is a list and [x_] needs to be evaluated on each of them
-                # (in case of 'exact' or 'exemplar' replay, [x_] is also a list!
-                TaskIL = (type(y_) == list) if (y_ is not None) else (type(scores_) == list)
-                if not TaskIL:
-                    y_ = [y_]
-                    scores_ = [scores_]
-                    active_classes = [active_classes] if (active_classes is not None) else None
-                n_replays = len(y_) if (y_ is not None) else len(scores_)
-
-                # Prepare lists to store losses for each replay
-                loss_replay = [None] * n_replays
-                predL_r = [None] * n_replays
-                distilL_r = [None] * n_replays
-
-                # Run model (if [x_] is not a list with separate replay per task and there is no task-specific mask)
-                if (not type(x_) == list) and (self.mask_dict is None):
-                    y_hat_all = self(x_)
-
-                # Loop to evalute predictions on replay according to each previous task
-                for replay_id in range(n_replays):
-
-                    # -if [x_] is a list with separate replay per task, evaluate model on this task's replay
-                    if (type(x_) == list) or (self.mask_dict is not None):
-                        x_temp_ = x_[replay_id] if type(x_) == list else x_
-                        if self.mask_dict is not None:
-                            self.apply_XdGmask(task=replay_id + 1)
-                        y_hat_all = self(x_temp_)
-
-                    # -if needed (e.g., Task-IL or Class-IL scenario), remove predictions for classes not in replayed task
-                    y_hat = y_hat_all if (active_classes is None) else y_hat_all[:, active_classes[replay_id]]
-
-                    # Calculate losses
-                    if (y_ is not None) and (y_[replay_id] is not None):
-                        if self.binaryCE:
-                            binary_targets_ = utils.to_one_hot(y_[replay_id].cpu(), y_hat.size(1)).to(y_[replay_id].device)
-                            predL_r[replay_id] = F.binary_cross_entropy_with_logits(
-                                input=y_hat, target=binary_targets_, reduction='none'
-                            ).sum(dim=1).mean()  # --> sum over classes, then average over batch
-                        else:
-                            predL_r[replay_id] = F.cross_entropy(y_hat, y_[replay_id], reduction='mean')
-                    if (scores_ is not None) and (scores_[replay_id] is not None):
-                        # n_classes_to_consider = scores.size(1) #--> with this version, no zeroes are added to [scores]!
-                        n_classes_to_consider = y_hat.size(1)  # --> zeros will be added to [scores] to make it this size!
-                        kd_fn = utils.loss_fn_kd_binary if self.binaryCE else utils.loss_fn_kd
-                        distilL_r[replay_id] = kd_fn(scores=y_hat[:, :n_classes_to_consider],
-                                                     target_scores=scores_[replay_id], T=self.KD_temp)
-                    # Weigh losses
-                    if self.replay_targets == "hard":
-                        loss_replay[replay_id] = predL_r[replay_id]
-                    elif self.replay_targets == "soft":
-                        loss_replay[replay_id] = distilL_r[replay_id]
-
-                    # If needed, perform backward pass before next task-mask (gradients of all tasks will be accumulated)
-                    if gradient_per_task:
-                        weight = 1 if self.AGEM else (1 - rnt)
-                        weighted_replay_loss_this_task = weight * loss_replay[replay_id] / n_replays
-                        weighted_replay_loss_this_task.backward()
-
-                # Calculate total replay loss
-                loss_replay = None if (x_ is None) else sum(loss_replay) / n_replays
+            # Calculate total replay loss
+            loss_replay = None if (x_ is None) else sum(loss_replay) / n_replays
 
         # If using A-GEM, calculate and store averaged gradient of replayed data
         if self.AGEM and x_ is not None:
@@ -242,9 +189,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 predL, selected_data = loss_fn(x, y_hat, y)
                 if replay_mode == 'online':
                     for k in selected_data.keys():
-                        if active_classes is not None and type(active_classes[0]) == list: # Task-IL scenario
+                        if scenario == 'task':  # Task-IL scenario
                             self.add_instances_to_online_exemplar_sets(selected_data[k][0], selected_data[k][1],
-                                                                       k + len(selected_data.keys()) * (task -1))
+                                                                       k + len(selected_data.keys()) * (task - 1))
                         else:
                             self.add_instances_to_online_exemplar_sets(selected_data[k][0], selected_data[k][1], k)
 
@@ -298,7 +245,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         else:
                             # C3: Select a triplet instances in which the anchor has min loss value and
                             # a hard positive instance as well as a hard negative instance
-                            for m in range(len(np.ravel(active_classes))):
+                            uq = torch.unique(y).cpu().numpy()
+                            for m in uq:
                                 mask = y == m
                                 mask_neg = y != m
                                 ce_m = y_score[mask]
@@ -326,12 +274,18 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                                                         negative_batch.view(negative_batch.size(0), -1))
                                     hard_negative_idx = torch.argmin(negative_dist)
                                     hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
-                                    hard_negative_y = y[mask_neg][hard_negative_idx]
+                                    hard_negative_y = y[mask_neg][hard_negative_idx].unsqueeze(dim=0)
 
-                                    selected_x = torch.cat((anchor_x, hard_positive_x, hard_negative_x), dim=0)
-                                    selected_y = torch.from_numpy(np.array([m, m, hard_negative_y.item()]))
-
-                                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
+                                    x_m = torch.cat((anchor_x, hard_positive_x), dim=0)
+                                    y_m = torch.tensor([m, m])
+                                    if scenario == 'task':
+                                        self.add_instances_to_online_exemplar_sets(x_m, y_m, m + len(uq) * (task-1))
+                                        self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
+                                                                                   hard_negative_y.item() + len(uq) * (task-1))
+                                    else:
+                                        self.add_instances_to_online_exemplar_sets(x_m, y_m, m)
+                                        self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
+                                                                                   hard_negative_y.item())
 
             # Weigh losses
             loss_cur = predL
