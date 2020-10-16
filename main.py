@@ -642,7 +642,7 @@ def run(args, verbose=False):
         figure_list = []  #-> create list to store all figures to be plotted
 
         # -generate all figures (and store them in [figure_list])
-        key = "acc per task ({} task)".format("all classes up to trained" if scenario=='class' else "only classes in")
+        key = "acc per task"
         plot_list = []
         for i in range(args.tasks):
             plot_list.append(metrics_dict[key]["task {}".format(i + 1)])
