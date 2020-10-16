@@ -170,7 +170,7 @@ class AutoEncoder(Replayer):
         OUTPUT: - [reconL]      <1D-tensor> of length [batch_size]'''
 
         batch_size = x.size(0)
-        reconL = F.binary_cross_entropy(input=x_recon.view(batch_size, -1), target=x.view(batch_size, -1),
+        reconL = F.binary_cross_entropy(input=x_recon.view(batch_size, -1), target=x.view(batch_size, -1).detach(),
                                         reduction='none')
         reconL = torch.mean(reconL, dim=1) if average else torch.sum(reconL, dim=1)
 
