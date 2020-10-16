@@ -149,8 +149,10 @@ class OTFL(nn.Module):
                 x_m = torch.cat((anchor, hard_positive_x), dim=0)
                 y_m = torch.tensor([m, m]).to(self.device)
 
-                triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
-                                   - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
+                # triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
+                #                    - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
+
+                triplet_fg_loss += torch.dot(grad_a.view(-1), grad_p.view(-1)) - torch.dot(grad_a.view(-1), grad_n.view(-1))
 
                 if m not in selected_data:
                     selected_data[m] = [x_m, y_m]
