@@ -147,7 +147,7 @@ class OTFL(nn.Module):
                 grad_n = grad_x[mask_neg][hard_negative_idx]
 
                 x_m = torch.cat((anchor, hard_positive_x), dim=0)
-                y_m = torch.tensor([m, m])
+                y_m = torch.tensor([m, m]).to(self.device)
 
                 triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
                                    - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)

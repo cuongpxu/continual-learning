@@ -212,19 +212,23 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     # -multiclass prediction loss
                     y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
                     predL = None if y is None else y_score.mean()
-
+                    uq = torch.unique(y).cpu().numpy()
                     # Select instances in the batch for replay later
                     if replay_mode == 'online':
                         if online_replay_mode == 'c1':
                             # C1: Select instances which is corrected classify
-                            for m in range(len(np.ravel(active_classes))):
+                            for m in uq:
                                 selected_index = (y == y_hat.max(1)[1]) & (y == m)
                                 selected_x = x[selected_index]
                                 selected_y = y[selected_index]
-                                self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
+                                if scenario == 'task':
+                                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y,
+                                                                               m + len(uq) * (task - 1))
+                                else:
+                                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
                         elif online_replay_mode == 'c2':
                             # C2: Select instances which have min loss value for each class
-                            for m in range(len(np.ravel(active_classes))):
+                            for m in uq:
                                 mask = y == m
                                 ce_m = y_score[mask]
                                 if ce_m.size(0) != 0:
@@ -240,12 +244,13 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                     else:
                                         selected_x = torch.cat((x[min_idx], x[max_idx]), dim=0)
                                         selected_y = torch.cat((y[min_idx], y[max_idx]), dim=0)
-
-                                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
+                                    if scenario == 'task':
+                                        self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m + len(uq) * (task-1))
+                                    else:
+                                        self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
                         else:
                             # C3: Select a triplet instances in which the anchor has min loss value and
                             # a hard positive instance as well as a hard negative instance
-                            uq = torch.unique(y).cpu().numpy()
                             for m in uq:
                                 mask = y == m
                                 mask_neg = y != m
