@@ -255,7 +255,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                 mask = y == m
                                 mask_neg = y != m
                                 ce_m = y_score[mask]
-                                print('Class size: {}'.format(ce_m.size(0)))
                                 if ce_m.size(0) != 0:
                                     # Select anchor and hard positive instances for class m
                                     positive_batch = x[mask]
@@ -264,35 +263,41 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                     # anchor should not equal positive
                                     positive_batch = torch.cat(
                                         (positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
-                                    print('Positive batch size: {}'.format(positive_batch.size(0)))
-                                    anchor_batch = anchor_x.expand(
-                                        positive_batch.size())  # Broad-cast grad_min batch-wise
-                                    positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                                        positive_batch.view(positive_batch.size(0), -1))
-                                    hard_positive_idx = torch.argmax(positive_dist)
-                                    hard_positive_x = positive_batch[hard_positive_idx].unsqueeze(dim=0)
+                                    if positive_batch.size(0) != 0:
+                                        anchor_batch = anchor_x.expand(
+                                            positive_batch.size())  # Broad-cast grad_min batch-wise
+                                        positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                                            positive_batch.view(positive_batch.size(0), -1))
+                                        hard_positive_idx = torch.argmax(positive_dist)
+                                        hard_positive_x = positive_batch[hard_positive_idx].unsqueeze(dim=0)
+                                        x_m = torch.cat((anchor_x, hard_positive_x), dim=0)
+                                        y_m = torch.tensor([m, m])
+                                    else:
+                                        x_m = anchor_x
+                                        y_m = torch.tensor([m])
+
+                                    if scenario == 'task':
+                                        self.add_instances_to_online_exemplar_sets(x_m, y_m, m + len(uq) * (task - 1))
+                                    else:
+                                        self.add_instances_to_online_exemplar_sets(x_m, y_m, m)
 
                                     # Select hard negative instances
                                     negative_batch = x[mask_neg]
-                                    print('Negative batch size: {}'.format(positive_batch.size(0)))
-                                    anchor_batch = anchor_x.expand(
-                                        negative_batch.size())  # Broad-cast grad_min batch-wise
-                                    negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                                        negative_batch.view(negative_batch.size(0), -1))
-                                    hard_negative_idx = torch.argmin(negative_dist)
-                                    hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
-                                    hard_negative_y = y[mask_neg][hard_negative_idx].unsqueeze(dim=0)
+                                    if negative_batch.size(0) != 0:
+                                        anchor_batch = anchor_x.expand(
+                                            negative_batch.size())  # Broad-cast grad_min batch-wise
+                                        negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                                            negative_batch.view(negative_batch.size(0), -1))
+                                        hard_negative_idx = torch.argmin(negative_dist)
+                                        hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
+                                        hard_negative_y = y[mask_neg][hard_negative_idx].unsqueeze(dim=0)
 
-                                    x_m = torch.cat((anchor_x, hard_positive_x), dim=0)
-                                    y_m = torch.tensor([m, m])
-                                    if scenario == 'task':
-                                        self.add_instances_to_online_exemplar_sets(x_m, y_m, m + len(uq) * (task-1))
-                                        self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
-                                                                                   hard_negative_y.item() + len(uq) * (task-1))
-                                    else:
-                                        self.add_instances_to_online_exemplar_sets(x_m, y_m, m)
-                                        self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
-                                                                                   hard_negative_y.item())
+                                        if scenario == 'task':
+                                            self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
+                                                                                       hard_negative_y.item() + len(uq) * (task-1))
+                                        else:
+                                            self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
+                                                                                       hard_negative_y.item())
 
             # Weigh losses
             loss_cur = predL
