@@ -459,7 +459,7 @@ def run(args, verbose=False):
         generator=generator, gen_iters=args.g_iters, gen_loss_cbs=generator_loss_cbs,
         sample_cbs=sample_cbs, eval_cbs=eval_cbs, loss_cbs=generator_loss_cbs if args.feedback else solver_loss_cbs,
         metric_cbs=metric_cbs, use_exemplars=args.use_exemplars, add_exemplars=args.add_exemplars,
-        loss_fn=loss_fn, online_replay_mode=args.online_replay_mode
+        loss_fn=loss_fn, online_replay_mode=args.online_replay_mode, experiment=args.experiment
     )
     # Get total training-time in seconds, and write to file
     if args.time:

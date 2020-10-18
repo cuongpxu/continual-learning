@@ -26,7 +26,8 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         self.herding = True
 
         # Proposed method
-        self.online_exemplar_sets = []  # --> exemplar_set is an <np.array> of N images with shape (N, Ch, H, W) and its corresponding true label
+        self.online_exemplar_sets = {}  # --> exemplar_set is a dictionary contains an <np.array> of N images
+                                        # with shape (N, Ch, H, W) and its corresponding true label
         self.online_exemplar_label_sets = None
         self.online_memory_budget = 1000
         self.online_classes_so_far = []
@@ -44,14 +45,15 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
     ####----MANAGING EXEMPLAR SETS----####
     def get_online_exemplar_size(self):
         total = 0
-        for i in range(len(self.online_exemplar_sets)):
-            total += self.online_exemplar_sets[i][0].shape[0]
+        for m in self.online_classes_so_far:
+            total += self.online_exemplar_sets[m][0].shape[0]
         return total
 
     def check_online_budget(self, n_new):
         return self.get_online_exemplar_size() + n_new < self.online_memory_budget
 
     def check_online_budget_for_each_class(self, n_new, m):
+        # print(m, n_new)
         n_exemplar_of_m = self.online_exemplar_sets[m][0].shape[0]
         class_budget = (self.online_memory_budget // len(self.online_classes_so_far))
         return (n_exemplar_of_m + n_new) < class_budget
@@ -96,7 +98,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
             if not self.check_online_budget(x.size(0)):
                 self.reduce_memory_for_new_classes()
             self.online_classes_so_far.append(m)
-            self.online_exemplar_sets.append([x.cpu().detach().numpy(), y.cpu().detach().numpy()])
+            self.online_exemplar_sets[m] = [x.cpu().detach().numpy(), y.cpu().detach().numpy()]
         else:
             if self.check_online_budget_for_each_class(y.size(0), m):
                 self.online_exemplar_sets[m][0] = np.concatenate(

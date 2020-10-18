@@ -13,7 +13,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
              batch_size=32, generator=None, gen_iters=0,
              gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
              use_exemplars=True, add_exemplars=False, metric_cbs=list(),
-             loss_fn=None, online_replay_mode='c1'):
+             loss_fn=None, online_replay_mode='c1', experiment='splitMNIST'):
     '''Train a model (with a "train_a_batch" method) on multiple tasks, with replay-strategy specified by [replay_mode].
 
     [model]             <nn.Module> main model to optimize across all tasks
@@ -349,17 +349,24 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 previous_datasets = train_datasets[:task]
             elif replay_mode == 'online':
                 if scenario == 'task':
+                    target_transform = [(lambda y, x=classes_per_task * task_id: y + x) if experiment != 'permMNIST' else None
+                                        for task_id in range(task)]
                     previous_datasets = []
                     for task_id in range(task):
-                        previous_datasets.append(
-                            OnlineExemplarDataset(
-                                model.online_exemplar_sets[
-                                (classes_per_task * task_id):(classes_per_task * (task_id + 1))],
-                                target_transform=lambda y, x=classes_per_task * task_id: y + x)
-                        )
+                        classes = np.arange((classes_per_task * task_id), (classes_per_task * (task_id + 1)))
+                        for c in classes:
+                            previous_datasets.append(
+                                OnlineExemplarDataset(
+                                    model.online_exemplar_sets[c],
+                                    target_transform[task_id]
+                                )
+                            )
                 else:
-                    target_transform = (lambda y, x=classes_per_task: y % x) if scenario == "domain" else None
-                    previous_datasets = [OnlineExemplarDataset(model.online_exemplar_sets, target_transform)]
+                    target_transform = (lambda y, x=classes_per_task: y % x) \
+                        if (experiment != 'permMNIST' and scenario == "domain") else None
+                    previous_datasets = []
+                    for c in range(len(model.online_exemplar_sets)):
+                        previous_datasets.append(OnlineExemplarDataset(model.online_exemplar_sets[c], target_transform))
             else:
                 if scenario == "task":
                     previous_datasets = []

@@ -91,9 +91,11 @@ class OnlineExemplarDataset(Dataset):
     '''
     def __init__(self, exemplar_sets, target_transform=None):
         super().__init__()
-        images, labels = zip(*exemplar_sets)
-        self.images = torch.from_numpy(np.concatenate(images, axis=0))
-        self.labels = torch.from_numpy(np.concatenate(labels, axis=0))
+        # images, labels = zip(*exemplar_sets)
+        images, labels = exemplar_sets[0], exemplar_sets[1]
+        # print(images.shape, labels.shape, labels)
+        self.images = torch.from_numpy(images)
+        self.labels = torch.from_numpy(labels)
         self.target_transform = target_transform
 
     def __len__(self):
