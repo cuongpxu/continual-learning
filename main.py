@@ -43,7 +43,9 @@ loss_params.add_argument('--loss', type=str, default='none',
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
 loss_params.add_argument('--bce-distill', action='store_true', help='distilled loss on previous classes for new'
                                                                     ' examples (only if --bce & --scenario="class")')
-loss_params.add_argument('--otfl-alpha', type=float,  default=1.0, help="controlling parameter")
+loss_params.add_argument('--use-cs', action='store_true', help='Using cosine similarity to compute forgetting loss')
+loss_params.add_argument('--otfl-strategy', type=str, default='all', choices=['all', 'hard'])
+loss_params.add_argument('--otfl-alpha', type=float,  default=0.2, help="controlling parameter")
 
 loss_params.add_argument('--fgfl-gamma', type=float,  default=0.25, help="controlling hyperparameter 1")
 loss_params.add_argument('--fgfl-delta', type=float,  default=0.25, help="controlling hyperparameter 2")
@@ -439,7 +441,7 @@ def run(args, verbose=False):
 
     # Define loss function
     if args.loss == 'otfl':
-        loss_fn = OTFL(alpha=args.otfl_alpha, device=device)
+        loss_fn = OTFL(strategy=args.otfl_strategy, use_cs=args.use_cs, alpha=args.otfl_alpha, device=device)
     elif args.loss == 'fgfl':
         loss_fn = FGFL(gamma=args.fgfl_gamma, delta=args.fgfl_delta, device=device, n_classes=config['classes'])
     elif args.loss == 'gbfg':

@@ -98,8 +98,10 @@ class FGFL(nn.Module):
 
 
 class OTFL(nn.Module):
-    def __init__(self, alpha=2.0, device='cpu', reduction='mean'):
+    def __init__(self, strategy='all', use_cs=False, alpha=2.0, device='cpu', reduction='mean'):
         super(OTFL, self).__init__()
+        self.strategy = strategy
+        self.use_cs = use_cs
         self.alpha = alpha
         self.device = device
         self.reduction = reduction
@@ -127,43 +129,64 @@ class OTFL(nn.Module):
                 anchor_idx = torch.argmin(ce_m)
                 anchor = positive_batch[anchor_idx].unsqueeze(dim=0)
                 grad_a = grad_x[mask][anchor_idx]
+
                 # anchor should not equal positive
                 positive_batch = torch.cat((positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
+                if self.strategy == 'all':
+                    grad_p = grad_x[mask]
+                    grad_p = torch.sum(torch.cat((grad_p[:anchor_idx], grad_p[anchor_idx + 1:]), dim=0), dim=0)
+                else:
+                    if positive_batch.size(0) != 0:
+                        anchor_batch = anchor.expand(positive_batch.size())  # Broad-cast grad_min batch-wise
+                        positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                                positive_batch.view(positive_batch.size(0), -1))
+                        hard_positive_idx = torch.argmax(positive_dist)
+                        hard_positive_x = positive_batch[hard_positive_idx].unsqueeze(dim=0)
+                        grad_p = grad_x[mask][hard_positive_idx]
 
-                anchor_batch = anchor.expand(positive_batch.size())  # Broad-cast grad_min batch-wise
-                positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                    positive_batch.view(positive_batch.size(0), -1))
-                hard_positive_idx = torch.argmax(positive_dist)
-                hard_positive_x = positive_batch[hard_positive_idx].unsqueeze(dim=0)
-                grad_p = grad_x[mask][hard_positive_idx]
+                        x_m = torch.cat((anchor, hard_positive_x), dim=0)
+                        y_m = torch.tensor([m, m]).to(self.device)
+
+                        if m not in selected_data:
+                            selected_data[m] = [x_m, y_m]
+                        else:
+                            selected_data[m] = [torch.cat((selected_data[m][0], x_m), dim=0),
+                                                torch.cat((selected_data[m][1], y_m), dim=0)]
+                    else:
+                        grad_p = torch.zeros_like(grad_a).to(self.device)
+
                 # Select hard negative instances
                 negative_batch = x[mask_neg]
-                anchor_batch = anchor.expand(negative_batch.size())  # Broad-cast grad_min batch-wise
-                negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                    negative_batch.view(negative_batch.size(0), -1))
-                hard_negative_idx = torch.argmin(negative_dist)
-                hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
-                hard_negative_y = y[mask_neg][hard_negative_idx].unsqueeze(dim=0)
-                grad_n = grad_x[mask_neg][hard_negative_idx]
-
-                x_m = torch.cat((anchor, hard_positive_x), dim=0)
-                y_m = torch.tensor([m, m]).to(self.device)
-
-                # triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
-                #                    - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
-
-                triplet_fg_loss += torch.dot(grad_a.view(-1), grad_p.view(-1)) - torch.dot(grad_a.view(-1), grad_n.view(-1))
-
-                if m not in selected_data:
-                    selected_data[m] = [x_m, y_m]
+                if self.strategy == 'all':
+                    grad_n = torch.sum(grad_x[mask_neg], dim=0)
                 else:
-                    selected_data[m] = [torch.cat((selected_data[m][0], x_m), dim=0), torch.cat((selected_data[m][1], y_m), dim=0)]
+                    if negative_batch.size(0) != 0:
+                        anchor_batch = anchor.expand(negative_batch.size())  # Broad-cast grad_min batch-wise
+                        negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                            negative_batch.view(negative_batch.size(0), -1))
+                        hard_negative_idx = torch.argmin(negative_dist)
+                        hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
+                        hard_negative_y = y[mask_neg][hard_negative_idx].unsqueeze(dim=0)
+                        grad_n = grad_x[mask_neg][hard_negative_idx]
 
-                if hard_negative_y.item() not in selected_data:
-                    selected_data[hard_negative_y.item()] = [hard_negative_x, hard_negative_y]
+                        if hard_negative_y.item() not in selected_data:
+                            selected_data[hard_negative_y.item()] = [hard_negative_x, hard_negative_y]
+                        else:
+                            selected_data[hard_negative_y.item()] = [
+                                torch.cat((selected_data[hard_negative_y.item()][0], hard_negative_x), dim=0),
+                                torch.cat((selected_data[hard_negative_y.item()][1], hard_negative_y), dim=0)]
+                    else:
+                        grad_n = torch.zeros_like(grad_a).to(self.device)
+
+                if self.use_cs:
+                    triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
+                                   - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
                 else:
-                    selected_data[hard_negative_y.item()] = [torch.cat((selected_data[hard_negative_y.item()][0], hard_negative_x), dim=0),
-                                                             torch.cat((selected_data[hard_negative_y.item()][1], hard_negative_y), dim=0)]
+                    triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                                                 F.normalize(grad_p.view(-1), dim=0)) \
+                                       - torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                                                   F.normalize(grad_n.view(-1), dim=0))
+
         # Compute loss value
         triplet_fg_loss /= len(uq)
         loss = ce_x - self.alpha * triplet_fg_loss
