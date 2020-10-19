@@ -264,8 +264,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                     positive_batch = torch.cat(
                                         (positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
                                     if positive_batch.size(0) != 0:
-                                        anchor_batch = anchor_x.expand(
-                                            positive_batch.size())  # Broad-cast grad_min batch-wise
+                                        anchor_batch = anchor_x.expand(positive_batch.size())
                                         positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
                                                                             positive_batch.view(positive_batch.size(0), -1))
                                         hard_positive_idx = torch.argmax(positive_dist)
@@ -284,8 +283,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                     # Select hard negative instances
                                     negative_batch = x[mask_neg]
                                     if negative_batch.size(0) != 0:
-                                        anchor_batch = anchor_x.expand(
-                                            negative_batch.size())  # Broad-cast grad_min batch-wise
+                                        anchor_batch = anchor_x.expand(negative_batch.size())
                                         negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
                                                                             negative_batch.view(negative_batch.size(0), -1))
                                         hard_negative_idx = torch.argmin(negative_dist)
