@@ -221,7 +221,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                 selected_index = (y == y_hat.max(1)[1]) & (y == m)
                                 selected_x = x[selected_index]
                                 selected_y = y[selected_index]
-                                if scenario == 'task':
+                                if scenario in ['task', 'domain']:
                                     self.add_instances_to_online_exemplar_sets(selected_x, selected_y,
                                                                                m + len(uq) * (task - 1))
                                 else:
@@ -244,7 +244,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                     else:
                                         selected_x = torch.cat((x[min_idx], x[max_idx]), dim=0)
                                         selected_y = torch.cat((y[min_idx], y[max_idx]), dim=0)
-                                    if scenario == 'task':
+                                    if scenario in ['task', 'domain']:
                                         self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m + len(uq) * (task-1))
                                     else:
                                         self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
@@ -276,7 +276,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                         x_m = anchor_x
                                         y_m = torch.tensor([m])
 
-                                    if scenario == 'task':
+                                    if scenario in ['task', 'domain']:
                                         self.add_instances_to_online_exemplar_sets(x_m, y_m, m + len(uq) * (task - 1))
                                     else:
                                         self.add_instances_to_online_exemplar_sets(x_m, y_m, m)
@@ -292,7 +292,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                         hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
                                         hard_negative_y = y[mask_neg][hard_negative_idx].unsqueeze(dim=0)
 
-                                        if scenario == 'task':
+                                        if scenario in ['task', 'domain']:
                                             self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
                                                                                        hard_negative_y.item() + len(uq) * (task-1))
                                         else:

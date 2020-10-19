@@ -348,25 +348,18 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
             if replay_mode == "exact":
                 previous_datasets = train_datasets[:task]
             elif replay_mode == 'online':
-                if scenario == 'task':
-                    target_transform = [(lambda y, x=classes_per_task * task_id: y + x) if experiment != 'permMNIST' else None
-                                        for task_id in range(task)]
+                if scenario in ['task', 'domain']:
                     previous_datasets = []
                     for task_id in range(task):
                         classes = np.arange((classes_per_task * task_id), (classes_per_task * (task_id + 1)))
                         for c in classes:
                             previous_datasets.append(
-                                OnlineExemplarDataset(
-                                    model.online_exemplar_sets[c],
-                                    target_transform[task_id]
-                                )
+                                OnlineExemplarDataset(model.online_exemplar_sets[c])
                             )
                 else:
-                    target_transform = (lambda y, x=classes_per_task: y % x) \
-                        if (experiment != 'permMNIST' and scenario == "domain") else None
                     previous_datasets = []
                     for c in range(len(model.online_exemplar_sets)):
-                        previous_datasets.append(OnlineExemplarDataset(model.online_exemplar_sets[c], target_transform))
+                        previous_datasets.append(OnlineExemplarDataset(model.online_exemplar_sets[c]))
             else:
                 if scenario == "task":
                     previous_datasets = []
