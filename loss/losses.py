@@ -102,10 +102,11 @@ class OTFL(nn.Module):
         super(OTFL, self).__init__()
         self.strategy = strategy
         self.use_cs = use_cs
-        self.alpha = alpha
-        self.margin = 0.15
+
         self.device = device
         self.reduction = reduction
+        self.alpha = nn.Parameter(torch.tensor(alpha).to(self.device), requires_grad=True)
+        self.beta = nn.Parameter(torch.ones(2), requires_grad=True)
 
     def forward(self, x, px, y):
         uq = torch.unique(y).cpu().numpy()
@@ -183,10 +184,14 @@ class OTFL(nn.Module):
                     triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
                                    - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
                 else:
-                    triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                    triplet_fg_loss += self.beta[0] * torch.dot(F.normalize(grad_a.view(-1), dim=0),
                                                  F.normalize(grad_p.view(-1), dim=0)) \
-                                       - torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                                                   F.normalize(grad_n.view(-1), dim=0)) + self.margin
+                                       - self.beta[1] * torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                                                   F.normalize(grad_n.view(-1), dim=0))
+                    # triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                    #                                             F.normalize(grad_p.view(-1), dim=0)) \
+                    #                    - torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                    #                                               F.normalize(grad_n.view(-1), dim=0))
 
         # Compute loss value
         triplet_fg_loss /= len(uq)

@@ -20,7 +20,7 @@ from exemplars import ExemplarHandler
 from replayer import Replayer
 from param_values import set_default_values
 from loss.losses import OTFL, FGFL, FocalLoss, GBFG
-
+from itertools import chain
 
 parser = argparse.ArgumentParser('./main.py', description='Run individual continual learning experiment.')
 parser.add_argument('--get-stamp', action='store_true', help='print param-stamp & exit')
@@ -236,8 +236,23 @@ def run(args, verbose=False):
             binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem, loss=args.loss
         ).to(device)
 
+        # Define loss function
+        if args.loss == 'otfl':
+            loss_fn = OTFL(strategy=args.otfl_strategy, use_cs=args.use_cs, alpha=args.otfl_alpha, device=device)
+        elif args.loss == 'fgfl':
+            loss_fn = FGFL(gamma=args.fgfl_gamma, delta=args.fgfl_delta, device=device, n_classes=config['classes'])
+        elif args.loss == 'gbfg':
+            loss_fn = GBFG(delta=args.gbfg_delta, device=device)
+        elif args.loss == 'focal':
+            loss_fn = FocalLoss(alpha=0.25, gamma=0.25)
+        elif args.loss == 'ce':
+            loss_fn = torch.nn.CrossEntropyLoss()
+        else:
+            loss_fn = None
+
     # Define optimizer (only include parameters that "requires_grad")
-    model.optim_list = [{'params': filter(lambda p: p.requires_grad, model.parameters()), 'lr': args.lr}]
+    # model.optim_list = [{'params': filter(lambda p: p.requires_grad, model.parameters()), 'lr': args.lr}]
+    model.optim_list = [{'params': chain(model.parameters(), loss_fn.parameters()), 'lr': args.lr}]
     model.optim_type = args.optimizer
     if model.optim_type in ("adam", "adam_reset"):
         model.optimizer = optim.Adam(model.optim_list, betas=(0.9, 0.999))
@@ -439,19 +454,6 @@ def run(args, verbose=False):
     if verbose:
         print("\nTraining...")
 
-    # Define loss function
-    if args.loss == 'otfl':
-        loss_fn = OTFL(strategy=args.otfl_strategy, use_cs=args.use_cs, alpha=args.otfl_alpha, device=device)
-    elif args.loss == 'fgfl':
-        loss_fn = FGFL(gamma=args.fgfl_gamma, delta=args.fgfl_delta, device=device, n_classes=config['classes'])
-    elif args.loss == 'gbfg':
-        loss_fn = GBFG(delta=args.gbfg_delta, device=device)
-    elif args.loss == 'focal':
-        loss_fn = FocalLoss(alpha=0.25, gamma=0.25)
-    elif args.loss == 'ce':
-        loss_fn = torch.nn.CrossEntropyLoss()
-    else:
-        loss_fn = None
     # Keep track of training-time
     start = time.time()
     # Train model
