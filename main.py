@@ -251,8 +251,10 @@ def run(args, verbose=False):
             loss_fn = None
 
     # Define optimizer (only include parameters that "requires_grad")
-    # model.optim_list = [{'params': filter(lambda p: p.requires_grad, model.parameters()), 'lr': args.lr}]
-    model.optim_list = [{'params': chain(model.parameters(), loss_fn.parameters()), 'lr': args.lr}]
+    if args.loss == 'otfl':
+        model.optim_list = [{'params': chain(model.parameters(), loss_fn.parameters()), 'lr': args.lr}]
+    else:
+        model.optim_list = [{'params': filter(lambda p: p.requires_grad, model.parameters()), 'lr': args.lr}]
     model.optim_type = args.optimizer
     if model.optim_type in ("adam", "adam_reset"):
         model.optimizer = optim.Adam(model.optim_list, betas=(0.9, 0.999))
