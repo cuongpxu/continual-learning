@@ -103,6 +103,7 @@ class OTFL(nn.Module):
         self.strategy = strategy
         self.use_cs = use_cs
         self.alpha = alpha
+        self.margin = 0.15
         self.device = device
         self.reduction = reduction
 
@@ -185,7 +186,7 @@ class OTFL(nn.Module):
                     triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
                                                  F.normalize(grad_p.view(-1), dim=0)) \
                                        - torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                                                   F.normalize(grad_n.view(-1), dim=0))
+                                                   F.normalize(grad_n.view(-1), dim=0)) + self.margin
 
         # Compute loss value
         triplet_fg_loss /= len(uq)
