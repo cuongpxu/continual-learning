@@ -189,7 +189,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 predL, selected_data = loss_fn(x, y_hat, y)
                 if replay_mode == 'online':
                     for k in selected_data.keys():
-                        if scenario == 'task':  # Task-IL scenario
+                        if scenario in ['task', 'domain']:  # Task-IL scenario
                             self.add_instances_to_online_exemplar_sets(selected_data[k][0], selected_data[k][1],
                                                                        k + len(selected_data.keys()) * (task - 1))
                         else:

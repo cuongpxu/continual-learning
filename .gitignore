@@ -4,5 +4,6 @@ __pycache__/
 datasets/
 plots/
 results/
+final_result/
 
 *.sh
