@@ -26,7 +26,7 @@ class FocalLoss(nn.Module):
 
 
 class GBFG(nn.Module):
-    def __init__(self, delta=1,  device='cpu', reduction='mean'):
+    def __init__(self, delta=1, device='cpu', reduction='mean'):
         super(GBFG, self).__init__()
         self.delta = delta
         self.reduction = reduction
@@ -80,7 +80,7 @@ class FGFL(nn.Module):
         )[0]
         min_idx = torch.argmin(ce_loss)
         pt = torch.exp(-ce_loss)
-        arrive_rate = (self.c[targets]/torch.sum(self.c))
+        arrive_rate = (self.c[targets] / torch.sum(self.c))
         focal_loss = arrive_rate * (1 - arrive_rate * pt) ** self.gamma * ce_loss
 
         grad_min = grad[min_idx.item()].view(-1, 1).unsqueeze(dim=0)
@@ -105,9 +105,9 @@ class OTFL(nn.Module):
 
         self.device = device
         self.reduction = reduction
-        # self.alpha = nn.Parameter(torch.tensor(alpha).to(self.device), requires_grad=True)
-        self.alpha = alpha
-        self.beta = nn.Parameter(torch.ones(2).to(self.device), requires_grad=True)
+        self.alpha = nn.Parameter(torch.tensor(alpha).to(self.device), requires_grad=True)
+        # self.alpha = alpha
+        self.beta = nn.Parameter(torch.tensor(1.0).to(self.device), requires_grad=True)
 
     def forward(self, x, px, y):
         uq = torch.unique(y).cpu().numpy()
@@ -135,14 +135,15 @@ class OTFL(nn.Module):
 
                 # anchor should not equal positive
                 positive_batch = torch.cat((positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
-                if self.strategy == 'all':
-                    grad_p = grad_x[mask]
-                    grad_p = torch.sum(torch.cat((grad_p[:anchor_idx], grad_p[anchor_idx + 1:]), dim=0), dim=0)
-                else:
-                    if positive_batch.size(0) != 0:
+
+                if positive_batch.size(0) != 0:
+                    if self.strategy == 'all':
+                        grad_p = grad_x[mask]
+                        grad_p = torch.sum(torch.cat((grad_p[:anchor_idx], grad_p[anchor_idx + 1:]), dim=0), dim=0)
+                    else:
                         anchor_batch = anchor.expand(positive_batch.size())  # Broad-cast grad_min batch-wise
                         positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                                positive_batch.view(positive_batch.size(0), -1))
+                                                            positive_batch.view(positive_batch.size(0), -1))
                         hard_positive_idx = torch.argmax(positive_dist)
                         hard_positive_x = positive_batch[hard_positive_idx].unsqueeze(dim=0)
                         grad_p = grad_x[mask][hard_positive_idx]
@@ -155,15 +156,16 @@ class OTFL(nn.Module):
                         else:
                             selected_data[m] = [torch.cat((selected_data[m][0], x_m), dim=0),
                                                 torch.cat((selected_data[m][1], y_m), dim=0)]
-                    else:
-                        grad_p = torch.zeros_like(grad_a).to(self.device)
+                else:
+                    grad_p = torch.zeros_like(grad_a).to(self.device)
 
                 # Select hard negative instances
                 negative_batch = x[mask_neg]
-                if self.strategy == 'all':
-                    grad_n = torch.sum(grad_x[mask_neg], dim=0)
-                else:
-                    if negative_batch.size(0) != 0:
+
+                if negative_batch.size(0) != 0:
+                    if self.strategy == 'all':
+                        grad_n = torch.sum(grad_x[mask_neg], dim=0)
+                    else:
                         anchor_batch = anchor.expand(negative_batch.size())  # Broad-cast grad_min batch-wise
                         negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
                                                             negative_batch.view(negative_batch.size(0), -1))
@@ -178,22 +180,27 @@ class OTFL(nn.Module):
                             selected_data[hard_negative_y.item()] = [
                                 torch.cat((selected_data[hard_negative_y.item()][0], hard_negative_x), dim=0),
                                 torch.cat((selected_data[hard_negative_y.item()][1], hard_negative_y), dim=0)]
-                    else:
-                        grad_n = torch.zeros_like(grad_a).to(self.device)
+                else:
+                    grad_n = torch.zeros_like(grad_a).to(self.device)
 
                 if self.use_cs:
                     triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
-                                   - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
+                                       - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
                 else:
-                    triplet_fg_loss += self.beta[0] * torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                    triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
                                                  F.normalize(grad_p.view(-1), dim=0)) \
-                                       - self.beta[1] * torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                                       - self.beta * torch.dot(F.normalize(grad_a.view(-1), dim=0),
                                                    F.normalize(grad_n.view(-1), dim=0))
+
                     # triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
                     #                                             F.normalize(grad_p.view(-1), dim=0)) \
                     #                    - torch.dot(F.normalize(grad_a.view(-1), dim=0),
                     #                                               F.normalize(grad_n.view(-1), dim=0))
 
+                    # triplet_fg_loss += torch.sum(1 - torch.sigmoid(torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                    #                                                      F.normalize(grad_p.view(-1), dim=0)) \
+                    #                                            - torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                    #                                                        F.normalize(grad_n.view(-1), dim=0))))
         # Compute loss value
         triplet_fg_loss /= len(uq)
         loss = ce_x - self.alpha * triplet_fg_loss
@@ -204,4 +211,3 @@ class OTFL(nn.Module):
             return torch.sum(loss), selected_data
         else:
             return loss, selected_data
-
