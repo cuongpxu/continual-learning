@@ -126,7 +126,7 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
         if hasattr(args, 'bce') and args.bce:
             binLoss_stamp = '--BCE_dist' if (args.bce_distill and args.scenario=="class") else '--BCE'
     elif args.loss == 'otfl':
-        binLoss_stamp = '--OTFL-{}-{}-a{}'.format(args.otfl_strategy, args.use_cs, args.otfl_alpha)
+        binLoss_stamp = '--OTFL-{}-{}-a{}-b{}'.format(args.otfl_strategy, args.use_cs, args.otfl_alpha, args.otfl_beta)
     elif args.loss == 'fgfl':
         binLoss_stamp = '--FGFL-g{}-d{}'.format(args.fgfl_gamma, args.fgfl_delta)
     elif args.loss == 'gbfg':

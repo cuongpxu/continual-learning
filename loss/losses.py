@@ -98,16 +98,18 @@ class FGFL(nn.Module):
 
 
 class OTFL(nn.Module):
-    def __init__(self, strategy='all', use_cs=False, alpha=2.0, device='cpu', reduction='mean'):
+    def __init__(self, strategy='all', use_cs=False, alpha=2.0, beta=2.0, device='cpu', reduction='mean'):
         super(OTFL, self).__init__()
         self.strategy = strategy
         self.use_cs = use_cs
 
         self.device = device
         self.reduction = reduction
-        self.alpha = nn.Parameter(torch.tensor(alpha).to(self.device), requires_grad=True)
-        # self.alpha = alpha
-        self.beta = nn.Parameter(torch.tensor(1.0).to(self.device), requires_grad=True)
+        # self.alpha = nn.Parameter(torch.tensor(alpha).to(self.device), requires_grad=True)
+        # self.beta = nn.Parameter(torch.tensor(5.0).to(self.device), requires_grad=True)
+
+        self.alpha = alpha
+        self.beta = beta
 
     def forward(self, x, px, y):
         uq = torch.unique(y).cpu().numpy()
@@ -187,15 +189,18 @@ class OTFL(nn.Module):
                     triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
                                        - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
                 else:
-                    triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                                                 F.normalize(grad_p.view(-1), dim=0)) \
-                                       - self.beta * torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                                                   F.normalize(grad_n.view(-1), dim=0))
+                    # triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                    #                              F.normalize(grad_p.view(-1), dim=0)) \
+                    #                    - self.beta * torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                    #                                F.normalize(grad_n.view(-1), dim=0))
 
                     # triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                    #                                             F.normalize(grad_p.view(-1), dim=0)) \
-                    #                    - torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                    #                                               F.normalize(grad_n.view(-1), dim=0))
+                    #                              F.normalize(grad_p.view(-1), dim=0) - self.beta * F.normalize(grad_n.view(-1), dim=0))
+
+                    triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                                                                F.normalize(grad_p.view(-1), dim=0)) \
+                                       - self.beta * torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                                                                  F.normalize(grad_n.view(-1), dim=0))
 
                     # triplet_fg_loss += torch.sum(1 - torch.sigmoid(torch.dot(F.normalize(grad_a.view(-1), dim=0),
                     #                                                      F.normalize(grad_p.view(-1), dim=0)) \
