@@ -1,13 +1,15 @@
 import numpy as np
 import pickle
 import torch
+import copy
+import data
+import os, errno
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torch.nn import functional as F
 from torchvision import transforms
-import copy
-import data
+
 from encoder import Classifier
 from vae_models import AutoEncoder
 
@@ -248,3 +250,12 @@ class Flatten(nn.Module):
 
 
 ##-------------------------------------------------------------------------------------------------------------------##
+
+def make_dirs(dir):
+    try:
+        os.makedirs(dir, exist_ok=True)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(dir):
+            pass
+        else:
+            raise

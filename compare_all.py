@@ -24,10 +24,26 @@ task_params.add_argument('--experiment', type=str, default='splitMNIST', choices
 task_params.add_argument('--scenario', type=str, default='task', choices=['task', 'domain', 'class'])
 task_params.add_argument('--tasks', type=int, help='number of tasks')
 
+task_params.add_argument('--augment', action='store_true',
+                                 help="augment training data (random crop & horizontal flip) (only for CIFAR)")
+task_params.add_argument('--normalize', action='store_true',
+                                 help="normalize images (only for CIFAR)")
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
+loss_params.add_argument('--loss', type=str, default='none',
+                         choices=['otfl', 'fgfl', 'focal', 'ce', 'gbfg', 'none'])
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
+loss_params.add_argument('--bce-distill', action='store_true', help='distilled loss on previous classes for new'
+                                                                    ' examples (only if --bce & --scenario="class")')
+loss_params.add_argument('--use-cs', action='store_true', help='Using cosine similarity to compute forgetting loss')
+loss_params.add_argument('--otfl-strategy', type=str, default='all', choices=['all', 'hard'])
+loss_params.add_argument('--otfl-alpha', type=float,  default=0.2, help="controlling parameter")
+loss_params.add_argument('--otfl-beta', type=float,  default=2.0, help="controlling parameter")
 
+loss_params.add_argument('--fgfl-gamma', type=float,  default=0.25, help="controlling hyperparameter 1")
+loss_params.add_argument('--fgfl-delta', type=float,  default=0.25, help="controlling hyperparameter 2")
+
+loss_params.add_argument('--gbfg-delta', type=float, default=1.0, help='controlling hyperparameter')
 # model architecture parameters
 model_params = parser.add_argument_group('Parameters Main Model')
 model_params.add_argument('--fc-layers', type=int, default=3, dest='fc_lay', help="# of fully-connected layers")
@@ -76,6 +92,9 @@ icarl_params.add_argument('--herding', action='store_true', help="use herding to
 icarl_params.add_argument('--use-exemplars', action='store_true', help="use stored exemplars for classification?")
 icarl_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
 
+store_params = parser.add_argument_group('Data Storage Parameters')
+store_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
+store_params.add_argument('--online-replay-mode', type=str, default='c3', choices=['c1', 'c2', 'c3'], help="how sample be selected?")
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
 eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
@@ -120,7 +139,6 @@ def collect_all(method_dict, seed_list, args, name=None):
     return method_dict
 
 
-
 if __name__ == '__main__':
 
     ## Load input-arguments
@@ -132,12 +150,17 @@ if __name__ == '__main__':
     args.g_iters = args.iters if args.g_iters is None else args.g_iters
     args.g_fc_lay = args.fc_lay if args.g_fc_lay is None else args.g_fc_lay
     args.g_fc_uni = args.fc_units if args.g_fc_uni is None else args.g_fc_uni
+
+    # if not os.path.isdir(args.r_dir):
+    #     os.mkdir(args.r_dir)
+    #
+    # if not os.path.isdir(args.p_dir):
+    #     os.mkdir(args.p_dir)
+
     # -create results-directory if needed
-    if not os.path.isdir(args.r_dir):
-        os.mkdir(args.r_dir)
+    utils.make_dirs(args.r_dir)
     # -create plots-directory if needed
-    if not os.path.isdir(args.p_dir):
-        os.mkdir(args.p_dir)
+    utils.make_dirs(args.p_dir)
 
     ## Add non-optional input argument that will be the same for all runs
     args.metrics = True
