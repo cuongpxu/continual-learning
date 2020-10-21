@@ -105,11 +105,11 @@ class OTFL(nn.Module):
 
         self.device = device
         self.reduction = reduction
-        # self.alpha = nn.Parameter(torch.tensor(alpha).to(self.device), requires_grad=True)
-        # self.beta = nn.Parameter(torch.tensor(5.0).to(self.device), requires_grad=True)
+        self.alpha = nn.Parameter(torch.tensor(alpha).to(self.device), requires_grad=True)
+        self.beta = nn.Parameter(torch.tensor(5.0).to(self.device), requires_grad=True)
 
-        self.alpha = alpha
-        self.beta = beta
+        # self.alpha = alpha
+        # self.beta = beta
 
     def forward(self, x, px, y):
         uq = torch.unique(y).cpu().numpy()
