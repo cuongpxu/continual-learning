@@ -77,6 +77,18 @@ def loss_fn_kd_binary(scores, target_scores, T=2.):
 
 ##-------------------------------------------------------------------------------------------------------------------##
 
+##-------------------------------------------------------------------------------------------------------------------##
+
+######################
+## Random utilities ##
+######################
+
+def checkattr(args, attr):
+    '''Check whether attribute exists, whether it's a boolean and whether its value is True.'''
+    return hasattr(args, attr) and type(getattr(args, attr))==bool and getattr(args, attr)
+
+
+##-------------------------------------------------------------------------------------------------------------------##
 
 #############################
 ## Data-handling functions ##

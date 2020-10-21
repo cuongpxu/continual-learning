@@ -1,7 +1,10 @@
 
 def set_default_values(args, also_hyper_params=True):
     # -set default-values for certain arguments based on chosen scenario & experiment
-    args.tasks= (5 if args.experiment=='splitMNIST' else 10) if args.tasks is None else args.tasks
+    args.normalize = args.normalize if args.experiment in ('CIFAR10', 'CIFAR100') else False
+    args.augment = args.augment if args.experiment in ('CIFAR10', 'CIFAR100') else False
+
+    args.tasks= (5 if args.experiment in ['splitMNIST', 'CIFAR10'] else 10) if args.tasks is None else args.tasks
     args.iters = (2000 if args.experiment=='splitMNIST' else 5000) if args.iters is None else args.iters
     args.lr = (0.001 if args.experiment=='splitMNIST' else 0.0001) if args.lr is None else args.lr
     args.fc_units = (400 if args.experiment=='splitMNIST' else 1000) if args.fc_units is None else args.fc_units

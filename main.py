@@ -32,10 +32,13 @@ parser.add_argument('--results-dir', type=str, default='./results', dest='r_dir'
 
 # expirimental task parameters
 task_params = parser.add_argument_group('Task Parameters')
-task_params.add_argument('--experiment', type=str, default='splitMNIST', choices=['permMNIST', 'splitMNIST'])
+task_params.add_argument('--experiment', type=str, default='splitMNIST', choices=['rotMNIST', 'permMNIST', 'splitMNIST', 'CIFAR10', 'CIFAR100'])
 task_params.add_argument('--scenario', type=str, default='class', choices=['task', 'domain', 'class'])
 task_params.add_argument('--tasks', type=int, help='number of tasks')
-
+task_params.add_argument('--augment', action='store_true',
+                                 help="augment training data (random crop & horizontal flip) (only for CIFAR)")
+task_params.add_argument('--normalize', action='store_true',
+                                 help="normalize images (only for CIFAR)")
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
 loss_params.add_argument('--loss', type=str, default='none',
@@ -211,9 +214,10 @@ def run(args, verbose=False):
         print("\nPreparing the data...")
     (train_datasets, test_datasets), config, classes_per_task = get_multitask_experiment(
         name=args.experiment, scenario=scenario, tasks=args.tasks, data_dir=args.d_dir,
-        verbose=verbose, exception=True if args.seed==0 else False,
+        normalize=True if utils.checkattr(args, "normalize") else False,
+        augment=True if utils.checkattr(args, "augment") else False,
+        verbose=verbose, exception=True if args.seed < 10 else False
     )
-
 
     #-------------------------------------------------------------------------------------------------#
 

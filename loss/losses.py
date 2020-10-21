@@ -189,23 +189,10 @@ class OTFL(nn.Module):
                     triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
                                        - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
                 else:
-                    # triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                    #                              F.normalize(grad_p.view(-1), dim=0)) \
-                    #                    - self.beta * torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                    #                                F.normalize(grad_n.view(-1), dim=0))
-
-                    # triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                    #                              F.normalize(grad_p.view(-1), dim=0) - self.beta * F.normalize(grad_n.view(-1), dim=0))
-
                     triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
                                                                 F.normalize(grad_p.view(-1), dim=0)) \
                                        - self.beta * torch.dot(F.normalize(grad_a.view(-1), dim=0),
                                                                   F.normalize(grad_n.view(-1), dim=0))
-
-                    # triplet_fg_loss += torch.sum(1 - torch.sigmoid(torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                    #                                                      F.normalize(grad_p.view(-1), dim=0)) \
-                    #                                            - torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                    #                                                        F.normalize(grad_n.view(-1), dim=0))))
         # Compute loss value
         triplet_fg_loss /= len(uq)
         loss = ce_x - self.alpha * triplet_fg_loss

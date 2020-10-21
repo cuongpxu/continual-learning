@@ -1,8 +1,39 @@
 import copy
 import numpy as np
 from torchvision import datasets, transforms
+import torchvision.transforms.functional as F
 from torch.utils.data import ConcatDataset, Dataset
 import torch
+import matplotlib.pyplot as plt
+
+
+class UnNormalize(object):
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, tensor):
+        """Denormalize image, either single image (C,H,W) or image batch (N,C,H,W)"""
+        batch = (len(tensor.size())==4)
+        for t, m, s in zip(tensor.permute(1,0,2,3) if batch else tensor, self.mean, self.std):
+            t.mul_(s).add_(m)
+            # The normalize code -> t.sub_(m).div_(s)
+        return tensor
+
+
+def _rotate_image(image, rotation):
+    '''Rotating the pixels of an image according to [rotation].
+
+        [image]         3D-tensor containing the image
+        [rotation]   <float> rotation angle'''
+    if rotation is None:
+        return image
+    else:
+        # c, h, w = image.size()
+        img = transforms.ToPILImage()(image)
+        rot_image = F.rotate(img, 10)
+        image = transforms.ToTensor()(rot_image)
+        return image
 
 
 def _permutate_image_pixels(image, permutation):
@@ -22,17 +53,20 @@ def _permutate_image_pixels(image, permutation):
 
 
 def get_dataset(name, type='train', download=True, capacity=None, permutation=None, dir='./datasets',
-                verbose=False, target_transform=None):
+                verbose=False, augment=False, normalize=False, target_transform=None):
     '''Create [train|valid|test]-dataset.'''
 
     data_name = 'mnist' if name=='mnist28' else name
     dataset_class = AVAILABLE_DATASETS[data_name]
 
     # specify image-transformations to be applied
-    dataset_transform = transforms.Compose([
-        *AVAILABLE_TRANSFORMS[name],
-        transforms.Lambda(lambda x, p=permutation: _permutate_image_pixels(x, p)),
-    ])
+    transforms_list = [*AVAILABLE_TRANSFORMS['augment']] if augment else []
+    transforms_list += [*AVAILABLE_TRANSFORMS[name]]
+    if normalize:
+        transforms_list += [*AVAILABLE_TRANSFORMS[name + "_norm"]]
+    if permutation is not None:
+        transforms_list.append(transforms.Lambda(lambda x, p=permutation: _permutate_image_pixels(x, p)))
+    dataset_transform = transforms.Compose(transforms_list)
 
     # load data-set
     dataset = dataset_class('{dir}/{name}'.format(dir=dir, name=data_name), train=False if type=='test' else True,
@@ -91,9 +125,7 @@ class OnlineExemplarDataset(Dataset):
     '''
     def __init__(self, exemplar_sets, target_transform=None):
         super().__init__()
-        # images, labels = zip(*exemplar_sets)
         images, labels = exemplar_sets[0], exemplar_sets[1]
-        # print(images.shape, labels.shape, labels)
         self.images = torch.from_numpy(images)
         self.labels = torch.from_numpy(labels)
         self.target_transform = target_transform
@@ -164,6 +196,8 @@ class TransformedDataset(Dataset):
 # specify available data-sets.
 AVAILABLE_DATASETS = {
     'mnist': datasets.MNIST,
+    'cifar10': datasets.CIFAR10,
+    'cifar100': datasets.CIFAR100,
 }
 
 # specify available transforms.
@@ -175,24 +209,50 @@ AVAILABLE_TRANSFORMS = {
     'mnist28': [
         transforms.ToTensor(),
     ],
+    'cifar10': [
+        transforms.ToTensor(),
+    ],
+    'cifar100': [
+        transforms.ToTensor(),
+    ],
+    'cifar10_norm': [
+        transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2470, 0.2435, 0.2616])
+    ],
+    'cifar100_norm': [
+        transforms.Normalize(mean=[0.5071, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761])
+    ],
+    'cifar10_denorm': UnNormalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2470, 0.2435, 0.2616]),
+    'cifar100_denorm': UnNormalize(mean=[0.5071, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761]),
+    'augment_from_tensor': [
+        transforms.ToPILImage(),
+        transforms.RandomCrop(32, padding=4, padding_mode='symmetric'),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+    ],
+    'augment': [
+        transforms.RandomCrop(32, padding=4, padding_mode='symmetric'),
+        transforms.RandomHorizontalFlip(),
+    ]
 }
 
 # specify configurations of available data-sets.
 DATASET_CONFIGS = {
     'mnist': {'size': 32, 'channels': 1, 'classes': 10},
     'mnist28': {'size': 28, 'channels': 1, 'classes': 10},
+    'cifar10': {'size': 32, 'channels': 3, 'classes': 10},
+    'cifar100': {'size': 32, 'channels': 3, 'classes': 100},
 }
 
 
 #----------------------------------------------------------------------------------------------------------#
 
-
-def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", only_config=False, verbose=False,
-                             exception=False):
+def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", normalize=False, augment=False,
+                             only_config=False, verbose=False, exception=False):
     '''Load, organize and return train- and test-dataset for requested experiment.
 
     [exception]:    <bool>; if True, for visualization no permutation is applied to first task (permMNIST) or digits
                             are not shuffled before being distributed over the tasks (splitMNIST)'''
+    ## NOTE: option 'normalize' and 'augment' only implemented for CIFAR-based experiments.
 
     # depending on experiment, get and organize the datasets
     if name == 'permMNIST':
@@ -254,11 +314,115 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", only_
                 ) if scenario=='domain' else None
                 train_datasets.append(SubDataset(mnist_train, labels, target_transform=target_transform))
                 test_datasets.append(SubDataset(mnist_test, labels, target_transform=target_transform))
+    elif name == 'rotMNIST':
+        # configurations
+        config = DATASET_CONFIGS['mnist']
+        classes_per_task = 10
+        max_rot = 180
+        min_rot = 0
+        if not only_config:
+            # prepare dataset
+            train_dataset = get_dataset('mnist', type="train", permutation=None, dir=data_dir,
+                                        target_transform=None, verbose=verbose)
+            test_dataset = get_dataset('mnist', type="test", permutation=None, dir=data_dir,
+                                       target_transform=None, verbose=verbose)
+            # generate rotations
+            if exception:
+                rotations = [None] + np.random.choice(180, tasks - 1, replace=False).tolist()
+            else:
+                rotations = np.random.choice(180, tasks - 1, replace=False).tolist()
+            # prepare datasets per task
+            train_datasets = []
+            test_datasets = []
+            for task_id, rot in enumerate(rotations):
+                target_transform = transforms.Lambda(
+                    lambda y, x=task_id: y + x*classes_per_task
+                ) if scenario in ('task', 'class') else None
+                train_datasets.append(TransformedDataset(
+                    train_dataset, transform=transforms.Lambda(lambda x, p=rot: _rotate_image(x, p)),
+                    target_transform=target_transform
+                ))
+                test_datasets.append(TransformedDataset(
+                    test_dataset, transform=transforms.Lambda(lambda x, p=rot: _rotate_image(x, p)),
+                    target_transform=target_transform
+                ))
+
+    elif name == 'CIFAR10':
+        # check for number of tasks
+        if tasks > 10:
+            raise ValueError("Experiment 'CIFAR10' cannot have more than 10 tasks!")
+        # configurations
+        config = DATASET_CONFIGS['cifar10']
+        classes_per_task = int(np.floor(10 / tasks))
+
+        if not only_config:
+            # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
+            permutation = np.random.permutation(list(range(10)))
+            target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
+            # prepare train and test datasets with all classes
+            cifar10_train = get_dataset('cifar10', type="train", dir=data_dir, normalize=normalize,
+                                             augment=augment, target_transform=target_transform, verbose=verbose)
+            cifar10_test = get_dataset('cifar10', type="test", dir=data_dir, normalize=normalize,
+                                        target_transform=target_transform, verbose=verbose)
+            # generate labels-per-task
+            labels_per_task = [
+                list(np.array(range(classes_per_task)) + classes_per_task * task_id) for task_id in range(tasks)
+            ]
+            # split them up into sub-tasks
+            train_datasets = []
+            test_datasets = []
+            for labels in labels_per_task:
+                target_transform = transforms.Lambda(lambda y, x=labels[0]: y-x) if scenario=='domain' else None
+                train_datasets.append(SubDataset(cifar10_train, labels, target_transform=target_transform))
+                test_datasets.append(SubDataset(cifar10_test, labels, target_transform=target_transform))
+
+    elif name == 'CIFAR100':
+        # check for number of tasks
+        if tasks>100:
+            raise ValueError("Experiment 'CIFAR100' cannot have more than 100 tasks!")
+        # configurations
+        config = DATASET_CONFIGS['cifar100']
+        classes_per_task = int(np.floor(100 / tasks))
+        if not only_config:
+            # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
+            permutation = np.random.permutation(list(range(100)))
+            target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
+            # prepare train and test datasets with all classes
+            cifar100_train = get_dataset('cifar100', type="train", dir=data_dir, normalize=normalize,
+                                             augment=augment, target_transform=target_transform, verbose=verbose)
+            cifar100_test = get_dataset('cifar100', type="test", dir=data_dir, normalize=normalize,
+                                        target_transform=target_transform, verbose=verbose)
+            # generate labels-per-task
+            labels_per_task = [
+                list(np.array(range(classes_per_task)) + classes_per_task * task_id) for task_id in range(tasks)
+            ]
+            # split them up into sub-tasks
+            train_datasets = []
+            test_datasets = []
+            for labels in labels_per_task:
+                target_transform = transforms.Lambda(lambda y, x=labels[0]: y-x) if scenario=='domain' else None
+                train_datasets.append(SubDataset(cifar100_train, labels, target_transform=target_transform))
+                test_datasets.append(SubDataset(cifar100_test, labels, target_transform=target_transform))
     else:
         raise RuntimeError('Given undefined experiment: {}'.format(name))
 
     # If needed, update number of (total) classes in the config-dictionary
     config['classes'] = classes_per_task if scenario=='domain' else classes_per_task*tasks
+    config['normalize'] = normalize if name == 'CIFAR100' else False
+    if config['normalize']:
+        config['denormalize'] = AVAILABLE_TRANSFORMS["cifar100_denorm"]
 
     # Return tuple of train-, validation- and test-dataset, config-dictionary and number of classes per task
     return config if only_config else ((train_datasets, test_datasets), config, classes_per_task)
+
+
+if __name__ == '__main__':
+    image = torch.rand((1, 28, 28))
+    print(image.size())
+    img = transforms.ToPILImage()(image)
+    rot_img = F.rotate(img, 180)
+    plt.imshow(img)
+    plt.show()
+    plt.imshow(rot_img)
+    plt.show()
+    # print(type(img), img.shape)
