@@ -71,7 +71,7 @@ cl_params.add_argument('--gating-prop', type=float, metavar="PROP", help="--> Xd
 
 # iCaRL parameters
 icarl_params = parser.add_argument_group('iCaRL Parameters')
-icarl_params.add_argument('--budget', type=int, default=1000, dest="budget", help="how many exemplars can be stored?")
+icarl_params.add_argument('--budget', type=int, default=2000, dest="budget", help="how many exemplars can be stored?")
 icarl_params.add_argument('--herding', action='store_true', help="use herding to select exemplars (instead of random)")
 icarl_params.add_argument('--use-exemplars', action='store_true', help="use stored exemplars for classification?")
 icarl_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
