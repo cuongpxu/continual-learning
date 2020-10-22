@@ -50,6 +50,9 @@ train_params.add_argument('--optimizer', type=str, choices=['adam', 'adam_reset'
 # "memory replay" parameters
 replay_params = parser.add_argument_group('Replay Parameters')
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
+replay_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
+replay_params.add_argument('--online-replay-mode', type=str, default='c3', choices=['c1', 'c2', 'c3'], help="how sample be selected?")
+
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
