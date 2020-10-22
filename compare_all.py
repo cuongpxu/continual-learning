@@ -469,15 +469,16 @@ if __name__ == '__main__':
     figure_list.append(figure)
 
     # print results to screen
-    print("\n\n"+"#"*60+"\nSUMMARY RESULTS: {}\n".format(title)+"-"*60)
+    result_writer = open('{}/{}_{}_summary.txt'.format(args.p_dir, args.experiment, args.scenario), 'w+')
+    result_writer.write("#"*60+"\nSUMMARY RESULTS: {}\n".format(title)+"-"*60 + "\n")
     for i,name in enumerate(names):
         if len(seed_list) > 1:
-            print("{:19s} {:.2f}  (+/- {:.2f}),  n={}".format(name, 100*means[i], 100*sems[i], len(seed_list)))
+            result_writer.write("{:19s} {:.2f}  (+/- {:.2f}),  n={}\n".format(name, 100*means[i], 100*sems[i], len(seed_list)))
         else:
-            print("{:19s} {:.2f}".format(name, 100*means[i]))
+            result_writer.write("{:19s} {:.2f}\n".format(name, 100*means[i]))
         if i==1:
-            print("-"*60)
-    print("#"*60)
+            result_writer.write("-"*60 + "\n")
+    result_writer.write("#"*60 + "\n")
 
     # line-plot
     x_axes = NONE[args.seed][0]["x_task"]
@@ -520,7 +521,6 @@ if __name__ == '__main__':
     figure_list.append(figure)
 
     # write results to files
-    result_writer = open('{}/{}_{}_summary.txt'.format(args.r_dir, args.experiment, args.scenario), 'w+')
     result_writer.write("#"*49 + "\n")
     result_writer.write(" "*21+"BWT              FWT\n"+"-"*49 + "\n")
     for i,name in enumerate(names):
