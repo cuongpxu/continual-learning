@@ -241,20 +241,20 @@ def run(args, verbose=False):
             binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem, loss=args.loss
         ).to(device)
 
-        # Define loss function
-        if args.loss == 'otfl':
-            loss_fn = OTFL(strategy=args.otfl_strategy, use_cs=args.use_cs,
+    # Define loss function
+    if args.loss == 'otfl':
+        loss_fn = OTFL(strategy=args.otfl_strategy, use_cs=args.use_cs,
                            alpha=args.otfl_alpha, beta=args.otfl_beta, device=device)
-        elif args.loss == 'fgfl':
-            loss_fn = FGFL(gamma=args.fgfl_gamma, delta=args.fgfl_delta, device=device, n_classes=config['classes'])
-        elif args.loss == 'gbfg':
-            loss_fn = GBFG(delta=args.gbfg_delta, device=device)
-        elif args.loss == 'focal':
-            loss_fn = FocalLoss(alpha=0.25, gamma=0.25)
-        elif args.loss == 'ce':
-            loss_fn = torch.nn.CrossEntropyLoss()
-        else:
-            loss_fn = None
+    elif args.loss == 'fgfl':
+        loss_fn = FGFL(gamma=args.fgfl_gamma, delta=args.fgfl_delta, device=device, n_classes=config['classes'])
+    elif args.loss == 'gbfg':
+        loss_fn = GBFG(delta=args.gbfg_delta, device=device)
+    elif args.loss == 'focal':
+        loss_fn = FocalLoss(alpha=0.25, gamma=0.25)
+    elif args.loss == 'ce':
+        loss_fn = torch.nn.CrossEntropyLoss()
+    else:
+        loss_fn = None
 
     # Define optimizer (only include parameters that "requires_grad")
     if args.loss == 'otfl':

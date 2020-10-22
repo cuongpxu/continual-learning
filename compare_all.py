@@ -260,6 +260,7 @@ if __name__ == '__main__':
     args.loss = 'otfl'
     args.otfl_alpha = 1.0
     args.otfl_beta = 1.0
+    args.use_cs = False
     args.otfl_strategy = 'hard'
     OTFL_hard = {}
     OTFL_hard = collect_all(OTFL_hard, seed_list, args, name='OTFL-hard')
@@ -275,6 +276,7 @@ if __name__ == '__main__':
     args.loss = 'otfl'
     args.otfl_alpha = 1.0
     args.otfl_beta = 1.0
+    args.use_cs = False
     args.otfl_strategy = 'hard'
     OTFL_replay = {}
     OTFL_replay = collect_all(OTFL_replay, seed_list, args, name='OTFL-replay')
