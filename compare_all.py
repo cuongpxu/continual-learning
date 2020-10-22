@@ -24,26 +24,10 @@ task_params.add_argument('--experiment', type=str, default='splitMNIST', choices
 task_params.add_argument('--scenario', type=str, default='task', choices=['task', 'domain', 'class'])
 task_params.add_argument('--tasks', type=int, help='number of tasks')
 
-task_params.add_argument('--augment', action='store_true',
-                                 help="augment training data (random crop & horizontal flip) (only for CIFAR)")
-task_params.add_argument('--normalize', action='store_true',
-                                 help="normalize images (only for CIFAR)")
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
-loss_params.add_argument('--loss', type=str, default='none',
-                         choices=['otfl', 'fgfl', 'focal', 'ce', 'gbfg', 'none'])
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
-loss_params.add_argument('--bce-distill', action='store_true', help='distilled loss on previous classes for new'
-                                                                    ' examples (only if --bce & --scenario="class")')
-loss_params.add_argument('--use-cs', action='store_true', help='Using cosine similarity to compute forgetting loss')
-loss_params.add_argument('--otfl-strategy', type=str, default='all', choices=['all', 'hard'])
-loss_params.add_argument('--otfl-alpha', type=float,  default=0.2, help="controlling parameter")
-loss_params.add_argument('--otfl-beta', type=float,  default=2.0, help="controlling parameter")
 
-loss_params.add_argument('--fgfl-gamma', type=float,  default=0.25, help="controlling hyperparameter 1")
-loss_params.add_argument('--fgfl-delta', type=float,  default=0.25, help="controlling hyperparameter 2")
-
-loss_params.add_argument('--gbfg-delta', type=float, default=1.0, help='controlling hyperparameter')
 # model architecture parameters
 model_params = parser.add_argument_group('Parameters Main Model')
 model_params.add_argument('--fc-layers', type=int, default=3, dest='fc_lay', help="# of fully-connected layers")
@@ -92,9 +76,6 @@ icarl_params.add_argument('--herding', action='store_true', help="use herding to
 icarl_params.add_argument('--use-exemplars', action='store_true', help="use stored exemplars for classification?")
 icarl_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
 
-store_params = parser.add_argument_group('Data Storage Parameters')
-store_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
-store_params.add_argument('--online-replay-mode', type=str, default='c3', choices=['c1', 'c2', 'c3'], help="how sample be selected?")
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
 eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
@@ -150,12 +131,6 @@ if __name__ == '__main__':
     args.g_iters = args.iters if args.g_iters is None else args.g_iters
     args.g_fc_lay = args.fc_lay if args.g_fc_lay is None else args.g_fc_lay
     args.g_fc_uni = args.fc_units if args.g_fc_uni is None else args.g_fc_uni
-
-    # if not os.path.isdir(args.r_dir):
-    #     os.mkdir(args.r_dir)
-    #
-    # if not os.path.isdir(args.p_dir):
-    #     os.mkdir(args.p_dir)
 
     # -create results-directory if needed
     utils.make_dirs(args.r_dir)
@@ -268,7 +243,38 @@ if __name__ == '__main__':
     ER = collect_all(ER, seed_list, args, name="Experience Replay (budget = {})".format(args.budget))
     args.replay = "none"
 
+    ## Online Replay
+    args.replay = 'online'
+    args.online_memory_budget = 2000
+    args.online_replay_mode = 'c3'
+    OTR = {}
+    OTR = collect_all(OTR, seed_list, args, name='OTR (budget = {})'.format(args.online_memory_budget))
+    args.replay = 'none'
 
+    ## OTFL
+    args.loss = 'otfl'
+    args.otfl_alpha = 1.0
+    args.otfl_beta = 1.0
+    args.otfl_strategy = 'hard'
+    OTFL_hard = {}
+    OTFL_hard = collect_all(OTFL_hard, seed_list, args, name='OTFL-hard')
+    args.otfl_strategy = 'all'
+    OTFL_all = {}
+    OTFL_all = collect_all(OTFL_all, seed_list, args, name='OTFL-all')
+    args.loss = 'none'
+
+    ## OTFL with replay
+    args.replay = 'online'
+    args.online_memory_budget = 2000
+    args.online_replay_mode = 'c3'
+    args.loss = 'otfl'
+    args.otfl_alpha = 1.0
+    args.otfl_beta = 1.0
+    args.otfl_strategy = 'hard'
+    OTFL_replay = {}
+    OTFL_replay = collect_all(OTFL_replay, seed_list, args, name='OTFL-replay')
+    args.loss = 'none'
+    args.replay = 'none'
     ###----"EXEMPLARS + REPLAY"----####
 
     ## iCaRL
@@ -309,7 +315,8 @@ if __name__ == '__main__':
     for seed in seed_list:
         ## AVERAGE TEST ACCURACY
         ave_prec[seed] = [NONE[seed][1], OFF[seed][1], EWC[seed][1], OEWC[seed][1], SI[seed][1], LWF[seed][1],
-                          RP[seed][1], RKD[seed][1], AGEM[seed][1], ER[seed][1]]
+                          RP[seed][1], RKD[seed][1], AGEM[seed][1], ER[seed][1],
+                          OTR[seed][1], OTFL_hard[seed][1], OTFL_all[seed][1], OTFL_replay[seed][1]]
         if args.scenario=="task":
             ave_prec[seed].append(XDG[seed][1])
         elif args.scenario=="class":
@@ -317,7 +324,8 @@ if __name__ == '__main__':
         # -for plot of average accuracy throughout training
         key = "average"
         prec[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
-                      LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key]]
+                      LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
+                      OTR[seed][0][key], OTFL_hard[seed][0][key], OTFL_all[seed][0][key], OTFL_replay[seed][0][key]]
         if args.scenario=="task":
             prec[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -326,7 +334,8 @@ if __name__ == '__main__':
         ## BACKWARD TRANSFER (BWT)
         key = 'BWT'
         ave_BWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
-                         LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key]]
+                         LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
+                         OTR[seed][0][key], OTFL_hard[seed][0][key], OTFL_all[seed][0][key], OTFL_replay[seed][0][key]]
         if args.scenario=="task":
             ave_BWT[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -335,7 +344,8 @@ if __name__ == '__main__':
         ## FORWARD TRANSFER (FWT)
         key = 'FWT'
         ave_FWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
-                         LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key]]
+                         LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
+                         OTR[seed][0][key], OTFL_hard[seed][0][key], OTFL_all[seed][0][key], OTFL_replay[seed][0][key]]
         if args.scenario=="task":
             ave_FWT[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -344,7 +354,8 @@ if __name__ == '__main__':
         ## FORGETTING (F)
         key = 'F'
         ave_F[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
-                       LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key]]
+                       LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
+                       OTR[seed][0][key], OTFL_hard[seed][0][key], OTFL_all[seed][0][key], OTFL_replay[seed][0][key]]
         if args.scenario=="task":
             ave_F[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -383,6 +394,18 @@ if __name__ == '__main__':
             np.mean([(
                 OFF[seed][0][key]['task {}'.format(i + 1)][i] - ER[seed][0][key]['task {}'.format(i + 1)][i]
             ) for i in range(1, args.tasks)]),
+            np.mean([(
+                    OFF[seed][0][key]['task {}'.format(i + 1)][i] - OTR[seed][0][key]['task {}'.format(i + 1)][i]
+            ) for i in range(1, args.tasks)]),
+            np.mean([(
+                    OFF[seed][0][key]['task {}'.format(i + 1)][i] - OTFL_hard[seed][0][key]['task {}'.format(i + 1)][i]
+            ) for i in range(1, args.tasks)]),
+            np.mean([(
+                    OFF[seed][0][key]['task {}'.format(i + 1)][i] - OTFL_all[seed][0][key]['task {}'.format(i + 1)][i]
+            ) for i in range(1, args.tasks)]),
+            np.mean([(
+                    OFF[seed][0][key]['task {}'.format(i + 1)][i] - OTFL_replay[seed][0][key]['task {}'.format(i + 1)][i]
+            ) for i in range(1, args.tasks)]),
         ]
         if args.scenario=="task":
             ave_I[seed].append(np.mean([(
@@ -412,15 +435,17 @@ if __name__ == '__main__':
     if args.scenario=="task":
         names.append("XdG")
         colors.append("purple")
-        ids.append(10)
+        ids.append(14)
     names += ["EWC", "o-EWC", "SI", "LwF", "GR", "GR+distil", "ER (b={})".format(args.budget),
-              "A-GEM (b={})".format(args.budget)]
-    colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "indianred", "red", "darkblue", "brown"]
-    ids += [2,3,4,5,6,7,9,8]
+              "A-GEM (b={})".format(args.budget), "OTR (b={})".format(args.online_memory_budget),
+              "OTFL-hard", "OTFL-all"]
+    colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "indianred", "red", "darkblue", "brown",
+               "teal", "darkviolet", "coral", 'peru']
+    ids += [2,3,4,5,6,7,9,8,10,11,12,13]
     if args.scenario=="class":
         names.append("iCaRL (b={})".format(args.budget))
         colors.append("violet")
-        ids.append(10)
+        ids.append(14)
 
     # open pdf
     pp = visual_plt.open_pdf("{}/{}.pdf".format(args.p_dir, plot_name))
@@ -489,19 +514,20 @@ if __name__ == '__main__':
                                  title=title, yerr=cis_fwt if len(seed_list) > 1 else None)
     figure_list.append(figure)
 
-    # print results to screen
-    print("\n\n"+"#"*49)
-    print(" "*21+"BWT              FWT\n"+"-"*49)
+    # write results to files
+    result_writer = open('{}/{}_{}_summary.txt'.format(args.r_dir, args.experiment, args.scenario), 'w+')
+    result_writer.write("#"*49 + "\n")
+    result_writer.write(" "*21+"BWT              FWT\n"+"-"*49 + "\n")
     for i,name in enumerate(names):
         if len(seed_list) > 1:
-            print("{:16s} {:5.2f} ({:.2f})     {:5.2f} ({:.2f})".format(
+            result_writer.write("{:16s} {:5.2f} ({:.2f})     {:5.2f} ({:.2f})\n".format(
                 name, means[i], sems[i], means_fwt[i], sems_fwt[i],
             ))
         else:
-            print("{:16s}    {:5.2f}            {:5.2f}".format(
+            result_writer.write("{:16s}    {:5.2f}            {:5.2f}\n".format(
                 name, means[i], means_fwt[i]
             ))
-    print("#"*49)
+    result_writer.write("#"*49 + "\n")
 
 
     ########### Forgetting & Intransigence ###########
@@ -525,18 +551,18 @@ if __name__ == '__main__':
     figure_list.append(figure)
 
     # print results to screen
-    print("\n\n"+"#"*49)
-    print(" "*17+" Forgetting      Intransigence\n"+"-"*49)
+    result_writer.write("#" * 49 + "\n")
+    result_writer.write(" "*17+" Forgetting      Intransigence\n"+"-"*49 + "\n")
     for i,name in enumerate(names):
         if len(seed_list) > 1:
-            print("{:16s} {:5.2f} ({:.2f})     {:5.2f} ({:.2f})".format(
+            result_writer.write("{:16s} {:5.2f} ({:.2f})     {:5.2f} ({:.2f})\n".format(
                 name, means[i], sems[i], means_I[i], sems_I[i],
             ))
         else:
-            print("{:16s}    {:5.2f}            {:5.2f}".format(
+            result_writer.write("{:16s}    {:5.2f}            {:5.2f}\n".format(
                 name, means[i], means_I[i]
             ))
-    print("#"*49)
+    result_writer.write("#"*49 + "\n")
 
 
     # add all figures to pdf
@@ -547,4 +573,5 @@ if __name__ == '__main__':
     pp.close()
 
     # Print name of generated plot on screen
-    print("\nGenerated plot: {}/{}.pdf\n".format(args.p_dir, plot_name))
+    result_writer.write("\nGenerated plot: {}/{}.pdf\n".format(args.p_dir, plot_name))
+    result_writer.close()
