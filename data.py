@@ -31,7 +31,7 @@ def _rotate_image(image, rotation):
     else:
         # c, h, w = image.size()
         img = transforms.ToPILImage()(image)
-        rot_image = F.rotate(img, 10)
+        rot_image = F.rotate(img, 10, fill=(0,))
         image = transforms.ToTensor()(rot_image)
         return image
 
