@@ -105,11 +105,11 @@ class OTFL(nn.Module):
 
         self.device = device
         self.reduction = reduction
-        self.alpha = nn.Parameter(torch.tensor(alpha).to(self.device), requires_grad=True)
-        self.beta = nn.Parameter(torch.tensor(beta).to(self.device), requires_grad=True)
+        # self.alpha = nn.Parameter(torch.tensor(alpha).to(self.device), requires_grad=True)
+        # self.beta = nn.Parameter(torch.tensor(beta).to(self.device), requires_grad=True)
 
-        # self.alpha = alpha
-        # self.beta = beta
+        self.alpha = alpha
+        self.beta = beta
 
     def forward(self, x, px, y):
         uq = torch.unique(y).cpu().numpy()
@@ -134,14 +134,15 @@ class OTFL(nn.Module):
                 anchor_idx = torch.argmin(ce_m)
                 anchor = positive_batch[anchor_idx].unsqueeze(dim=0)
                 grad_a = grad_x[mask][anchor_idx]
-
+                grad_a = grad_a.view(grad_a.size(0), -1)
                 # anchor should not equal positive
                 positive_batch = torch.cat((positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
 
                 if positive_batch.size(0) != 0:
                     if self.strategy == 'all':
                         grad_p = grad_x[mask]
-                        grad_p = torch.sum(torch.cat((grad_p[:anchor_idx], grad_p[anchor_idx + 1:]), dim=0), dim=0)
+                        grad_p = torch.cat((grad_p[:anchor_idx], grad_p[anchor_idx + 1:]), dim=0)
+                        grad_p = torch.sum(grad_p.view(grad_p.size(0), -1), dim=0)
                     else:
                         anchor_batch = anchor.expand(positive_batch.size())  # Broad-cast grad_min batch-wise
                         positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
@@ -166,7 +167,8 @@ class OTFL(nn.Module):
 
                 if negative_batch.size(0) != 0:
                     if self.strategy == 'all':
-                        grad_n = torch.sum(grad_x[mask_neg], dim=0)
+                        grad_n = grad_x[mask_neg]
+                        grad_n = torch.sum(grad_n.view(grad_x.size(0), -1), dim=0)
                     else:
                         anchor_batch = anchor.expand(negative_batch.size())  # Broad-cast grad_min batch-wise
                         negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
@@ -189,10 +191,14 @@ class OTFL(nn.Module):
                     triplet_fg_loss += F.cosine_similarity(grad_a.view(-1), grad_p.view(-1), dim=0) \
                                        - F.cosine_similarity(grad_a.view(-1), grad_n.view(-1), dim=0)
                 else:
-                    triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                                                                F.normalize(grad_p.view(-1), dim=0)) \
-                                       - self.beta * torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                                                                  F.normalize(grad_n.view(-1), dim=0))
+                    # triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                    #                                             F.normalize(grad_p.view(-1), dim=0)) \
+                    #                    - self.beta * torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                    #                                               F.normalize(grad_n.view(-1), dim=0))
+                    triplet_fg_loss += torch.max(torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                                                                F.normalize(grad_p.view(-1), dim=0)),
+                                                 torch.dot(F.normalize(grad_a.view(-1), dim=0),
+                                                           F.normalize(grad_n.view(-1), dim=0)))
         # Compute loss value
         triplet_fg_loss /= len(uq)
         loss = ce_x - self.alpha * triplet_fg_loss

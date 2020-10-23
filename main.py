@@ -48,8 +48,8 @@ loss_params.add_argument('--bce-distill', action='store_true', help='distilled l
                                                                     ' examples (only if --bce & --scenario="class")')
 loss_params.add_argument('--use-cs', action='store_true', help='Using cosine similarity to compute forgetting loss')
 loss_params.add_argument('--otfl-strategy', type=str, default='all', choices=['all', 'hard'])
-loss_params.add_argument('--otfl-alpha', type=float,  default=0.2, help="controlling parameter")
-loss_params.add_argument('--otfl-beta', type=float,  default=2.0, help="controlling parameter")
+loss_params.add_argument('--otfl-alpha', type=float,  default=1.0, help="controlling parameter")
+loss_params.add_argument('--otfl-beta', type=float,  default=1.0, help="controlling parameter")
 
 loss_params.add_argument('--fgfl-gamma', type=float,  default=0.25, help="controlling hyperparameter 1")
 loss_params.add_argument('--fgfl-delta', type=float,  default=0.25, help="controlling hyperparameter 2")
