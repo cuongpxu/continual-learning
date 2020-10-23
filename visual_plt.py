@@ -77,7 +77,7 @@ def plot_bar(numbers, names=None, colors=None, ylabel=None, title=None, top_titl
     n_bars = len(numbers)
 
     # make plot
-    size = (12,7) if figsize is None else figsize
+    size = (15,7) if figsize is None else figsize
     f, axarr = plt.subplots(1, 1, figsize=size)
     axarr.bar(x=range(n_bars), height=numbers, color=colors, yerr=yerr)
 
