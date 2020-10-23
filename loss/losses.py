@@ -2,8 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .utils import _get_anchor_negative_triplet_mask, _get_anchor_positive_triplet_mask, _get_triplet_mask, \
-    batch_hard_triplet_loss, batch_all_triplet_loss
 
 
 class FocalLoss(nn.Module):
@@ -110,6 +108,7 @@ class OTFL(nn.Module):
 
         self.alpha = alpha
         self.beta = beta
+        self.s = nn.Parameter(torch.tensor(2.0).to(self.device), requires_grad=True)
 
     def forward(self, x, px, y):
         uq = torch.unique(y).cpu().numpy()
@@ -134,7 +133,7 @@ class OTFL(nn.Module):
                 anchor_idx = torch.argmin(ce_m)
                 anchor = positive_batch[anchor_idx].unsqueeze(dim=0)
                 grad_a = grad_x[mask][anchor_idx]
-                grad_a = grad_a.view(grad_a.size(0), -1)
+                grad_a = self.s * grad_a.view(grad_a.size(0), -1)
                 # anchor should not equal positive
                 positive_batch = torch.cat((positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
 
@@ -195,6 +194,10 @@ class OTFL(nn.Module):
                                                                 F.normalize(grad_p.view(-1), dim=0)) \
                                        - self.beta * torch.dot(F.normalize(grad_a.view(-1), dim=0),
                                                                   F.normalize(grad_n.view(-1), dim=0))
+
+                    # triplet_fg_loss += torch.dot(grad_a.view(-1), grad_p.view(-1)) \
+                    #                    - self.beta * torch.dot(grad_a.view(-1), grad_n.view(-1))
+
                     # triplet_fg_loss += torch.max(torch.dot(F.normalize(grad_a.view(-1), dim=0),
                     #                                             F.normalize(grad_p.view(-1), dim=0)),
                     #                              torch.dot(F.normalize(grad_a.view(-1), dim=0),

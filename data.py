@@ -316,8 +316,6 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
         # configurations
         config = DATASET_CONFIGS['mnist']
         classes_per_task = 10
-        max_rot = 180
-        min_rot = 0
         if not only_config:
             # prepare dataset
             train_dataset = get_dataset('mnist', type="train", permutation=None, dir=data_dir,
@@ -328,7 +326,7 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             if exception:
                 rotations = [None] + np.random.choice(180, tasks - 1, replace=False).tolist()
             else:
-                rotations = np.random.choice(180, tasks - 1, replace=False).tolist()
+                rotations = np.random.choice(180, tasks, replace=False).tolist()
             # prepare datasets per task
             train_datasets = []
             test_datasets = []
