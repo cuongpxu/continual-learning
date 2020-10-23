@@ -6,4 +6,5 @@ plots/
 results/
 final_result/
 benchmark/
+test_grad.py
 *.sh

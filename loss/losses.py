@@ -108,7 +108,7 @@ class OTFL(nn.Module):
 
         self.alpha = alpha
         self.beta = beta
-        self.s = nn.Parameter(torch.tensor(2.0).to(self.device), requires_grad=True)
+        # self.s = nn.Parameter(torch.tensor(2.0).to(self.device), requires_grad=True)
 
     def forward(self, x, px, y):
         uq = torch.unique(y).cpu().numpy()
@@ -118,7 +118,7 @@ class OTFL(nn.Module):
             outputs=ce_x,
             inputs=x,
             grad_outputs=torch.ones_like(ce_x).to(self.device),
-            create_graph=True
+            create_graph=True,
         )[0]
 
         selected_data = {}
@@ -133,7 +133,7 @@ class OTFL(nn.Module):
                 anchor_idx = torch.argmin(ce_m)
                 anchor = positive_batch[anchor_idx].unsqueeze(dim=0)
                 grad_a = grad_x[mask][anchor_idx]
-                grad_a = self.s * grad_a.view(grad_a.size(0), -1)
+                grad_a = grad_a.view(grad_a.size(0), -1)
                 # anchor should not equal positive
                 positive_batch = torch.cat((positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
 

@@ -13,7 +13,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
              batch_size=32, generator=None, gen_iters=0,
              gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
              use_exemplars=True, add_exemplars=False, metric_cbs=list(),
-             loss_fn=None, online_replay_mode='c1', experiment='splitMNIST'):
+             loss_fn=None, online_replay_mode='c1'):
     '''Train a model (with a "train_a_batch" method) on multiple tasks, with replay-strategy specified by [replay_mode].
 
     [model]             <nn.Module> main model to optimize across all tasks
@@ -165,6 +165,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                     # Sample replayed training data, move to correct device
                     x_, y_ = next(data_loader_previous)
                     x_ = x_.to(device)
+                    x.requires_grad_(requires_grad=True)
                     y_ = y_.to(device) if (model.replay_targets == "hard") else None
                     # If required, get target scores (i.e, [scores_]         -- using previous model, with no_grad()
                     if (model.replay_targets == "soft"):
@@ -179,6 +180,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                     up_to_task = task if replay_mode == "offline" else task - 1
                     for task_id in range(up_to_task):
                         x_temp, y_temp = next(data_loader_previous[task_id])
+                        x_temp.requires_grad_(requires_grad=True)
                         x_.append(x_temp.to(device))
                         # -only keep [y_] if required (as otherwise unnecessary computations will be done)
                         if model.replay_targets == "hard":
@@ -200,7 +202,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
             if Generative or Current:
                 # Get replayed data (i.e., [x_]) -- either current data or use previous generator
                 x_ = x if Current else previous_generator.sample(batch_size)
-
+                x_.requires_grad(True)
                 # Get target scores and labels (i.e., [scores_] / [y_]) -- using previous model, with no_grad()
                 # -if there are no task-specific mask, obtain all predicted scores at once
                 if (not hasattr(previous_model, "mask_dict")) or (previous_model.mask_dict is None):
