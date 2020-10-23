@@ -77,14 +77,14 @@ def plot_bar(numbers, names=None, colors=None, ylabel=None, title=None, top_titl
     n_bars = len(numbers)
 
     # make plot
-    size = (15,7) if figsize is None else figsize
+    size = (12, 7) if figsize is None else figsize
     f, axarr = plt.subplots(1, 1, figsize=size)
     axarr.bar(x=range(n_bars), height=numbers, color=colors, yerr=yerr)
 
     # finish layout
     axarr.set_xticks(range(n_bars))
     if names is not None:
-        axarr.set_xticklabels(names, rotation=-20)
+        axarr.set_xticklabels(names, rotation=-30, ha='left')
         axarr.legend()
     if ylabel is not None:
         axarr.set_ylabel(ylabel)
