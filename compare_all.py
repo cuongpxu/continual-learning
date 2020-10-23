@@ -445,7 +445,7 @@ if __name__ == '__main__':
         ids.append(14)
     names += ["EWC", "o-EWC", "SI", "LwF", "GR", "GR+distil", "ER (b={})".format(args.budget),
               "A-GEM (b={})".format(args.budget), "OTR (b={})".format(args.online_memory_budget),
-              "OTFL-hard", "OTFL-all"]
+              "OTFL-hard", "OTFL-all", "OTFL-replay"]
     colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "indianred", "red", "darkblue", "brown",
                "teal", "darkviolet", "coral", 'peru']
     ids += [2,3,4,5,6,7,9,8,10,11,12,13]
