@@ -29,6 +29,7 @@ def get_param_stamp_from_args(args):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
             fc_bn=True if args.fc_bn=="yes" else False, excit_buffer=True if args.xdg and args.gating_prop>0 else False,
+            loss=args.loss, experiment=args.experiment
         )
 
     train_gen = True if (args.replay=="generative" and not args.feedback) else False
