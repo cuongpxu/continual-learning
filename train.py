@@ -238,17 +238,6 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 y_ = y_ if (model.replay_targets == "hard") else None
                 scores_ = scores_ if (model.replay_targets == "soft") else None
 
-            ##-->> Online Replay <<--##
-            # if replay_mode == 'online' and len(model.online_exemplar_sets) > 0:
-            #     target_transform = None
-            #     online_replay_dataset = OnlineExemplarDataset(model.online_exemplar_sets, target_transform)
-            #
-            #     online_data_loader = iter(utils.get_data_loader(online_replay_dataset, batch_size,
-            #                                                     cuda=cuda, drop_last=False))
-            #     # Get replayed data (i.e., [x_]) -- selected data of previous batches
-            #     x_, y_ = next(online_data_loader)
-            #     x_, y_ = x_.to(device), y_.to(device)
-
             # ---> Train MAIN MODEL
             if batch_index <= iters:
                 # print('Training batch: {}'.format(batch_index))
