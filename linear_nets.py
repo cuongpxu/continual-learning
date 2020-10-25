@@ -120,7 +120,7 @@ class MLP(nn.Module):
 
     def __init__(self, input_size=1000, output_size=10, layers=2, hid_size=1000, hid_smooth=None, size_per_layer=None,
                  drop=0, batch_norm=True, nl="relu", bias=True, excitability=False, excit_buffer=False, gated=False,
-                 output='normal', use_rp=False):
+                 output='normal'):
         '''sizes: 0th=[input], 1st=[hid_size], ..., 1st-to-last=[hid_smooth], last=[output].
         [input_size]       # of inputs
         [output_size]      # of units in final layer
@@ -202,3 +202,4 @@ class MLP(nn.Module):
         for layer_id in range(1, self.layers+1):
             list += getattr(self, 'fcLayer{}'.format(layer_id)).list_init_layers()
         return list
+

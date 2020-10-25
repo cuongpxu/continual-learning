@@ -202,7 +202,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
             if Generative or Current:
                 # Get replayed data (i.e., [x_]) -- either current data or use previous generator
                 x_ = x if Current else previous_generator.sample(batch_size)
-                x_.requires_grad(True)
+
                 # Get target scores and labels (i.e., [scores_] / [y_]) -- using previous model, with no_grad()
                 # -if there are no task-specific mask, obtain all predicted scores at once
                 if (not hasattr(previous_model, "mask_dict")) or (previous_model.mask_dict is None):

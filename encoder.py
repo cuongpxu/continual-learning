@@ -1,7 +1,8 @@
 import torch
-import numpy as np
+import torch.nn as nn
+import models.resnet as rn
 from torch.nn import functional as F
-from linear_nets import MLP, fc_layer, rp_layer
+from linear_nets import MLP, fc_layer
 from exemplars import ExemplarHandler
 from continual_learner import ContinualLearner
 from replayer import Replayer
@@ -14,7 +15,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def __init__(self, image_size, image_channels, classes,
                  fc_layers=3, fc_units=1000, fc_drop=0, fc_bn=False, fc_nl="relu", gated=False,
                  bias=True, excitability=False, excit_buffer=False, binaryCE=False, binaryCE_distill=False, AGEM=False,
-                 loss='bce', use_rp=False):
+                 loss='bce', experiment='splitMNIST'):
 
         # configurations
         super().__init__()
@@ -35,18 +36,25 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             raise ValueError("The classifier needs to have at least 1 fully-connected layer.")
 
         ######------SPECIFY MODEL------######
+        self.experiment = experiment
+        if self.experiment not in ['splitMNIST', 'permMNIST', 'rotMNIST']:
+            self.fcE = rn.resnet32(classes)
+            self.fcE.linear = nn.Identity()
 
-        # flatten image to 2D-tensor
-        self.flatten = utils.Flatten()
+            self.classifier = fc_layer(64, classes, excit_buffer=True, nl='none', drop=fc_drop)
 
-        # fully connected hidden layers
-        self.fcE = MLP(input_size=image_channels * image_size ** 2, output_size=fc_units, layers=fc_layers - 1,
-                       hid_size=fc_units, drop=fc_drop, batch_norm=fc_bn, nl=fc_nl, bias=bias,
-                       excitability=excitability, excit_buffer=excit_buffer, gated=gated, use_rp=use_rp)
-        mlp_output_size = fc_units if fc_layers > 1 else image_channels * image_size ** 2
+        else:
+            # flatten image to 2D-tensor
+            self.flatten = utils.Flatten()
 
-        # classifier
-        self.classifier = fc_layer(mlp_output_size, classes, excit_buffer=True, nl='none', drop=fc_drop)
+            # fully connected hidden layers
+            self.fcE = MLP(input_size=image_channels * image_size ** 2, output_size=fc_units, layers=fc_layers - 1,
+                           hid_size=fc_units, drop=fc_drop, batch_norm=fc_bn, nl=fc_nl, bias=bias,
+                           excitability=excitability, excit_buffer=excit_buffer, gated=gated)
+            mlp_output_size = fc_units if fc_layers > 1 else image_channels * image_size ** 2
+
+            # classifier
+            self.classifier = fc_layer(mlp_output_size, classes, excit_buffer=True, nl='none', drop=fc_drop)
 
     def list_init_layers(self):
         '''Return list of modules whose parameters could be initialized differently (i.e., conv- or fc-layers).'''
@@ -60,11 +68,17 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         return "{}_c{}".format(self.fcE.name, self.classes)
 
     def forward(self, x):
-        final_features = self.fcE(self.flatten(x))
+        if self.experiment not in ['splitMNIST', 'permMNIST', 'rotMNIST']:
+            final_features = self.fcE(x)
+        else:
+            final_features = self.fcE(self.flatten(x))
         return self.classifier(final_features)
 
     def feature_extractor(self, images):
-        return self.fcE(self.flatten(images))
+        if self.experiment not in ['splitMNIST', 'permMNIST', 'rotMNIST']:
+            return self.fcE(images)
+        else:
+            return self.fcE(self.flatten(images))
 
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
                       active_classes=None, task=1, scenario='class', loss_fn=None, replay_mode='none',

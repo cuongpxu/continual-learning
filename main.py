@@ -238,7 +238,8 @@ def run(args, verbose=False):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
             fc_bn=True if args.fc_bn=="yes" else False, excit_buffer=True if args.xdg and args.gating_prop>0 else False,
-            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem, loss=args.loss
+            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem,
+            loss=args.loss, experiment=args.experiment
         ).to(device)
 
     # Define loss function
