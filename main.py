@@ -313,13 +313,16 @@ def run(args, verbose=False):
         excit_buffer_list = []
         for task_id in range(args.tasks):
             mask_dict[task_id+1] = {}
-            for i in range(model.fcE.layers):
-                layer = getattr(model.fcE, "fcLayer{}".format(i+1)).linear
-                if task_id==0:
-                    excit_buffer_list.append(layer.excit_buffer)
-                n_units = len(layer.excit_buffer)
-                gated_units = np.random.choice(n_units, size=int(args.gating_prop*n_units), replace=False)
-                mask_dict[task_id+1][i] = gated_units
+            if args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
+                for i in range(model.fcE.layers):
+                    layer = getattr(model.fcE, "fcLayer{}".format(i+1)).linear
+                    if task_id==0:
+                        excit_buffer_list.append(layer.excit_buffer)
+                    n_units = len(layer.excit_buffer)
+                    gated_units = np.random.choice(n_units, size=int(args.gating_prop*n_units), replace=False)
+                    mask_dict[task_id+1][i] = gated_units
+            else:
+                pass
         model.mask_dict = mask_dict
         model.excit_buffer_list = excit_buffer_list
 

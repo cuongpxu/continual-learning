@@ -185,7 +185,7 @@ if __name__ == '__main__':
     ###----"TASK-SPECIFIC"----####
 
     ## XdG
-    if args.scenario=="task":
+    if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
         args.xdg = True
         XDG = {}
         XDG = collect_all(XDG, seed_list, args, name="XdG")
@@ -325,7 +325,7 @@ if __name__ == '__main__':
         ave_prec[seed] = [NONE[seed][1], OFF[seed][1], EWC[seed][1], OEWC[seed][1], SI[seed][1], LWF[seed][1],
                           RP[seed][1], RKD[seed][1], AGEM[seed][1], ER[seed][1],
                           OTR[seed][1], OTFL_hard[seed][1], OTFL_all[seed][1], OTFL_replay[seed][1]]
-        if args.scenario=="task":
+        if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_prec[seed].append(XDG[seed][1])
         elif args.scenario=="class":
             ave_prec[seed].append(ICARL[seed][1])
@@ -334,7 +334,7 @@ if __name__ == '__main__':
         prec[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                       LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
                       OTR[seed][0][key], OTFL_hard[seed][0][key], OTFL_all[seed][0][key], OTFL_replay[seed][0][key]]
-        if args.scenario=="task":
+        if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             prec[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
             prec[seed].append(ICARL[seed][0][key])
@@ -344,7 +344,7 @@ if __name__ == '__main__':
         ave_BWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                          LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
                          OTR[seed][0][key], OTFL_hard[seed][0][key], OTFL_all[seed][0][key], OTFL_replay[seed][0][key]]
-        if args.scenario=="task":
+        if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_BWT[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
             ave_BWT[seed].append(ICARL[seed][0][key])
@@ -354,7 +354,7 @@ if __name__ == '__main__':
         ave_FWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                          LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
                          OTR[seed][0][key], OTFL_hard[seed][0][key], OTFL_all[seed][0][key], OTFL_replay[seed][0][key]]
-        if args.scenario=="task":
+        if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_FWT[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
             ave_FWT[seed].append(ICARL[seed][0][key])
@@ -364,7 +364,7 @@ if __name__ == '__main__':
         ave_F[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                        LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
                        OTR[seed][0][key], OTFL_hard[seed][0][key], OTFL_all[seed][0][key], OTFL_replay[seed][0][key]]
-        if args.scenario=="task":
+        if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_F[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
             ave_F[seed].append(ICARL[seed][0][key])
@@ -415,7 +415,7 @@ if __name__ == '__main__':
                     OFF[seed][0][key]['task {}'.format(i + 1)][i] - OTFL_replay[seed][0][key]['task {}'.format(i + 1)][i]
             ) for i in range(1, args.tasks)]),
         ]
-        if args.scenario=="task":
+        if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_I[seed].append(np.mean([(
                 OFF[seed][0][key]['task {}'.format(i + 1)][i] - XDG[seed][0][key]['task {}'.format(i + 1)][i]
             ) for i in range(1,args.tasks)]))
@@ -440,7 +440,7 @@ if __name__ == '__main__':
     names = ["None", "Offline"]
     colors = ["grey", "black"]
     ids = [0, 1]
-    if args.scenario=="task":
+    if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
         names.append("XdG")
         colors.append("purple")
         ids.append(14)
