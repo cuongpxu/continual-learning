@@ -194,7 +194,7 @@ class OTFL(nn.Module):
                     triplet_fg_loss += torch.dot(F.normalize(grad_a.view(-1), dim=0),
                                                  F.normalize(grad_p.view(-1), dim=0)) \
                                        - torch.dot(F.normalize(grad_a.view(-1), dim=0),
-                                                               F.normalize(grad_n.view(-1), dim=0))
+                                                   F.normalize(grad_n.view(-1), dim=0))
                     # triplet_fg_loss += torch.max(torch.dot(F.normalize(grad_a.view(-1), dim=0),
                     #                                             F.normalize(grad_p.view(-1), dim=0)),
                     #                              torch.dot(F.normalize(grad_a.view(-1), dim=0),
