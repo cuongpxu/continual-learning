@@ -9,7 +9,8 @@ class AutoEncoder(Replayer):
     """Class for variational auto-encoder (VAE) models."""
 
     def __init__(self, image_size, image_channels, classes,
-                 fc_layers=3, fc_units=1000, fc_drop=0, fc_bn=True, fc_nl="relu", gated=False, z_dim=20):
+                 fc_layers=3, fc_units=1000, fc_drop=0, fc_bn=True, fc_nl="relu", gated=False, z_dim=20,
+                 experiment='splitMNIST'):
         '''Class for variational auto-encoder (VAE) models.'''
 
         # Set configurations
@@ -35,7 +36,7 @@ class AutoEncoder(Replayer):
 
 
         ######------SPECIFY MODEL------######
-
+        self.experiment = experiment
         ##>----Encoder (= q[z|x])----<##
         # -flatten image to 2D-tensor
         self.flatten = utils.Flatten()
@@ -170,8 +171,13 @@ class AutoEncoder(Replayer):
         OUTPUT: - [reconL]      <1D-tensor> of length [batch_size]'''
 
         batch_size = x.size(0)
-        reconL = F.binary_cross_entropy(input=x_recon.view(batch_size, -1), target=x.view(batch_size, -1).detach(),
-                                        reduction='none')
+        if self.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
+            reconL = F.binary_cross_entropy(input=x_recon.view(batch_size, -1), target=x.view(batch_size, -1).detach(),
+                                            reduction='none')
+        else:
+            reconL = F.mse_loss(input=x_recon.view(batch_size, -1),
+                                target=x.detach().view(batch_size, -1),
+                                reduction='none')
         reconL = torch.mean(reconL, dim=1) if average else torch.sum(reconL, dim=1)
 
         return reconL

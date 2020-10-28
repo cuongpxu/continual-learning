@@ -22,6 +22,7 @@ def get_param_stamp_from_args(args):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, z_dim=args.z_dim,
             fc_drop=args.fc_drop, fc_bn=True if args.fc_bn=="yes" else False, fc_nl=args.fc_nl,
+            experiment=args.experiment
         )
         model.lamda_pl = 1.
     else:
@@ -38,6 +39,7 @@ def get_param_stamp_from_args(args):
             image_size=config['size'], image_channels=config['channels'],
             fc_layers=args.g_fc_lay, fc_units=args.g_fc_uni, z_dim=args.g_z_dim, classes=config['classes'],
             fc_drop=args.fc_drop, fc_bn=True if args.fc_bn == "yes" else False, fc_nl=args.fc_nl,
+            experiment=args.experiment
         )
 
     model_name = model.name

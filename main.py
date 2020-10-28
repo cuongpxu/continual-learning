@@ -231,6 +231,7 @@ def run(args, verbose=False):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, z_dim=args.z_dim,
             fc_drop=args.fc_drop, fc_bn=True if args.fc_bn=="yes" else False, fc_nl=args.fc_nl,
+            experiment=args.experiment
         ).to(device)
         model.lamda_pl = 1. #--> to make that this VAE is also trained to classify
     else:
@@ -346,6 +347,7 @@ def run(args, verbose=False):
             image_size=config['size'], image_channels=config['channels'],
             fc_layers=args.g_fc_lay, fc_units=args.g_fc_uni, z_dim=args.g_z_dim, classes=config['classes'],
             fc_drop=args.fc_drop, fc_bn=True if args.fc_bn=="yes" else False, fc_nl=args.fc_nl,
+            experiment=args.experiment
         ).to(device)
         # -set optimizer(s)
         generator.optim_list = [{'params': filter(lambda p: p.requires_grad, generator.parameters()), 'lr': args.lr_gen}]

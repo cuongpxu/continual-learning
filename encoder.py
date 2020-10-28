@@ -142,16 +142,16 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                 # Calculate losses
                 if (y_ is not None) and (y_[replay_id] is not None):
-                    if self.loss == 'otfl':
-                        predL_r[replay_id], _ = loss_fn(x_[replay_id] if type(x_) == list else x_, y_hat, y_[replay_id])
+                    # if self.loss == 'otfl':
+                    #     predL_r[replay_id], _ = loss_fn(x_[replay_id] if type(x_) == list else x_, y_hat, y_[replay_id])
+                    # else:
+                    if self.binaryCE:
+                        binary_targets_ = utils.to_one_hot(y_[replay_id].cpu(), y_hat.size(1)).to(y_[replay_id].device)
+                        predL_r[replay_id] = F.binary_cross_entropy_with_logits(
+                            input=y_hat, target=binary_targets_, reduction='none'
+                        ).sum(dim=1).mean()  # --> sum over classes, then average over batch
                     else:
-                        if self.binaryCE:
-                            binary_targets_ = utils.to_one_hot(y_[replay_id].cpu(), y_hat.size(1)).to(y_[replay_id].device)
-                            predL_r[replay_id] = F.binary_cross_entropy_with_logits(
-                                input=y_hat, target=binary_targets_, reduction='none'
-                            ).sum(dim=1).mean()  # --> sum over classes, then average over batch
-                        else:
-                            predL_r[replay_id] = F.cross_entropy(y_hat, y_[replay_id], reduction='mean')
+                        predL_r[replay_id] = F.cross_entropy(y_hat, y_[replay_id], reduction='mean')
                 if (scores_ is not None) and (scores_[replay_id] is not None):
                     # n_classes_to_consider = scores.size(1) #--> with this version, no zeroes are added to [scores]!
                     n_classes_to_consider = y_hat.size(1)  # --> zeros will be added to [scores] to make it this size!
