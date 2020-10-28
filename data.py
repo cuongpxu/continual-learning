@@ -50,7 +50,7 @@ def _permutate_image_pixels(image, permutation):
         return image
 
 
-def get_dataset(name, type='train', download=True, capacity=None, permutation=None, dir='./datasets',
+def get_dataset(name, type='train', download=True, capacity=None, dir='./datasets',
                 verbose=False, augment=False, normalize=False, target_transform=None):
     '''Create [train|valid|test]-dataset.'''
 
@@ -58,18 +58,23 @@ def get_dataset(name, type='train', download=True, capacity=None, permutation=No
     dataset_class = AVAILABLE_DATASETS[data_name]
 
     # specify image-transformations to be applied
-    transforms_list = [*AVAILABLE_TRANSFORMS['augment']] if augment else []
+    if type == 'train':
+        transforms_list = [*AVAILABLE_TRANSFORMS['imagenet_augment']] if name == 'imagenet' and augment else \
+            [*AVAILABLE_TRANSFORMS['augment']] if augment else []
+    else:
+        transforms_list = []
     transforms_list += [*AVAILABLE_TRANSFORMS[name]]
     if normalize:
         transforms_list += [*AVAILABLE_TRANSFORMS[name + "_norm"]]
-    if permutation is not None:
-        transforms_list.append(transforms.Lambda(lambda x, p=permutation: _permutate_image_pixels(x, p)))
     dataset_transform = transforms.Compose(transforms_list)
 
     # load data-set
-    dataset = dataset_class('{dir}/{name}'.format(dir=dir, name=data_name), train=False if type=='test' else True,
-                            download=download, transform=dataset_transform, target_transform=target_transform)
-
+    if name != 'imagenet':
+        dataset = dataset_class('{dir}/{name}'.format(dir=dir, name=data_name), train=False if type=='test' else True,
+                                download=download, transform=dataset_transform, target_transform=target_transform)
+    else:
+        dataset = dataset_class('{dir}/{type}'.format(dir=dir, type=type), transform=dataset_transform,
+                                target_transform=target_transform)
     # print information about dataset on the screen
     if verbose:
         print(" --> {}: '{}'-dataset consisting of {} samples".format(name, type, len(dataset)))
@@ -196,6 +201,7 @@ AVAILABLE_DATASETS = {
     'mnist': datasets.MNIST,
     'cifar10': datasets.CIFAR10,
     'cifar100': datasets.CIFAR100,
+    'imagenet': datasets.ImageFolder,
 }
 
 # specify available transforms.
@@ -221,16 +227,21 @@ AVAILABLE_TRANSFORMS = {
     ],
     'cifar10_denorm': UnNormalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2470, 0.2435, 0.2616]),
     'cifar100_denorm': UnNormalize(mean=[0.5071, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761]),
-    'augment_from_tensor': [
-        transforms.ToPILImage(),
-        transforms.RandomCrop(32, padding=4, padding_mode='symmetric'),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-    ],
     'augment': [
         transforms.RandomCrop(32, padding=4, padding_mode='symmetric'),
         transforms.RandomHorizontalFlip(),
-    ]
+    ],
+    'imagenet': [
+        transforms.ToTensor()
+    ],
+    'imagenet_norm': [
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ],
+    'imagenet_denorm': UnNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    'imagenet_augment': [
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+    ],
 }
 
 # specify configurations of available data-sets.
@@ -239,6 +250,7 @@ DATASET_CONFIGS = {
     'mnist28': {'size': 28, 'channels': 1, 'classes': 10},
     'cifar10': {'size': 32, 'channels': 3, 'classes': 10},
     'cifar100': {'size': 32, 'channels': 3, 'classes': 100},
+    'imagenet': {'size': 224, 'channels': 3, 'classes': 1000}
 }
 
 
@@ -259,9 +271,9 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
         classes_per_task = 10
         if not only_config:
             # prepare dataset
-            train_dataset = get_dataset('mnist', type="train", permutation=None, dir=data_dir,
+            train_dataset = get_dataset('mnist', type="train", dir=data_dir,
                                         target_transform=None, verbose=verbose)
-            test_dataset = get_dataset('mnist', type="test", permutation=None, dir=data_dir,
+            test_dataset = get_dataset('mnist', type="test", dir=data_dir,
                                        target_transform=None, verbose=verbose)
             # generate permutations
             if exception:
@@ -318,9 +330,9 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
         classes_per_task = 10
         if not only_config:
             # prepare dataset
-            train_dataset = get_dataset('mnist', type="train", permutation=None, dir=data_dir,
+            train_dataset = get_dataset('mnist', type="train", dir=data_dir,
                                         target_transform=None, verbose=verbose)
-            test_dataset = get_dataset('mnist', type="test", permutation=None, dir=data_dir,
+            test_dataset = get_dataset('mnist', type="test", dir=data_dir,
                                        target_transform=None, verbose=verbose)
             # generate rotations
             if exception:
@@ -399,6 +411,33 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
                 target_transform = transforms.Lambda(lambda y, x=labels[0]: y-x) if scenario=='domain' else None
                 train_datasets.append(SubDataset(cifar100_train, labels, target_transform=target_transform))
                 test_datasets.append(SubDataset(cifar100_test, labels, target_transform=target_transform))
+    elif name == 'ImageNet':
+        # check for number of tasks
+        if tasks > 1000:
+            raise ValueError("Experiment 'ImageNet' cannot have more than 1000 tasks!")
+        # configurations
+        config = DATASET_CONFIGS['imagenet']
+        classes_per_task = int(np.floor(1000 / tasks))
+        if not only_config:
+            # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
+            permutation = np.random.permutation(list(range(1000)))
+            target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
+            # prepare train and test datasets with all classes
+            imagenet_train = get_dataset('imagenet', type="train", dir=data_dir, normalize=normalize,
+                                         augment=augment, target_transform=target_transform, verbose=verbose)
+            imagenet_test = get_dataset('imagenet', type="test", dir=data_dir, normalize=normalize,
+                                        target_transform=target_transform, verbose=verbose)
+            # generate labels-per-task
+            labels_per_task = [
+                list(np.array(range(classes_per_task)) + classes_per_task * task_id) for task_id in range(tasks)
+            ]
+            # split them up into sub-tasks
+            train_datasets = []
+            test_datasets = []
+            for labels in labels_per_task:
+                target_transform = transforms.Lambda(lambda y, x=labels[0]: y - x) if scenario == 'domain' else None
+                train_datasets.append(SubDataset(imagenet_train, labels, target_transform=target_transform))
+                test_datasets.append(SubDataset(imagenet_test, labels, target_transform=target_transform))
     else:
         raise RuntimeError('Given undefined experiment: {}'.format(name))
 

@@ -213,7 +213,8 @@ def run(args, verbose=False):
     if verbose:
         print("\nPreparing the data...")
     (train_datasets, test_datasets), config, classes_per_task = get_multitask_experiment(
-        name=args.experiment, scenario=scenario, tasks=args.tasks, data_dir=args.d_dir,
+        name=args.experiment, scenario=scenario, tasks=args.tasks,
+        data_dir=args.d_dir if args.experiment != 'imagenet' else '/media/hdd1/imagenet/ImageNet',
         normalize=True if utils.checkattr(args, "normalize") else False,
         augment=True if utils.checkattr(args, "augment") else False,
         verbose=verbose, exception=True if args.seed < 10 else False
