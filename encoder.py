@@ -196,6 +196,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         ##--(2)-- CURRENT DATA --##
 
         if x is not None:
+            print(x.size(), y[0:10])
             # If requested, apply correct task-specific mask
             if self.mask_dict is not None:
                 self.apply_XdGmask(task=task)
