@@ -40,7 +40,6 @@ def validate(model, dataset, batch_size=128, test_size=1024, verbose=True, allow
                 break
         # -evaluate model (if requested, only on [allowed_classes])
         data, labels = data.to(model._device()), labels.to(model._device())
-        print(data.size())
         labels = labels - allowed_classes[0] if (allowed_classes is not None) else labels
         with torch.no_grad():
             if with_exemplars:
