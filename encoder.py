@@ -6,6 +6,7 @@ from linear_nets import MLP, fc_layer
 from exemplars import ExemplarHandler
 from continual_learner import ContinualLearner
 from replayer import Replayer
+from torchvision.models import resnet18, ResNet
 import utils
 
 
@@ -37,12 +38,17 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
         ######------SPECIFY MODEL------######
         self.experiment = experiment
-        if self.experiment not in ['splitMNIST', 'permMNIST', 'rotMNIST']:
+        if self.experiment in ['CIFAR10', 'CIFAR100']:
             self.fcE = rn.resnet32(classes)
             self.fcE.linear = nn.Identity()
 
             self.classifier = fc_layer(64, classes, excit_buffer=True, nl='none', drop=fc_drop)
+        elif self.experiment == 'ImageNet':
+            ResNet.name = 'ResNet-18'
+            self.fcE = resnet18(pretrained=True)
+            self.fcE.fc = nn.Identity()
 
+            self.classifier = fc_layer(512, classes, excit_buffer=True, nl='none', drop=fc_drop)
         else:
             # flatten image to 2D-tensor
             self.flatten = utils.Flatten()
