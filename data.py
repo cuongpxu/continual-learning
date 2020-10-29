@@ -62,7 +62,7 @@ def get_dataset(name, type='train', download=True, capacity=None, dir='./dataset
         transforms_list = [*AVAILABLE_TRANSFORMS['imagenet_augment']] if name == 'imagenet' and augment else \
             [*AVAILABLE_TRANSFORMS['augment']] if augment else []
     else:
-        transforms_list = []
+        transforms_list = [*AVAILABLE_TRANSFORMS['imagenet_test_augment']] if name == 'imagenet' else []
     transforms_list += [*AVAILABLE_TRANSFORMS[name]]
     if normalize:
         transforms_list += [*AVAILABLE_TRANSFORMS[name + "_norm"]]
@@ -242,6 +242,9 @@ AVAILABLE_TRANSFORMS = {
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
     ],
+    'imagenet_test_augment': [
+        transforms.Resize(224),
+    ]
 }
 
 # specify configurations of available data-sets.
