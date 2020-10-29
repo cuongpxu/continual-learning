@@ -3,6 +3,8 @@ from torch.nn import functional as F
 import utils
 from linear_nets import MLP,fc_layer,fc_layer_split
 from replayer import Replayer
+from data import AVAILABLE_TRANSFORMS
+from torchvision import transforms
 
 
 class AutoEncoder(Replayer):
@@ -56,7 +58,8 @@ class AutoEncoder(Replayer):
         self.fromZ = fc_layer(z_dim, mlp_output_size, batch_norm=(out_nl and fc_bn), nl=fc_nl if out_nl else "none")
         # -fully connected hidden layers
         self.fcD = MLP(input_size=fc_units, output_size=image_channels*image_size**2, layers=fc_layers-1,
-                       hid_size=fc_units, drop=fc_drop, batch_norm=fc_bn, nl=fc_nl, gated=gated, output='BCE')
+                       hid_size=fc_units, drop=fc_drop, batch_norm=fc_bn, nl=fc_nl, gated=gated,
+                       output='CE' if self.experiment in ['CIFAR100', 'ImageNet'] else 'BCE')
         # -to image-shape
         self.to_image = utils.Reshape(image_channels=image_channels)
 
@@ -171,13 +174,9 @@ class AutoEncoder(Replayer):
         OUTPUT: - [reconL]      <1D-tensor> of length [batch_size]'''
 
         batch_size = x.size(0)
-        if self.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
-            reconL = F.binary_cross_entropy(input=x_recon.view(batch_size, -1), target=x.view(batch_size, -1).detach(),
-                                            reduction='none')
-        else:
-            reconL = F.mse_loss(input=x_recon.view(batch_size, -1),
-                                target=x.detach().view(batch_size, -1),
-                                reduction='none')
+        reconL = F.binary_cross_entropy(input=x_recon.view(batch_size, -1),
+                                        target=x.view(batch_size, -1).detach(),
+                                        reduction='none')
         reconL = torch.mean(reconL, dim=1) if average else torch.sum(reconL, dim=1)
 
         return reconL

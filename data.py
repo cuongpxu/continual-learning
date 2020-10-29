@@ -1,7 +1,6 @@
 import copy
 import numpy as np
 from torchvision import datasets, transforms
-import torchvision.transforms.functional as F
 from torch.utils.data import ConcatDataset, Dataset
 import torch
 import matplotlib.pyplot as plt
@@ -59,7 +58,7 @@ def get_dataset(name, type='train', download=True, capacity=None, dir='./dataset
 
     # specify image-transformations to be applied
     if type == 'train':
-        transforms_list = [*AVAILABLE_TRANSFORMS['imagenet_augment']] if name == 'imagenet' and augment else \
+        transforms_list = [*AVAILABLE_TRANSFORMS['imagenet_augment']] if (name == 'imagenet' and augment) else \
             [*AVAILABLE_TRANSFORMS['augment']] if augment else []
     else:
         transforms_list = [*AVAILABLE_TRANSFORMS['imagenet_test_augment']] if name == 'imagenet' else []
@@ -445,10 +444,10 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
         raise RuntimeError('Given undefined experiment: {}'.format(name))
 
     # If needed, update number of (total) classes in the config-dictionary
-    config['classes'] = classes_per_task if scenario=='domain' else classes_per_task*tasks
-    config['normalize'] = normalize if name == 'CIFAR100' else False
+    config['classes'] = classes_per_task if scenario == 'domain' else classes_per_task*tasks
+    config['normalize'] = normalize if name in ['CIFAR10', 'CIFAR100', 'ImageNet'] else False
     if config['normalize']:
-        config['denormalize'] = AVAILABLE_TRANSFORMS["cifar100_denorm"]
+        config['denormalize'] = AVAILABLE_TRANSFORMS["{}_denorm".format(name.lower())]
 
     # Return tuple of train-, validation- and test-dataset, config-dictionary and number of classes per task
     return config if only_config else ((train_datasets, test_datasets), config, classes_per_task)
@@ -458,9 +457,9 @@ if __name__ == '__main__':
     image = torch.rand((1, 28, 28))
     print(image.size())
     img = transforms.ToPILImage()(image)
-    rot_img = F.rotate(img, 180)
+    # rot_img = F.rotate(img, 180)
     plt.imshow(img)
     plt.show()
-    plt.imshow(rot_img)
-    plt.show()
+    # plt.imshow(rot_img)
+    # plt.show()
     # print(type(img), img.shape)

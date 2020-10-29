@@ -4,49 +4,6 @@ import numpy as np
 import utils
 import excitability_modules as em
 from torch import nn
-from torch.nn.parameter import Parameter
-
-
-class rp_layer(nn.Module):
-    def __init__(self, p, type='normal', update_rp=False):
-        super(rp_layer, self).__init__()
-        self.p = p
-        self.q = 2 * math.ceil(np.log2(self.p))
-        self.type = type
-        self.weight = Parameter(self.create_rp_matrix(), requires_grad=update_rp)
-
-    def create_rp_matrix(self):
-        if self.type == 'bernoulli':
-            r = torch.zeros([self.p, self.q])
-            for i in range(self.p):
-                for j in range(self.q):
-                    if torch.rand(1) >= 0.5:
-                        r[i, j] = 1
-                    else:
-                        r[i, j] = -1
-            r = r * (1/math.sqrt(self.q))
-        elif self.type == 'achlioptas':
-            r = torch.zeros([self.p, self.q])
-            for i in range(self.p):
-                for j in range(self.q):
-                    if torch.rand(1) > (1/6):
-                        r[i, j] = 0
-                    else:
-                        if torch.rand(1) >= 0.5:
-                            r[i, j] = math.sqrt(3)
-                        else:
-                            r[i, j] = -math.sqrt(3)
-            r = r * (1/math.sqrt(self.q))
-        elif self.type == 'normal':
-            r = torch.randn([self.p, self.q])
-            r = r * (1 / math.sqrt(self.q))
-        else:
-            raise Exception('Not implemented random projection type')
-        return r
-
-    def forward(self, input):
-        out = torch.matmul(input, self.weight)
-        return out
 
 
 class fc_layer(nn.Module):
@@ -135,7 +92,8 @@ class MLP(nn.Module):
         [nl]               <str>; type of non-linearity to be used (options: "relu", "leakyrelu", "none")
         [gated]            <bool>; if True, each linear layer has an additional learnable gate
         [output]           <str>; if - "normal", final layer is same as all others
-                                     - "BCE", final layer has sigmoid non-linearity'''
+                                     - "BCE", final layer has sigmoid non-linearity
+                                     - "ID", final layer has Identity placeholder non-linearity'''
 
         super().__init__()
         self.output = output
@@ -179,7 +137,7 @@ class MLP(nn.Module):
                 layer = fc_layer(
                     in_size, out_size, bias=bias, excitability=excitability, excit_buffer=excit_buffer, drop=drop,
                     batch_norm=False if (lay_id==self.layers and not output=="normal") else batch_norm, gated=gated,
-                    nl=nn.Sigmoid() if (lay_id==self.layers and not output=="normal") else nl,
+                    nl=nn.Sigmoid() if (lay_id==self.layers and not output=="normal") else nl
                 )
             setattr(self, 'fcLayer{}'.format(lay_id), layer)
 
@@ -202,4 +160,3 @@ class MLP(nn.Module):
         for layer_id in range(1, self.layers+1):
             list += getattr(self, 'fcLayer{}'.format(layer_id)).list_init_layers()
         return list
-
