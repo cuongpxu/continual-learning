@@ -31,7 +31,7 @@ def validate(model, dataset, batch_size=128, test_size=1024, verbose=True, allow
             model.apply_XdGmask(task=task)
 
     # Loop over batches in [dataset]
-    data_loader = utils.get_data_loader(dataset, batch_size, cuda=model._is_on_cuda())
+    data_loader = utils.get_data_loader(dataset, batch_size, shuffle=False, cuda=model._is_on_cuda())
     total_tested = total_correct = 0
     for data, labels in data_loader:
         # -break on [test_size] (if "None", full dataset is used)
@@ -320,7 +320,7 @@ def show_reconstruction(model, dataset, config, pdf=None, visdom=None, size=32, 
     model.eval()
 
     # Get data
-    data_loader = utils.get_data_loader(dataset, size, cuda=model._is_on_cuda(), collate_fn=collate_fn)
+    data_loader = utils.get_data_loader(dataset, size, shuffle=False, cuda=model._is_on_cuda(), collate_fn=collate_fn)
     (data, labels) = next(iter(data_loader))
     data, labels = data.to(model._device()), labels.to(model._device())
 
