@@ -242,7 +242,7 @@ AVAILABLE_TRANSFORMS = {
         transforms.RandomHorizontalFlip(),
     ],
     'imagenet_test_augment': [
-        transforms.Resize(224),
+        transforms.RandomResizedCrop(224)
     ]
 }
 

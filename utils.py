@@ -101,9 +101,11 @@ def get_data_loader(dataset, batch_size, cuda=False, collate_fn=None, shuffle=Tr
 
     # If requested, make copy of original dataset to add augmenting transform (without altering original dataset)
     if augment:
+        print('Using augment in Get data loader')
         dataset_ = copy.deepcopy(dataset)
         dataset_.transform = transforms.Compose([dataset.transform, *data.AVAILABLE_TRANSFORMS['augment']])
     else:
+        print('Not using augment in Get data loader')
         dataset_ = dataset
 
     # Create and return the <DataLoader>-object

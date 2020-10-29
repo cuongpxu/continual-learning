@@ -99,9 +99,6 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
         if generator is not None:
             progress_gen = tqdm.tqdm(range(1, gen_iters + 1))
 
-        # Freezing neural which are not relevant in current task
-
-
         # Loop over all iterations
         iters_to_use = iters if (generator is None) else max(iters, gen_iters)
         for batch_index in range(1, iters_to_use + 1):
