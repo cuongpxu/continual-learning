@@ -10,6 +10,7 @@ from continual_learner import ContinualLearner
 from es import EarlyStopping
 from torch import optim
 from torch.utils.data import ConcatDataset, random_split
+import uuid
 
 
 def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class", classes_per_task=None, iters=2000,
@@ -407,7 +408,8 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda):
                                            shuffle=False, drop_last=False, cuda=cuda)
     teacher_optimizer = optim.Adam(teacher.parameters(), lr=teacher_lr, betas=(0.9, 0.999))
     teacher_criterion = torch.nn.CrossEntropyLoss()
-    early_stopping = EarlyStopping(model_name='teacher', verbose=False)
+    id = uuid.uuid1()
+    early_stopping = EarlyStopping(model_name=id.hex, verbose=False)
     # Training teacher
 
     tk = tqdm.tqdm(range(1, 100))
