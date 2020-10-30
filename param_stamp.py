@@ -109,8 +109,8 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
             ) else ""
         )
         if args.replay == 'online':
-            replay_stamp = '{}-b{}-{}'.format(replay_stamp, args.online_memory_budget,
-                                              'w-teacher' if hasattr(args, 'use_teacher') else 'wo-teacher')
+            replay_stamp = '{}-b{}{}'.format(replay_stamp, args.online_memory_budget,
+                                             '-distill' if hasattr(args, 'use_teacher') else '')
         if verbose:
             print(" --> replay:        " + replay_stamp)
     replay_stamp = "--{}".format(replay_stamp) if replay else ""

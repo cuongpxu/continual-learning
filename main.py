@@ -63,7 +63,7 @@ model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", 
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                    " (instead of a 'multi-headed' one)")
 
-model_params.add_argument('--use-teacher', action='store_true', help='Using an offline teacher for distill from memory')
+model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -241,7 +241,7 @@ def run(args, verbose=False):
             loss=args.loss, experiment=args.experiment
         ).to(device)
 
-    if hasattr(args, 'use_teacher'):
+    if args.use_teacher:
         teacher = Classifier(
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
@@ -390,6 +390,8 @@ def run(args, verbose=False):
         if generator is not None:
             utils.print_model_info(generator, title="GENERATOR")
 
+        if teacher is not None:
+            utils.print_model_info(teacher, title="TEACHER MODEL")
     # Prepare for keeping track of statistics required for metrics (also used for plotting in pdf)
     if args.pdf or args.metrics:
         # -define [metrics_dict] to keep track of performance during training for storing & for later plotting in pdf

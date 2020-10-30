@@ -256,11 +256,18 @@ if __name__ == '__main__':
     ## Online Replay
     args.replay = 'online'
     args.online_memory_budget = 2000
-    args.online_replay_mode = 'c3'
     OTR = {}
-    OTR = collect_all(OTR, seed_list, args, name='OTR (budget = {})'.format(args.online_memory_budget))
+    OTR = collect_all(OTR, seed_list, args, name='OTR (ours)')
     args.replay = 'none'
 
+    ## OTR + distill
+    args.replay = 'online'
+    args.online_memory_budget = 2000
+    args.use_teacher = True
+    OTRDistill = {}
+    OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
+    args.replay = 'none'
+    args.use_teacher = False
     ## OTFL
     # args.loss = 'otfl'
     # args.otfl_alpha = 1.0
@@ -328,7 +335,7 @@ if __name__ == '__main__':
         ## AVERAGE TEST ACCURACY
         ave_prec[seed] = [NONE[seed][1], OFF[seed][1], EWC[seed][1], OEWC[seed][1], SI[seed][1], LWF[seed][1],
                           RP[seed][1], RKD[seed][1], AGEM[seed][1], ER[seed][1],
-                          OTR[seed][1]]
+                          OTR[seed][1], OTRDistill[seed][1]]
         if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_prec[seed].append(XDG[seed][1])
         elif args.scenario=="class":
@@ -337,7 +344,7 @@ if __name__ == '__main__':
         key = "average"
         prec[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                       LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
-                      OTR[seed][0][key]]
+                      OTR[seed][0][key], OTRDistill[seed][0][key]]
         if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             prec[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -347,7 +354,7 @@ if __name__ == '__main__':
         key = 'BWT'
         ave_BWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                          LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
-                         OTR[seed][0][key]]
+                         OTR[seed][0][key], OTRDistill[seed][0][key]]
         if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_BWT[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -357,7 +364,7 @@ if __name__ == '__main__':
         key = 'FWT'
         ave_FWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                          LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
-                         OTR[seed][0][key]]
+                         OTR[seed][0][key], OTRDistill[seed][0][key]]
         if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_FWT[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -409,6 +416,9 @@ if __name__ == '__main__':
             np.mean([(
                     OFF[seed][0][key]['task {}'.format(i + 1)][i] - OTR[seed][0][key]['task {}'.format(i + 1)][i]
             ) for i in range(1, args.tasks)]),
+            np.mean([(
+                    OFF[seed][0][key]['task {}'.format(i + 1)][i] - OTRDistill[seed][0][key]['task {}'.format(i + 1)][i]
+            ) for i in range(1, args.tasks)]),
         ]
         if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_I[seed].append(np.mean([(
@@ -438,16 +448,16 @@ if __name__ == '__main__':
     if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
         names.append("XdG")
         colors.append("purple")
-        ids.append(11)
+        ids.append(12)
     names += ["EWC", "o-EWC", "SI", "LwF", "GR", "GR+distil", "ER (b={})".format(args.budget),
-              "A-GEM (b={})".format(args.budget), "OTR (b={})".format(args.online_memory_budget)]
+              "A-GEM (b={})".format(args.budget), "OTR (ours)", "OTR+distill (ours)"]
     colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "indianred", "red", "darkblue", "brown",
-               "teal"] # "darkviolet", "coral", 'peru'
-    ids += [2,3,4,5,6,7,8,9,10]
+               "teal", "coral"] # "darkviolet", "coral", 'peru'
+    ids += [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     if args.scenario=="class":
         names.append("iCaRL (b={})".format(args.budget))
         colors.append("violet")
-        ids.append(11)
+        ids.append(12)
 
     # open pdf
     pp = visual_plt.open_pdf("{}/{}.pdf".format(args.p_dir, plot_name))
