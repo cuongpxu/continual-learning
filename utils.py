@@ -1,17 +1,11 @@
 import numpy as np
 import pickle
 import torch
-import copy
-import data
 import os, errno
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torch.nn import functional as F
-from torchvision import transforms
-
-from encoder import Classifier
-from vae_models import AutoEncoder
 
 ###################
 ## Loss function ##
@@ -96,21 +90,11 @@ def checkattr(args, attr):
 ## Data-handling functions ##
 #############################
 
-def get_data_loader(dataset, batch_size, cuda=False, collate_fn=None, shuffle=True, drop_last=False, augment=False):
+def get_data_loader(dataset, batch_size, cuda=False, collate_fn=None, shuffle=True, drop_last=False):
     '''Return <DataLoader>-object for the provided <DataSet>-object [dataset].'''
-
-    # If requested, make copy of original dataset to add augmenting transform (without altering original dataset)
-    if augment:
-        print('Using augment in Get data loader')
-        dataset_ = copy.deepcopy(dataset)
-        dataset_.transform = transforms.Compose([dataset.transform, *data.AVAILABLE_TRANSFORMS['augment']])
-    else:
-        print('Not using augment in Get data loader')
-        dataset_ = dataset
-
     # Create and return the <DataLoader>-object
     return DataLoader(
-        dataset_, batch_size=batch_size, shuffle=shuffle,
+        dataset, batch_size=batch_size, shuffle=shuffle,
         collate_fn=(collate_fn or default_collate), drop_last=drop_last,
         **({'num_workers': 0, 'pin_memory': True} if cuda else {})
     )

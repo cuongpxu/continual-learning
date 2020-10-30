@@ -63,6 +63,7 @@ model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", 
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                    " (instead of a 'multi-headed' one)")
 
+model_params.add_argument('--use-teacher', action='store_true', help='Using an offline teacher for distill from memory')
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -113,7 +114,6 @@ store_params.add_argument('--herding', action='store_true', help="use herding to
 store_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
 
 store_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
-store_params.add_argument('--online-replay-mode', type=str, default='c3', choices=['c1', 'c2', 'c3'], help="how sample be selected?")
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
 eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
@@ -240,6 +240,16 @@ def run(args, verbose=False):
             binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem,
             loss=args.loss, experiment=args.experiment
         ).to(device)
+
+    if hasattr(args, 'use_teacher'):
+        teacher = Classifier(
+            image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
+            fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
+            fc_bn=True if args.fc_bn == "yes" else False,
+            loss=args.loss, experiment=args.experiment
+        ).to(device)
+    else:
+        teacher = None
 
     # Define loss function
     if args.loss == 'otfl':
@@ -470,12 +480,12 @@ def run(args, verbose=False):
     start = time.time()
     # Train model
     train_cl(
-        model, train_datasets, replay_mode=args.replay, scenario=scenario, classes_per_task=classes_per_task,
+        model, teacher, train_datasets, replay_mode=args.replay, scenario=scenario, classes_per_task=classes_per_task,
         iters=args.iters, batch_size=args.batch,
         generator=generator, gen_iters=args.g_iters, gen_loss_cbs=generator_loss_cbs,
         sample_cbs=sample_cbs, eval_cbs=eval_cbs, loss_cbs=generator_loss_cbs if args.feedback else solver_loss_cbs,
         metric_cbs=metric_cbs, use_exemplars=args.use_exemplars, add_exemplars=args.add_exemplars,
-        loss_fn=loss_fn, online_replay_mode=args.online_replay_mode
+        loss_fn=loss_fn
     )
     # Get total training-time in seconds, and write to file
     if args.time:

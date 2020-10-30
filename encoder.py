@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
 import models.resnet as rn
+import utils
 from torch.nn import functional as F
 from linear_nets import MLP, fc_layer
 from exemplars import ExemplarHandler
 from continual_learner import ContinualLearner
 from replayer import Replayer
 from torchvision.models import resnet18, ResNet
-import utils
 
 
 class Classifier(ContinualLearner, Replayer, ExemplarHandler):
@@ -32,6 +32,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         #   the gradient of the current data (as in A-GEM, see Chaudry et al., 2019; ICLR)
         self.loss = loss
 
+        # Online mem distilation
+        self.is_offline_training = False
+        self.is_ready_distill = False
+        self.alpha_t = 0.5
         # check whether there is at least 1 fc-layer
         if fc_layers < 1:
             raise ValueError("The classifier needs to have at least 1 fully-connected layer.")
@@ -87,8 +91,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             return self.fcE(self.flatten(images))
 
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
-                      active_classes=None, task=1, scenario='class', loss_fn=None, replay_mode='none',
-                      online_replay_mode='c1'):
+                      active_classes=None, task=1, scenario='class',
+                      loss_fn=None, replay_mode='none', teacher=None):
         '''Train model for one batch ([x],[y]), possibly supplemented with replayed data ([x_],[y_/scores_]).
 
         [x]               <tensor> batch of inputs (could be None, in which case only 'replayed' data is used)
@@ -202,6 +206,19 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
             # Run model
             y_hat = self(x)
+
+            if teacher is not None:
+                if teacher.is_ready_distill:
+                    with torch.no_grad():
+                        teacher.eval()
+                        y_hat_teacher = teacher(x)
+                    # Compute distilation loss from teacher outputs
+                    teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                              F.softmax(y_hat_teacher / self.KD_temp, dim=1))\
+                               * (self.alpha_t * self.KD_temp * self.KD_temp)\
+                               + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
+                else:
+                    teacherL = 0
             # -if needed, remove predictions for classes not in current task
             if active_classes is not None:
                 class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
@@ -238,90 +255,54 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     uq = torch.unique(y).cpu().numpy()
                     # Select instances in the batch for replay later
                     if replay_mode == 'online':
-                        if online_replay_mode == 'c1':
-                            # C1: Select instances which is corrected classify
-                            for m in uq:
-                                selected_index = (y == y_hat.max(1)[1]) & (y == m)
-                                selected_x = x[selected_index]
-                                selected_y = y[selected_index]
-                                if scenario in ['task', 'domain']:
-                                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y,
-                                                                               m + len(uq) * (task - 1))
-                                else:
-                                    self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
-                        elif online_replay_mode == 'c2':
-                            # C2: Select instances which have min loss value for each class
-                            for m in uq:
-                                mask = y == m
-                                ce_m = y_score[mask]
-                                if ce_m.size(0) != 0:
-                                    # Select min loss instances
-                                    min_m = torch.min(ce_m)
-                                    min_idx = y_score == min_m
-                                    # Select max loss instances
-                                    max_m = torch.max(ce_m)
-                                    max_idx = y_score == max_m
-                                    if torch.all(torch.eq(min_idx, max_idx)):
-                                        selected_x = x[min_idx]
-                                        selected_y = y[min_idx]
-                                    else:
-                                        selected_x = torch.cat((x[min_idx], x[max_idx]), dim=0)
-                                        selected_y = torch.cat((y[min_idx], y[max_idx]), dim=0)
-                                    if scenario in ['task', 'domain']:
-                                        self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m + len(uq) * (task-1))
-                                    else:
-                                        self.add_instances_to_online_exemplar_sets(selected_x, selected_y, m)
-                        else:
-                            # C3: Select a triplet instances in which the anchor has min loss value and
-                            # a hard positive instance as well as a hard negative instance
-                            for m in uq:
-                                mask = y == m
-                                mask_neg = y != m
-                                ce_m = y_score[mask]
-                                if ce_m.size(0) != 0:
-                                    # Select anchor and hard positive instances for class m
-                                    positive_batch = x[mask]
-                                    anchor_idx = torch.argmin(ce_m)
-                                    anchor_x = positive_batch[anchor_idx].unsqueeze(dim=0)
-                                    # anchor should not equal positive
-                                    positive_batch = torch.cat(
+                        for m in uq:
+                            mask = y == m
+                            mask_neg = y != m
+                            ce_m = y_score[mask]
+                            if ce_m.size(0) != 0:
+                                # Select anchor and hard positive instances for class m
+                                positive_batch = x[mask]
+                                anchor_idx = torch.argmin(ce_m)
+                                anchor_x = positive_batch[anchor_idx].unsqueeze(dim=0)
+                                # anchor should not equal positive
+                                positive_batch = torch.cat(
                                         (positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
-                                    if positive_batch.size(0) != 0:
-                                        anchor_batch = anchor_x.expand(positive_batch.size())
-                                        positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                if positive_batch.size(0) != 0:
+                                    anchor_batch = anchor_x.expand(positive_batch.size())
+                                    positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
                                                                             positive_batch.view(positive_batch.size(0), -1))
-                                        hard_positive_idx = torch.argmax(positive_dist)
-                                        hard_positive_x = positive_batch[hard_positive_idx].unsqueeze(dim=0)
-                                        x_m = torch.cat((anchor_x, hard_positive_x), dim=0)
-                                        y_m = torch.tensor([m, m])
-                                    else:
-                                        x_m = anchor_x
-                                        y_m = torch.tensor([m])
+                                    hard_positive_idx = torch.argmax(positive_dist)
+                                    hard_positive_x = positive_batch[hard_positive_idx].unsqueeze(dim=0)
+                                    x_m = torch.cat((anchor_x, hard_positive_x), dim=0)
+                                    y_m = torch.tensor([m, m])
+                                else:
+                                    x_m = anchor_x
+                                    y_m = torch.tensor([m])
+
+                                if scenario in ['task', 'domain']:
+                                    self.add_instances_to_online_exemplar_sets(x_m, y_m, m + len(uq) * (task - 1))
+                                else:
+                                    self.add_instances_to_online_exemplar_sets(x_m, y_m, m)
+
+                                # Select hard negative instances
+                                negative_batch = x[mask_neg]
+                                if negative_batch.size(0) != 0:
+                                    anchor_batch = anchor_x.expand(negative_batch.size())
+                                    negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                                            negative_batch.view(negative_batch.size(0), -1))
+                                    hard_negative_idx = torch.argmin(negative_dist)
+                                    hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
+                                    hard_negative_y = y[mask_neg][hard_negative_idx].unsqueeze(dim=0)
 
                                     if scenario in ['task', 'domain']:
-                                        self.add_instances_to_online_exemplar_sets(x_m, y_m, m + len(uq) * (task - 1))
-                                    else:
-                                        self.add_instances_to_online_exemplar_sets(x_m, y_m, m)
-
-                                    # Select hard negative instances
-                                    negative_batch = x[mask_neg]
-                                    if negative_batch.size(0) != 0:
-                                        anchor_batch = anchor_x.expand(negative_batch.size())
-                                        negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                                            negative_batch.view(negative_batch.size(0), -1))
-                                        hard_negative_idx = torch.argmin(negative_dist)
-                                        hard_negative_x = negative_batch[hard_negative_idx].unsqueeze(dim=0)
-                                        hard_negative_y = y[mask_neg][hard_negative_idx].unsqueeze(dim=0)
-
-                                        if scenario in ['task', 'domain']:
-                                            self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
+                                        self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
                                                                                        hard_negative_y.item() + len(uq) * (task-1))
-                                        else:
-                                            self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
+                                    else:
+                                        self.add_instances_to_online_exemplar_sets(hard_negative_x, hard_negative_y,
                                                                                        hard_negative_y.item())
 
             # Weigh losses
-            loss_cur = predL
+            loss_cur = predL + teacherL if teacher is not None else 0
 
             # Calculate training-precision
             precision = None if y is None else (y == y_hat.max(1)[1]).sum().item() / x.size(0)
@@ -392,3 +373,29 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             'ewc': ewc_loss.item(), 'si_loss': surrogate_loss.item(),
             'precision': precision if precision is not None else 0.,
         }
+
+    def train_epoch(self, train_loader, criterion, optimizer, epoch):
+        self.train()
+        for batch_idx, batch in enumerate(train_loader):
+            x, y = batch
+            x, y = x.to(self._device()), y.to(self._device())
+
+            optimizer.zero_grad()
+            y_hat = self(x)
+            loss = criterion(y_hat, y)
+            loss.backward()
+            optimizer.step()
+
+    def valid_epoch(self, val_loader, criterion):
+        valid_losses = []
+        self.eval()
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(val_loader, 0):
+                x, y = batch
+                x, y = x.to(self._device()), y.to(self._device())
+                y_hat = self(x)
+                valid_loss = criterion(y_hat, y)
+                valid_losses.append(valid_loss.item())
+        self.train()
+        return valid_losses
+

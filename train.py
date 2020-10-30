@@ -1,19 +1,22 @@
 import torch
-from torch import optim
-from torch.utils.data import ConcatDataset
-import numpy as np
 import tqdm
 import copy
 import utils
+import os
+import numpy as np
+import threading
 from data import SubDataset, ExemplarDataset, OnlineExemplarDataset
 from continual_learner import ContinualLearner
+from es import EarlyStopping
+from torch import optim
+from torch.utils.data import ConcatDataset, random_split
 
 
-def train_cl(model, train_datasets, replay_mode="none", scenario="class", classes_per_task=None, iters=2000,
+def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class", classes_per_task=None, iters=2000,
              batch_size=32, generator=None, gen_iters=0,
              gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
              use_exemplars=True, add_exemplars=False, metric_cbs=list(),
-             loss_fn=None, online_replay_mode='c1'):
+             loss_fn=None):
     '''Train a model (with a "train_a_batch" method) on multiple tasks, with replay-strategy specified by [replay_mode].
 
     [model]             <nn.Module> main model to optimize across all tasks
@@ -27,7 +30,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
 
     # Set model in training-mode
     model.train()
-
+    torch.autograd.set_detect_anomaly(True)
     # Use cuda?
     cuda = model._is_on_cuda()
     device = model._device()
@@ -45,7 +48,9 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
 
     # Loop over all tasks.
     for task, train_dataset in enumerate(train_datasets, 1):
-
+        # Re-train teacher in every task
+        if teacher is not None:
+            teacher.is_offline_training = False
         # If offline replay-setting, create large database of all tasks so far
         if replay_mode == "offline" and (not scenario == "task"):
             train_dataset = ConcatDataset(train_datasets[:task])
@@ -139,7 +144,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
             else:
                 x, y = next(data_loader)  # --> sample training data of current task
                 y = y - classes_per_task * (
-                            task - 1) if scenario == "task" else y  # --> ITL: adjust y-targets to 'active range'
+                        task - 1) if scenario == "task" else y  # --> ITL: adjust y-targets to 'active range'
                 y = y.long()
                 x, y = x.to(device), y.to(device)  # --> transfer them to correct device
                 x.requires_grad_(requires_grad=True)
@@ -242,7 +247,7 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
                                                 active_classes=active_classes, task=task, rnt=1. / task,
                                                 scenario=scenario, loss_fn=loss_fn, replay_mode=replay_mode,
-                                                online_replay_mode=online_replay_mode)
+                                                teacher=teacher)
 
                 # Update running parameter importance estimates in W
                 if isinstance(model, ContinualLearner) and (model.si_c > 0):
@@ -279,6 +284,29 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                 for sample_cb in sample_cbs:
                     if sample_cb is not None:
                         sample_cb(generator, batch_index, task=task)
+
+            # ---> Train Teacher in offline mode
+            if teacher is not None and (replay_mode == 'online' and model.check_full_memory()):
+                if not teacher.is_offline_training:
+                    # Get dataset from online memory
+                    if scenario in ['task', 'domain']:
+                        memory_datasets = []
+                        for task_id in range(task):
+                            classes = np.arange((classes_per_task * task_id), (classes_per_task * (task_id + 1)))
+                            for c in classes:
+                                memory_datasets.append(
+                                    OnlineExemplarDataset(model.online_exemplar_sets[c])
+                                )
+                    else:
+                        memory_datasets = []
+                        for c in range(len(model.online_exemplar_sets)):
+                            memory_datasets.append(OnlineExemplarDataset(model.online_exemplar_sets[c]))
+
+                    teacher_dataset = ConcatDataset(memory_datasets)
+                    teacher_lr = model.optimizer.param_groups[0]['lr']
+
+                    teacherThread = TeacherThread(1, teacher_dataset, teacher, teacher_lr, batch_size, cuda)
+                    teacherThread.start()
 
         ##----------> UPON FINISHING EACH TASK...
 
@@ -362,3 +390,59 @@ def train_cl(model, train_datasets, replay_mode="none", scenario="class", classe
                     target_transform = (lambda y, x=classes_per_task: y % x) if scenario == "domain" else None
                     previous_datasets = [
                         ExemplarDataset(model.exemplar_sets, target_transform=target_transform)]
+
+
+def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda):
+    # Start training a teacher in offline mode from memory
+    teacher.is_offline_training = True
+    teacher.is_ready_distill = False
+
+    # Split dataset into train and val sets
+    mem_train_size = int(0.8 * len(teacher_dataset))
+    mem_train_set, mem_val_set = random_split(teacher_dataset, [mem_train_size,
+                                                                len(teacher_dataset) - mem_train_size])
+    mem_train_loader = utils.get_data_loader(mem_train_set, batch_size=batch_size,
+                                             shuffle=True, drop_last=False, cuda=cuda)
+    mem_val_loader = utils.get_data_loader(mem_val_set, batch_size=batch_size,
+                                           shuffle=False, drop_last=False, cuda=cuda)
+    teacher_optimizer = optim.Adam(teacher.parameters(), lr=teacher_lr, betas=(0.9, 0.999))
+    teacher_criterion = torch.nn.CrossEntropyLoss()
+    early_stopping = EarlyStopping(model_name='teacher', verbose=False)
+    # Training teacher
+
+    tk = tqdm.tqdm(range(1, 100))
+    tk.set_description('<Teacher> ')
+    for epoch in tk:
+        teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer, epoch)
+        vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion)
+
+        early_stopping(np.average(vlosses), teacher, epoch)
+        if early_stopping.early_stop:
+            # print("Teacher early stopping detected")
+            # Notify solver to distill from teacher
+            # teacher.is_offline_training = False
+            teacher.is_ready_distill = True
+            # Using best model from last check point
+            teacher.load_state_dict(torch.load(early_stopping.model_name))
+            if os.path.exists(early_stopping.model_name):
+                os.remove(early_stopping.model_name)
+            break
+
+    # teacher.is_offline_training = False
+    teacher.is_ready_distill = True
+    if os.path.exists(early_stopping.model_name):
+        os.remove(early_stopping.model_name)
+
+
+class TeacherThread(threading.Thread):
+    def __init__(self, threadID, teacher_dataset, teacher, teacher_lr, batch_size, cuda):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.teacher_dataset = teacher_dataset
+        self.teacher = teacher
+        self.teacher_lr = teacher_lr
+        self.batch_size = batch_size
+        self.cuda = cuda
+
+    def run(self):
+        training_teacher(self.teacher_dataset, self.teacher, self.teacher_lr, self.batch_size, self.cuda)
