@@ -226,7 +226,7 @@ if __name__ == '__main__':
     args.replay = "generative"
     args.distill = False
     if args.experiment in ['CIFAR10', 'CIFAR100']:
-        args.lr_gen = 0.001
+        args.lr_gen = 0.0003
     RP = {}
     RP = collect_all(RP, seed_list, args, name="GR")
 
@@ -234,7 +234,7 @@ if __name__ == '__main__':
     args.replay = "generative"
     args.distill = True
     if args.experiment in ['CIFAR10', 'CIFAR100']:
-        args.lr_gen = 0.001
+        args.lr_gen = 0.0003
     RKD = {}
     RKD = collect_all(RKD, seed_list, args, name="GR+distill")
 
