@@ -3,8 +3,7 @@ from torch.nn import functional as F
 import utils
 from linear_nets import MLP,fc_layer,fc_layer_split
 from replayer import Replayer
-from data import AVAILABLE_TRANSFORMS
-from torchvision import transforms
+from models.vae_cifar import Encoder, Decoder
 
 
 class AutoEncoder(Replayer):
@@ -40,12 +39,17 @@ class AutoEncoder(Replayer):
         ######------SPECIFY MODEL------######
         self.experiment = experiment
         ##>----Encoder (= q[z|x])----<##
-        # -flatten image to 2D-tensor
-        self.flatten = utils.Flatten()
-        # -fully connected hidden layers
-        self.fcE = MLP(input_size=image_channels*image_size**2, output_size=fc_units, layers=fc_layers-1,
-                       hid_size=fc_units, drop=fc_drop, batch_norm=fc_bn, nl=fc_nl, gated=gated)
-        mlp_output_size = fc_units if fc_layers > 1 else image_channels*image_size**2
+        if self.experiment in ['CIFAR10', 'CIFAR100']:
+            self.fcE = Encoder(image_channels, [4, 2])
+            mlp_output_size = self.fcE.mlp_out_size
+        else:
+            # -flatten image to 2D-tensor
+            self.flatten = utils.Flatten()
+            # -fully connected hidden layers
+            self.fcE = MLP(input_size=image_channels*image_size**2, output_size=fc_units, layers=fc_layers-1,
+                           hid_size=fc_units, drop=fc_drop, batch_norm=fc_bn, nl=fc_nl, gated=gated)
+
+            mlp_output_size = fc_units if fc_layers > 1 else image_channels*image_size**2
         # -to z
         self.toZ = fc_layer_split(mlp_output_size, z_dim, nl_mean='none', nl_logvar='none')
 
@@ -57,9 +61,12 @@ class AutoEncoder(Replayer):
         out_nl = True if fc_layers > 1 else False
         self.fromZ = fc_layer(z_dim, mlp_output_size, batch_norm=(out_nl and fc_bn), nl=fc_nl if out_nl else "none")
         # -fully connected hidden layers
-        self.fcD = MLP(input_size=fc_units, output_size=image_channels*image_size**2, layers=fc_layers-1,
-                       hid_size=fc_units, drop=fc_drop, batch_norm=fc_bn, nl=fc_nl, gated=gated,
-                       output='CE' if self.experiment in ['CIFAR100', 'ImageNet'] else 'BCE')
+        if self.experiment in ['CIFAR10', 'CIFAR100']:
+            self.fcD = Decoder(image_channels, [4, 2], self.fcE.fm_out_size)
+        else:
+            self.fcD = MLP(input_size=fc_units, output_size=image_channels*image_size**2, layers=fc_layers-1,
+                           hid_size=fc_units, drop=fc_drop, batch_norm=fc_bn, nl=fc_nl, gated=gated,
+                           output='BCE')
         # -to image-shape
         self.to_image = utils.Reshape(image_channels=image_channels)
 
@@ -88,14 +95,14 @@ class AutoEncoder(Replayer):
     def encode(self, x):
         '''Pass input through feed-forward connections, to get [hE], [z_mean] and [z_logvar].'''
         # extract final hidden features (forward-pass)
-        hE = self.fcE(self.flatten(x))
+        hE = self.fcE(self.flatten(x) if self.experiment not in ['CIFAR10', 'CIFAR100'] else x)
         # get parameters for reparametrization
         (z_mean, z_logvar) = self.toZ(hE)
         return z_mean, z_logvar, hE
 
     def classify(self, x):
         '''For input [x], return all predicted "scores"/"logits".'''
-        hE = self.fcE(self.flatten(x))
+        hE = self.fcE(self.flatten(x) if self.experiment not in ['CIFAR10', 'CIFAR100'] else x)
         y_hat = self.classifier(hE)
         return y_hat
 

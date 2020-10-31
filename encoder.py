@@ -218,7 +218,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                * (self.alpha_t * self.KD_temp * self.KD_temp)\
                                + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
                 else:
-                    teacherL = 0
+                    teacherL = None
+            else:
+                teacherL = None
+
             # -if needed, remove predictions for classes not in current task
             if active_classes is not None:
                 class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
@@ -302,7 +305,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                                                                        hard_negative_y.item())
 
             # Weigh losses
-            loss_cur = predL + teacherL if teacher is not None else 0
+            if teacherL is not None:
+                loss_cur = rnt * predL + (1 - rnt) * teacherL
+            else:
+                loss_cur = predL
 
             # Calculate training-precision
             precision = None if y is None else (y == y_hat.max(1)[1]).sum().item() / x.size(0)
