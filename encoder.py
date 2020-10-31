@@ -212,21 +212,26 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     with torch.no_grad():
                         teacher.eval()
                         y_hat_teacher = teacher(x)
-                    # Compute distilation loss from teacher outputs
-                    teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                              F.softmax(y_hat_teacher / self.KD_temp, dim=1))\
-                               * (self.alpha_t * self.KD_temp * self.KD_temp)\
-                               + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
+
                 else:
-                    teacherL = None
+                    y_hat_teacher = None
             else:
-                teacherL = None
+                y_hat_teacher = None
 
             # -if needed, remove predictions for classes not in current task
             if active_classes is not None:
                 class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
                 y_hat = y_hat[:, class_entries]
+                if y_hat_teacher is not None:
+                    y_hat_teacher = y_hat_teacher[:, class_entries]
 
+                    # Compute distilation loss from teacher outputs
+                    teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                              F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
+                               * (self.alpha_t * self.KD_temp * self.KD_temp) \
+                               + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
+                else:
+                    teacherL = None
             # Calculate prediction loss
             if self.loss in ['otfl', 'fgfl', 'gbfg']:
                 predL, selected_data = loss_fn(x, y_hat, y)

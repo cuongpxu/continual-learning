@@ -374,7 +374,7 @@ if __name__ == '__main__':
         key = 'F'
         ave_F[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                        LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
-                       OTR[seed][0][key]]
+                       OTR[seed][0][key], OTRDistill[seed][0][key]]
         if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_F[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
