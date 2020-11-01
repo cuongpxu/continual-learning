@@ -225,13 +225,14 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 if y_hat_teacher is not None:
                     y_hat_teacher = y_hat_teacher[:, class_entries]
 
-                    # Compute distilation loss from teacher outputs
-                    teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                              F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
-                               * (self.alpha_t * self.KD_temp * self.KD_temp) \
-                               + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
-                else:
-                    teacherL = None
+            if y_hat_teacher is not None:
+                # Compute distilation loss from teacher outputs
+                teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                          F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
+                           * (self.alpha_t * self.KD_temp * self.KD_temp) \
+                           + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
+            else:
+                teacherL = None
             # Calculate prediction loss
             if self.loss in ['otfl', 'fgfl', 'gbfg']:
                 predL, selected_data = loss_fn(x, y_hat, y)
