@@ -15,7 +15,7 @@ parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't 
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
 parser.add_argument('--results-dir', type=str, default='../benchmark', dest='r_dir', help="default: %(default)s")
-parser.add_argument('--list-experiments', nargs="+", default=['splitMNIST', 'permMNIST', 'rotMNIST', 'CIFAR10'])
+parser.add_argument('--list-experiments', nargs="+", default=['splitMNIST', 'permMNIST', 'rotMNIST', 'CIFAR10', 'CIFAR100'])
 
 # expirimental task parameters.
 task_params = parser.add_argument_group('Task Parameters')
@@ -192,7 +192,7 @@ if __name__ == '__main__':
         # online EWC
         args.online = True
         args.ewc_lambda = args.o_lambda
-        collect_all(OFF, result_writer, seed_list, args, name="O-EWC")
+        collect_all(OFF, result_writer, seed_list, args, name="o-EWC")
         args.ewc = False
         args.online = False
 
@@ -224,7 +224,7 @@ if __name__ == '__main__':
         args.replay = "exemplars"
         args.distill = False
         args.agem = True
-        collect_all(OFF, result_writer, seed_list, args, name="AGEM")
+        collect_all(OFF, result_writer, seed_list, args, name="A-GEM")
         args.replay = "none"
         args.agem = False
 
@@ -246,5 +246,15 @@ if __name__ == '__main__':
         collect_all(OFF, result_writer, seed_list, args, name='OTR+distill (ours)')
         args.replay = 'none'
         args.use_teacher = False
+
+        # iCaRL
+        if args.scenario == "class":
+            args.bce = True
+            args.bce_distill = True
+            args.use_exemplars = True
+            args.add_exemplars = True
+            args.herding = True
+            args.norm_exemplars = True
+            collect_all(OFF, result_writer, seed_list, args, name="iCaRL")
 
     result_writer.close()
