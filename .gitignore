@@ -11,3 +11,4 @@ test_grad.py
 *.sh
 
 stat/*.csv
+visualization/*.png
