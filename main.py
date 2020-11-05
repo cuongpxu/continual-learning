@@ -114,6 +114,7 @@ store_params.add_argument('--herding', action='store_true', help="use herding to
 store_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
 
 store_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
+store_params.add_argument('--triplet-selection', type=str, default='HP-HN', help="Triplet selection strategy")
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
 eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
@@ -487,7 +488,7 @@ def run(args, verbose=False):
         generator=generator, gen_iters=args.g_iters, gen_loss_cbs=generator_loss_cbs,
         sample_cbs=sample_cbs, eval_cbs=eval_cbs, loss_cbs=generator_loss_cbs if args.feedback else solver_loss_cbs,
         metric_cbs=metric_cbs, use_exemplars=args.use_exemplars, add_exemplars=args.add_exemplars,
-        loss_fn=loss_fn
+        loss_fn=loss_fn, triplet_selection=args.triplet_selection
     )
     # Get total training-time in seconds, and write to file
     if args.time:
