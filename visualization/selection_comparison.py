@@ -11,11 +11,11 @@ from param_values import set_default_values
 description = 'Compare CL strategies using various metrics on each scenario of permuted or split MNIST.'
 parser = argparse.ArgumentParser('./create_result.py', description=description)
 parser.add_argument('--seed', type=int, default=1, help='[first] random seed (for each random-module used)')
-parser.add_argument('--n-seeds', type=int, default=1, help='how often to repeat?')
+parser.add_argument('--n-seeds', type=int, default=10, help='how often to repeat?')
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
-parser.add_argument('--results-dir', type=str, default='../benchmark', dest='r_dir', help="default: %(default)s")
+parser.add_argument('--results-dir', type=str, default='../benchmark_selection', dest='r_dir', help="default: %(default)s")
 
 # expirimental task parameters.
 task_params = parser.add_argument_group('Task Parameters')
@@ -23,7 +23,6 @@ task_params.add_argument('--experiment', type=str, default='splitMNIST',
                          choices=['rotMNIST', 'permMNIST', 'splitMNIST', 'CIFAR10', 'CIFAR100'])
 task_params.add_argument('--scenario', type=str, default='task', choices=['task', 'domain', 'class'])
 task_params.add_argument('--tasks', type=int, help='number of tasks')
-
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
 loss_params.add_argument('--loss', type=str, default='none',
@@ -111,131 +110,146 @@ def get_results(args):
     return (dict, ave)
 
 
-def collect_all(method_dict, mem_list, args, name=None):
+def collect_all(method_dict, seed_list, args, name=None):
     # -print name of method on screen
     if name is not None:
         print("\n------{}------".format(name))
     # -run method for all random seeds
-    for b in mem_list:
-        if name in ['A-GEM', 'ER', 'iCaRL']:
-            args.budget = b
-        else:
-            args.online_memory_budget = b
-        method_dict[b] = get_results(args)
+    for seed in seed_list:
+        args.seed = seed
+        method_dict[seed] = get_results(args)
     # -return updated dictionary with results
     return method_dict
+
+
+def autolabel(rects):
+    """Attach a text label above each bar in *rects*, displaying its height."""
+    for rect in rects:
+        height = rect.get_height()
+        ax.annotate('{:.3f}'.format(height),
+                    xy=(rect.get_x() + rect.get_width() / 2, height),
+                    xytext=(0, 12),  # 3 points vertical offset
+                    textcoords="offset points",
+                    ha='center', va='bottom')
 
 
 if __name__ == '__main__':
 
     # Load input-arguments
-    args = parser.parse_args()
-    # -set default-values for certain arguments based on chosen scenario & experiment
-    args = set_default_values(args)
-    # -set other default arguments
-    args.lr_gen = args.lr if args.lr_gen is None else args.lr_gen
-    args.g_iters = args.iters if args.g_iters is None else args.g_iters
-    args.g_fc_lay = args.fc_lay if args.g_fc_lay is None else args.g_fc_lay
-    args.g_fc_uni = args.fc_units if args.g_fc_uni is None else args.g_fc_uni
+    scenarios = ['task', 'domain', 'class']
+    data = []
+    errs = []
+    for s in scenarios:
+        args = parser.parse_args()
+        args.r_dir = '{}/{}/{}'.format(args.r_dir, args.experiment, s)
+        args.scenario = s
+        # -set default-values for certain arguments based on chosen scenario & experiment
+        args = set_default_values(args)
+        # -set other default arguments
+        args.lr_gen = args.lr if args.lr_gen is None else args.lr_gen
+        args.g_iters = args.iters if args.g_iters is None else args.g_iters
+        args.g_fc_lay = args.fc_lay if args.g_fc_lay is None else args.g_fc_lay
+        args.g_fc_uni = args.fc_units if args.g_fc_uni is None else args.g_fc_uni
 
-    # Add non-optional input argument that will be the same for all runs
-    args.metrics = True
-    args.feedback = False
-    args.log_per_task = True
+        # Add non-optional input argument that will be the same for all runs
+        args.metrics = True
+        args.feedback = False
+        args.log_per_task = True
 
-    # Add input arguments that will be different for different runs
-    args.distill = False
-    args.agem = False
-    args.ewc = False
-    args.online = False
-    args.si = False
-    args.xdg = False
-    args.add_exemplars = False
-    args.bce_distill= False
-    args.icarl = False
-    # args.seed could of course also vary!
+        # Add input arguments that will be different for different runs
+        args.distill = False
+        args.agem = False
+        args.ewc = False
+        args.online = False
+        args.si = False
+        args.xdg = False
+        args.add_exemplars = False
+        args.bce_distill= False
+        args.icarl = False
+        # args.seed could of course also vary!
 
-    #-------------------------------------------------------------------------------------------------#
+        #-------------------------------------------------------------------------------------------------#
 
-    #--------------------------#
-    #----- RUN ALL MODELS -----#
-    #--------------------------#
+        #--------------------------#
+        #----- RUN ALL MODELS -----#
+        #--------------------------#
 
-    mem_list = [1000, 2000, 3000, 4000, 5000]
+        seed_list = list(range(args.seed, args.seed + args.n_seeds))
 
-
-    ###----"BASELINES"----###
-
-    # A-GEM
-    args.replay = "exemplars"
-    args.distill = False
-    args.agem = True
-    AGEM = {}
-    AGEM = collect_all(AGEM, mem_list, args, name="A-GEM")
-    args.replay = "none"
-    args.agem = False
-
-    # Experience Replay
-    args.replay = "exemplars"
-    ER = {}
-    ER = collect_all(ER, mem_list, args, name="ER")
-    args.replay = "none"
-
-    # Online Replay
-    args.replay = 'online'
-    OTR = {}
-    OTR = collect_all(OTR, mem_list, args, name='OTR (ours)')
-    args.replay = 'none'
-
-    # OTR + distill
-    args.replay = 'online'
-    args.use_teacher = True
-    OTRDistill = {}
-    OTRDistill = collect_all(OTRDistill, mem_list, args, name='OTR+distill (ours)')
-    args.replay = 'none'
-    args.use_teacher = False
-
-    # iCaRL
-    if args.scenario == "class":
-        args.bce = True
-        args.bce_distill = True
-        args.use_exemplars = True
-        args.add_exemplars = True
+        # Experience Replay + Herding
+        args.replay = "exemplars"
         args.herding = True
-        args.norm_exemplars = True
-        ICARL = {}
-        ICARL = collect_all(ICARL, mem_list, args, name="iCaRL")
+        args.budget = 2000
+        ERH = {}
+        ERH = collect_all(ERH, seed_list, args, name="ER+herding")
+        args.replay = "none"
+        args.herding = False
 
-    # Drawing line graph between replay using memory methods
-    acc_aGEM = []
-    acc_ER = []
-    acc_OTR = []
-    acc_OTRDistill = []
-    acc_iCaRL = []
+        # Experience Replay
+        args.replay = "exemplars"
+        ER = {}
+        ER = collect_all(ER, seed_list, args, name="ER")
+        args.replay = "none"
 
-    for m in mem_list:
-        ## AVERAGE TEST ACCURACY
-        acc_aGEM.append(AGEM[m][1])
-        acc_ER.append(ER[m][1])
-        acc_OTR.append(OTR[m][1])
-        acc_OTRDistill.append(OTRDistill[m][1])
-        if args.scenario == "class":
-            acc_iCaRL.append(ICARL[m][1])
+        # Online Replay
+        args.replay = 'online'
+        args.online_memory_budget = 2000
+        OTR = {}
+        OTR = collect_all(OTR, seed_list, args, name='OTR (ours)')
+        args.replay = 'none'
 
-    df = pd.DataFrame({'mem': mem_list, 'A-GEM': acc_aGEM, 'ER': acc_ER,
-                       'OTR': acc_OTR, 'OTR+distill': acc_OTRDistill})
+        # Drawing line graph between replay using memory methods
+        acc_ER = []
+        acc_ERH = []
+        acc_OTR = []
 
-    plt.plot('mem', 'ER', data=df, marker='s', color='darkblue')
-    plt.plot('mem', 'A-GEM', data=df, marker='o', markerfacecolor='brown', color='brown')
-    plt.plot('mem', 'OTR', data=df, marker='*', color='teal')
-    plt.plot('mem', 'OTR+distill', data=df, marker='', color='coral')
-    if args.scenario == 'class':
-        df_iCaRL = pd.DataFrame({'mem': mem_list, 'iCaRL': acc_iCaRL})
-        plt.plot('mem', 'iCaRL', data=df_iCaRL, marker='h', color='violet')
-    plt.legend(loc='best')
-    plt.title('{} memory budget comparison ({}-IL)'.format(args.experiment, args.scenario.capitalize()))
-    plt.xlabel('Memory budget')
-    plt.ylabel('Average precision')
-    plt.xticks(mem_list)
+        for m in seed_list:
+            ## AVERAGE TEST ACCURACY
+            acc_ER.append(ER[m][1])
+            acc_ERH.append(ERH[m][1])
+            acc_OTR.append(OTR[m][1])
+
+        # Calculate the average
+        ER_mean = np.mean(acc_ER)
+        ERH_mean = np.mean(acc_ERH)
+        OTR_mean = np.mean(acc_OTR)
+
+        print(ER_mean, ERH_mean, OTR_mean)
+        # Calculate the standard deviation
+        ER_std = np.std(acc_ER)
+        ERH_std = np.std(acc_ERH)
+        OTR_std = np.std(acc_OTR)
+
+        data.append([ERH_mean, ERH_mean, OTR_mean])
+        errs.append([ER_std, ERH_std, OTR_std])
+
+    # Create lists for the plot
+    methods = ['ER', 'ER+herding', 'OTR (ours)']
+    x_pos = np.arange(len(methods))
+
+    # Build the plot
+    fig, ax = plt.subplots()
+    task_bar = ax.bar(x_pos - 0.25, data[0], yerr=errs[0], color='#07575B', ecolor='gray',
+                      alpha=1, label='Task-IL', width=0.25)
+    domain_bar = ax.bar(x_pos, data[1], yerr=errs[1], color='#C4DFE6', ecolor='gray',
+                        alpha=1, label='Domain-IL', width=0.25)
+    class_bar = ax.bar(x_pos + 0.25, data[2], yerr=errs[2], color='#6FB98F', ecolor='gray',
+                       alpha=1, label='Class-IL', width=0.25)
+
+    autolabel(task_bar)
+    autolabel(domain_bar)
+    autolabel(class_bar)
+
+    ax.set_ylabel('Average accuracy')
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(methods)
+    ax.set_title('Memory sampling methods comparison')
+    ax.legend(loc='lower center', ncol=3, bbox_to_anchor=(0.5, -0.2))
+
+    plot_margin = 0.1
+    x0, x1, y0, y1 = plt.axis()
+    plt.axis((x0, x1, y0, y1 + plot_margin))
+    plt.tight_layout()
+    # Save the figure and show
     # plt.show()
-    plt.savefig('./{}_{}_mem_comparison.png'.format(args.experiment, args.scenario))
+    plt.savefig('{}_selection_comparison.png'.format(args.experiment))
