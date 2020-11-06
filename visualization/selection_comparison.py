@@ -130,7 +130,7 @@ def autolabel(rects):
                     xy=(rect.get_x() + rect.get_width() / 2, height),
                     xytext=(0, 12),  # 3 points vertical offset
                     textcoords="offset points",
-                    ha='center', va='bottom')
+                    ha='center', va='bottom', fontsize='small')
 
 
 if __name__ == '__main__':
@@ -193,42 +193,78 @@ if __name__ == '__main__':
 
         # Online Replay
         args.replay = 'online'
+        args.triplet_selection = 'HP-HN'
         args.online_memory_budget = 2000
         OTR = {}
-        OTR = collect_all(OTR, seed_list, args, name='OTR (ours)')
+        OTR = collect_all(OTR, seed_list, args, name='OTR (HP-HN)')
+        args.replay = 'none'
+
+        # Online Replay
+        args.replay = 'online'
+        args.triplet_selection = 'HP-SHN'
+        args.online_memory_budget = 2000
+        OTR_HPSHN = {}
+        OTR_HPSHN = collect_all(OTR_HPSHN, seed_list, args, name='OTR (HP-SHN)')
+        args.replay = 'none'
+
+        # Online Replay
+        args.replay = 'online'
+        args.triplet_selection = 'EP-HN'
+        args.online_memory_budget = 2000
+        OTR_EPHN = {}
+        OTR_EPHN = collect_all(OTR_EPHN, seed_list, args, name='OTR (EP-HN)')
+        args.replay = 'none'
+
+        # Online Replay
+        args.replay = 'online'
+        args.triplet_selection = 'EP-SHN'
+        args.online_memory_budget = 2000
+        OTR_EPSHN = {}
+        OTR_EPSHN = collect_all(OTR_EPSHN, seed_list, args, name='OTR (EP-SHN)')
         args.replay = 'none'
 
         # Drawing line graph between replay using memory methods
         acc_ER = []
         acc_ERH = []
         acc_OTR = []
+        acc_OTR_HPSHN = []
+        acc_OTR_EPHN = []
+        acc_OTR_EPSHN = []
 
         for m in seed_list:
             ## AVERAGE TEST ACCURACY
             acc_ER.append(ER[m][1])
             acc_ERH.append(ERH[m][1])
             acc_OTR.append(OTR[m][1])
+            acc_OTR_HPSHN.append(OTR_HPSHN[m][1])
+            acc_OTR_EPHN.append(OTR_EPHN[m][1])
+            acc_OTR_EPSHN.append(OTR_EPSHN[m][1])
 
         # Calculate the average
         ER_mean = np.mean(acc_ER)
         ERH_mean = np.mean(acc_ERH)
         OTR_mean = np.mean(acc_OTR)
-
-        print(ER_mean, ERH_mean, OTR_mean)
+        OTR_HPSHN_mean = np.mean(acc_OTR_HPSHN)
+        OTR_EPHN_mean = np.mean(acc_OTR_EPHN)
+        OTR_EPSHN_mean = np.mean(acc_OTR_EPSHN)
+        print(ER_mean, ERH_mean, OTR_mean, OTR_HPSHN_mean, OTR_EPHN_mean, OTR_EPSHN_mean)
         # Calculate the standard deviation
         ER_std = np.std(acc_ER)
         ERH_std = np.std(acc_ERH)
         OTR_std = np.std(acc_OTR)
+        OTR_HPSHN_std = np.std(acc_OTR_HPSHN)
+        OTR_EPHN_std = np.std(acc_OTR_EPHN)
+        OTR_EPSHN_std = np.std(acc_OTR_EPSHN)
 
-        data.append([ERH_mean, ERH_mean, OTR_mean])
-        errs.append([ER_std, ERH_std, OTR_std])
+        data.append([ERH_mean, ERH_mean, OTR_mean, OTR_HPSHN_mean, OTR_EPHN_mean, OTR_EPSHN_mean ])
+        errs.append([ER_std, ERH_std, OTR_std, OTR_HPSHN_std, OTR_EPHN_std, OTR_EPSHN_std])
 
     # Create lists for the plot
-    methods = ['ER', 'ER+herding', 'OTR (ours)']
+    methods = ['ER', 'ER+herding', 'OTR (HP-HN)', 'OTR (HP-SHN)', 'OTR (EP-HN)', 'OTR (EP-SHN)']
     x_pos = np.arange(len(methods))
 
     # Build the plot
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(12, 7))
     task_bar = ax.bar(x_pos - 0.25, data[0], yerr=errs[0], color='#07575B', ecolor='gray',
                       alpha=1, label='Task-IL', width=0.25)
     domain_bar = ax.bar(x_pos, data[1], yerr=errs[1], color='#C4DFE6', ecolor='gray',
@@ -246,6 +282,7 @@ if __name__ == '__main__':
     ax.set_title('Memory sampling methods comparison')
     ax.legend(loc='lower center', ncol=3, bbox_to_anchor=(0.5, -0.2))
 
+    plt.xticks(rotation=30, ha='right')
     plot_margin = 0.1
     x0, x1, y0, y1 = plt.axis()
     plt.axis((x0, x1, y0, y1 + plot_margin))
