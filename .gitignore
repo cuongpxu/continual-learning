@@ -8,6 +8,7 @@ final_result/
 benchmark/
 benchmark_memory/
 benchmark_selection/
+benchmark_distill/
 test_grad.py
 *.sh
 

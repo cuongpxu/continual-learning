@@ -19,7 +19,7 @@ from continual_learner import ContinualLearner
 from exemplars import ExemplarHandler
 from replayer import Replayer
 from param_values import set_default_values
-from loss.losses import OTFL, FGFL, FocalLoss, GBFG
+from loss.losses import OTFL, FGFL, FocalLoss, GBFG, OFL
 from itertools import chain
 
 parser = argparse.ArgumentParser('./main.py', description='Run individual continual learning experiment.')
@@ -39,7 +39,7 @@ task_params.add_argument('--tasks', type=int, help='number of tasks')
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
 loss_params.add_argument('--loss', type=str, default='none',
-                         choices=['otfl', 'fgfl', 'focal', 'ce', 'gbfg', 'none'])
+                         choices=['ofl', 'otfl', 'fgfl', 'focal', 'ce', 'gbfg', 'none'])
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
 loss_params.add_argument('--bce-distill', action='store_true', help='distilled loss on previous classes for new'
                                                                     ' examples (only if --bce & --scenario="class")')
@@ -256,6 +256,8 @@ def run(args, verbose=False):
     if args.loss == 'otfl':
         loss_fn = OTFL(strategy=args.otfl_strategy, use_cs=args.use_cs,
                            alpha=args.otfl_alpha, beta=args.otfl_beta, device=device)
+    elif args.loss == 'ofl':
+        loss_fn = OFL(alpha=args.otfl_alpha, device=device)
     elif args.loss == 'fgfl':
         loss_fn = FGFL(gamma=args.fgfl_gamma, delta=args.fgfl_delta, device=device, n_classes=config['classes'])
     elif args.loss == 'gbfg':

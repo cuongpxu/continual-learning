@@ -213,3 +213,57 @@ class OTFL(nn.Module):
             return torch.sum(loss), selected_data
         else:
             return loss, selected_data
+
+
+class OFL(nn.Module):
+    def __init__(self, alpha=1.0, device='cpu', reduction='mean'):
+        super(OFL, self).__init__()
+
+        self.device = device
+        self.reduction = reduction
+
+        self.alpha = alpha
+
+    def forward(self, x, px, y):
+
+        uq = torch.unique(y).cpu().numpy()
+        ce_x = F.cross_entropy(px, y, reduction='none')
+        # Compute grad wrt the current batch
+        grad_x = torch.autograd.grad(
+            outputs=ce_x,
+            inputs=x,
+            grad_outputs=torch.ones_like(ce_x).to(self.device),
+            create_graph=True,
+        )[0]
+
+        selected_data = {}
+        fg_loss = 0.0
+        for m in uq:
+            mask = y == m
+            mask_neg = y != m
+            ce_m = ce_x[mask]
+            if ce_m.size(0) != 0:
+                # Select anchor instances for class m
+                anchor_idx = torch.argmin(ce_m)
+                grad_a = grad_x[mask][anchor_idx]
+
+                # take anchor out of the rest
+                grad_p = grad_x[mask]
+                grad_p = torch.cat((grad_p[:anchor_idx], grad_p[anchor_idx + 1:]), dim=0)
+                grad_n = grad_x[mask_neg]
+
+                grad_rest = torch.cat((grad_p, grad_n), dim=0)
+                grad_a = grad_a.expand(grad_rest.size())  # Broad-cast grad_min batch-wise
+
+                fg_loss += torch.bmm(grad_a.view(grad_a.size(0), 1, -1),
+                                     grad_rest.view(grad_rest.size(0), -1).unsqueeze(2))
+        # Compute loss value
+        fg_loss /= len(uq)
+        loss = ce_x - self.alpha * fg_loss
+
+        if self.reduction == 'mean':
+            return torch.mean(loss), selected_data
+        elif self.reduction == 'sum':
+            return torch.sum(loss), selected_data
+        else:
+            return loss, selected_data
