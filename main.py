@@ -110,6 +110,7 @@ store_params.add_argument('--icarl', action='store_true', help="bce-distill, use
 store_params.add_argument('--use-exemplars', action='store_true', help="use exemplars for classification")
 store_params.add_argument('--add-exemplars', action='store_true', help="add exemplars to current task's training set")
 store_params.add_argument('--budget', type=int, default=1000, dest="budget", help="how many samples can be stored?")
+store_params.add_argument('--otr-exemplars', type=bool, default=False, help="use otr exemplars instead of random")
 store_params.add_argument('--herding', action='store_true', help="use herding to select stored data (instead of random)")
 store_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
 
@@ -147,6 +148,12 @@ def run(args, verbose=False):
         args.add_exemplars = True
         args.bce = True
         args.bce_distill = True
+        if args.otr_exemplars:
+            args.norm_exemplars = True
+        else:
+            args.herding = True
+            args.norm_exemplars = True
+
     # -if XdG is selected but not the Task-IL scenario, give error
     if (not args.scenario=="task") and args.xdg:
         raise ValueError("'XdG' is only compatible with the Task-IL scenario.")
@@ -468,7 +475,8 @@ def run(args, verbose=False):
                       iters_per_task=args.iters, with_exemplars=args.use_exemplars),
         cb._eval_cb(log=args.iters, test_datasets=test_datasets, visdom=visdom,
                     iters_per_task=args.iters, test_size=args.prec_n, classes_per_task=classes_per_task,
-                    scenario=scenario, with_exemplars=True) if args.use_exemplars else None
+                    scenario=scenario,
+                    with_exemplars=True, otr_exemplars=args.otr_exemplars) if args.use_exemplars else None
     ]
 
 
@@ -490,6 +498,7 @@ def run(args, verbose=False):
         generator=generator, gen_iters=args.g_iters, gen_loss_cbs=generator_loss_cbs,
         sample_cbs=sample_cbs, eval_cbs=eval_cbs, loss_cbs=generator_loss_cbs if args.feedback else solver_loss_cbs,
         metric_cbs=metric_cbs, use_exemplars=args.use_exemplars, add_exemplars=args.add_exemplars,
+        otr_exemplars=args.otr_exemplars,
         loss_fn=loss_fn, triplet_selection=args.triplet_selection
     )
     # Get total training-time in seconds, and write to file
@@ -526,6 +535,7 @@ def run(args, verbose=False):
     if args.use_exemplars:
         precs = [evaluate.validate(
             model, test_datasets[i], verbose=False, test_size=None, task=i+1, with_exemplars=True,
+            otr_exemplars=args.otr_exemplars,
             allowed_classes=list(range(classes_per_task*i, classes_per_task*(i+1))) if scenario=="task" else None
         ) for i in range(args.tasks)]
         average_precs_ex = sum(precs) / args.tasks

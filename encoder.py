@@ -90,9 +90,91 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         else:
             return self.fcE(self.flatten(images))
 
+    def select_triplets(self,y_score, x, y, triplet_selection, task, scenario):
+        uq = torch.unique(y).cpu().numpy()
+        selection_strategies = triplet_selection.split('-')
+        # Select instances in the batch for replay later
+        for m in uq:
+            mask = y == m
+            mask_neg = y != m
+            ce_m = y_score[mask]
+            if ce_m.size(0) != 0:
+                # Select anchor and hard positive instances for class m
+                positive_batch = x[mask]
+                anchor_idx = torch.argmin(ce_m)
+                anchor_x = positive_batch[anchor_idx].unsqueeze(dim=0)
+                # anchor should not equal positive
+                positive_batch = torch.cat(
+                        (positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
+                if positive_batch.size(0) != 0:
+                    anchor_batch = anchor_x.expand(positive_batch.size())
+                    positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                            positive_batch.view(positive_batch.size(0), -1))
+
+                    if selection_strategies[0] == 'HP':
+                        # Hard positive
+                        positive_idx = torch.argmax(positive_dist)
+                    else:
+                        # Easy positive
+                        positive_idx = torch.argmin(positive_dist)
+
+                    positive_x = positive_batch[positive_idx].unsqueeze(dim=0)
+                    x_m = torch.cat((anchor_x, positive_x), dim=0)
+                    y_m = torch.tensor([m, m])
+                else:
+                    x_m = anchor_x
+                    y_m = torch.tensor([m])
+
+                if scenario in ['task', 'domain']:
+                    self.add_instances_to_online_exemplar_sets(x_m, y_m, m + len(uq) * (task - 1))
+                else:
+                    self.add_instances_to_online_exemplar_sets(x_m, y_m, m)
+
+                # Select hard negative instances
+                negative_batch = x[mask_neg]
+                if negative_batch.size(0) != 0:
+                    anchor_batch = anchor_x.expand(negative_batch.size())
+                    negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                            negative_batch.view(negative_batch.size(0), -1))
+
+                    if selection_strategies[1] == 'HN':
+                        # Hard negative
+                        negative_idx = torch.argmin(negative_dist)
+                        negative_x = negative_batch[negative_idx].unsqueeze(dim=0)
+                        negative_y = y[mask_neg][negative_idx].unsqueeze(dim=0)
+                    elif selection_strategies[1] == 'SHN':
+                        # Semi-hard negative
+                        dap = F.pairwise_distance(anchor_x.view(anchor_x.size(0), -1),
+                                                      positive_x.view(positive_x.size(0), -1))
+                        valid_shn_idx = negative_dist > dap
+                        if valid_shn_idx.any():
+                            shn_batch = negative_batch[valid_shn_idx]
+                            negative_y_batch = y[mask_neg]
+                            shn_y = negative_y_batch[valid_shn_idx]
+                            negative_idx = torch.argmin(negative_dist[valid_shn_idx])
+                            negative_x = shn_batch[negative_idx].unsqueeze(dim=0)
+                            negative_y = shn_y[negative_idx].unsqueeze(dim=0)
+                        else:
+                            # There is no semi-hard negative sample, ignore negative sample
+                            negative_x = None
+                            negative_y = None
+                    else:
+                        # Easy negative
+                        negative_idx = torch.argmax(negative_dist)
+                        negative_x = negative_batch[negative_idx].unsqueeze(dim=0)
+                        negative_y = y[mask_neg][negative_idx].unsqueeze(dim=0)
+
+                    if negative_x is not None and negative_y is not None:
+                        if scenario in ['task', 'domain']:
+                            self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
+                                                                       negative_y.item() + len(uq) * (task - 1))
+                        else:
+                            self.add_instances_to_online_exemplar_sets(negative_x, negative_y, negative_y.item())
+
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
                       active_classes=None, task=1, scenario='class',
-                      loss_fn=None, replay_mode='none', teacher=None, triplet_selection='HP-HN'):
+                      loss_fn=None, replay_mode='none', triplet_selection='HP-HN',
+                      teacher=None, otr_exemplars=False):
         '''Train model for one batch ([x],[y]), possibly supplemented with replayed data ([x_],[y_/scores_]).
 
         [x]               <tensor> batch of inputs (could be None, in which case only 'replayed' data is used)
@@ -114,7 +196,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
         # Should gradient be computed separately for each task? (needed when a task-mask is combined with replay)
         gradient_per_task = True if ((self.mask_dict is not None) and (x_ is not None)) else False
-        selection_strategies = triplet_selection.split('-')
         ##--(1)-- REPLAYED DATA --##
 
         if x_ is not None:
@@ -254,85 +335,20 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         classes_per_task = int(y_hat.size(1) / task)
                         binary_targets = binary_targets[:, -(classes_per_task):]
                         binary_targets = torch.cat([torch.sigmoid(scores / self.KD_temp), binary_targets], dim=1)
-                    predL = None if y is None else F.binary_cross_entropy_with_logits(
+                    y_score = F.binary_cross_entropy_with_logits(
                         input=y_hat, target=binary_targets, reduction='none'
-                    ).sum(dim=1).mean()  # --> sum over classes, then average over batch
+                    ).sum(dim=1) # --> sum over classes,
+                    predL = None if y is None else y_score.mean()  # average over batch
+
+                    if otr_exemplars:
+                        self.select_triplets(y_score, x, y, triplet_selection, task, scenario)
                 else:
                     # -multiclass prediction loss
                     y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
                     predL = None if y is None else y_score.mean()
-                    uq = torch.unique(y).cpu().numpy()
-                    # Select instances in the batch for replay later
+
                     if replay_mode == 'online':
-                        for m in uq:
-                            mask = y == m
-                            mask_neg = y != m
-                            ce_m = y_score[mask]
-                            if ce_m.size(0) != 0:
-                                # Select anchor and hard positive instances for class m
-                                positive_batch = x[mask]
-                                anchor_idx = torch.argmin(ce_m)
-                                anchor_x = positive_batch[anchor_idx].unsqueeze(dim=0)
-                                # anchor should not equal positive
-                                positive_batch = torch.cat(
-                                        (positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
-                                if positive_batch.size(0) != 0:
-                                    anchor_batch = anchor_x.expand(positive_batch.size())
-                                    positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                                            positive_batch.view(positive_batch.size(0), -1))
-
-                                    if selection_strategies[0] == 'HP':
-                                        # Hard positive
-                                        positive_idx = torch.argmax(positive_dist)
-                                    else:
-                                        # Easy positive
-                                        positive_idx = torch.argmin(positive_dist)
-
-                                    positive_x = positive_batch[positive_idx].unsqueeze(dim=0)
-                                    x_m = torch.cat((anchor_x, positive_x), dim=0)
-                                    y_m = torch.tensor([m, m])
-                                else:
-                                    x_m = anchor_x
-                                    y_m = torch.tensor([m])
-
-                                self.add_instances_to_online_exemplar_sets(x_m, y_m, m + len(uq) * (task - 1) if scenario in ['task', 'domain'] else m)
-
-                                # Select hard negative instances
-                                negative_batch = x[mask_neg]
-                                if negative_batch.size(0) != 0:
-                                    anchor_batch = anchor_x.expand(negative_batch.size())
-                                    negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                                            negative_batch.view(negative_batch.size(0), -1))
-
-                                    if selection_strategies[1] == 'HN':
-                                        # Hard negative
-                                        negative_idx = torch.argmin(negative_dist)
-                                        negative_x = negative_batch[negative_idx].unsqueeze(dim=0)
-                                        negative_y = y[mask_neg][negative_idx].unsqueeze(dim=0)
-                                    elif selection_strategies[1] == 'SHN':
-                                        # Semi-hard negative
-                                        dap = F.pairwise_distance(anchor_x.view(anchor_x.size(0), -1),
-                                                                  positive_x.view(positive_x.size(0), -1))
-                                        valid_shn_idx = negative_dist > dap
-                                        if valid_shn_idx.any():
-                                            shn_batch = negative_batch[valid_shn_idx]
-                                            negative_y_batch = y[mask_neg]
-                                            shn_y = negative_y_batch[valid_shn_idx]
-                                            negative_idx = torch.argmin(negative_dist[valid_shn_idx])
-                                            negative_x = shn_batch[negative_idx].unsqueeze(dim=0)
-                                            negative_y = shn_y[negative_idx].unsqueeze(dim=0)
-                                        else:
-                                            # There is no semi-hard negative sample, ignore negative sample
-                                            negative_x = None
-                                            negative_y = None
-                                    else:
-                                        # Easy negative
-                                        negative_idx = torch.argmax(negative_dist)
-                                        negative_x = negative_batch[negative_idx].unsqueeze(dim=0)
-                                        negative_y = y[mask_neg][negative_idx].unsqueeze(dim=0)
-
-                                    if negative_x is not None and negative_y is not None:
-                                        self.add_instances_to_online_exemplar_sets(negative_x, negative_y, negative_y.item() + len(uq) * (task-1) if scenario in ['task', 'domain'] else negative_y.item())
+                        self.select_triplets(y_score, x, y, triplet_selection, task, scenario)
 
             # Weigh losses
             if teacherL is not None:

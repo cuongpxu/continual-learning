@@ -13,7 +13,7 @@ import utils
 
 
 def validate(model, dataset, batch_size=128, test_size=1024, verbose=True, allowed_classes=None,
-             with_exemplars=False, no_task_mask=False, task=None):
+             with_exemplars=False, otr_exemplars=False, no_task_mask=False, task=None):
     '''Evaluate precision (= accuracy or proportion correct) of a classifier ([model]) on [dataset].
 
     [allowed_classes]   None or <list> containing all "active classes" between which should be chosen
@@ -43,7 +43,10 @@ def validate(model, dataset, batch_size=128, test_size=1024, verbose=True, allow
         labels = labels - allowed_classes[0] if (allowed_classes is not None) else labels
         with torch.no_grad():
             if with_exemplars:
-                predicted = model.classify_with_exemplars(data, allowed_classes=allowed_classes)
+                if otr_exemplars:
+                    predicted = model.classify_with_online_exemplars(data, allowed_classes=allowed_classes)
+                else:
+                    predicted = model.classify_with_exemplars(data, allowed_classes=allowed_classes)
                 # - in case of Domain-IL scenario, collapse all corresponding domains into same class
                 if max(predicted).item() >= model.classes:
                     predicted = predicted % model.classes
@@ -63,7 +66,8 @@ def validate(model, dataset, batch_size=128, test_size=1024, verbose=True, allow
 
 
 def precision(model, datasets, current_task, iteration, classes_per_task=None, scenario="domain",
-              test_size=None, visdom=None, verbose=False, summary_graph=True, with_exemplars=False, no_task_mask=False):
+              test_size=None, visdom=None, verbose=False, summary_graph=True,
+              with_exemplars=False, otr_exemplars=False, no_task_mask=False):
     '''Evaluate precision of a classifier (=[model]) on all tasks so far (= up to [current_task]) using [datasets].
 
     [classes_per_task]  <int> number of active classes er task
@@ -83,7 +87,8 @@ def precision(model, datasets, current_task, iteration, classes_per_task=None, s
             elif scenario=='class':
                 allowed_classes = list(range(classes_per_task*current_task))
             precs.append(validate(model, datasets[i], test_size=test_size, verbose=verbose,
-                                  allowed_classes=allowed_classes, with_exemplars=with_exemplars,
+                                  allowed_classes=allowed_classes,
+                                  with_exemplars=with_exemplars, otr_exemplars=otr_exemplars,
                                   no_task_mask=no_task_mask, task=i+1))
         else:
             precs.append(0)
@@ -190,7 +195,8 @@ def intial_accuracy(model, datasets, metrics_dict, classes_per_task=None, scenar
 
 
 def metric_statistics(model, datasets, current_task, iteration, classes_per_task=None, scenario="domain",
-                      metrics_dict=None, test_size=None, verbose=False, with_exemplars=False, no_task_mask=False):
+                      metrics_dict=None, test_size=None, verbose=False, with_exemplars=False,
+                      otr_exemplars=False, no_task_mask=False):
     '''Evaluate precision of a classifier (=[model]) on all tasks so far (= up to [current_task]) using [datasets].
 
     [metrics_dict]      None or <dict> of all measures to keep track of, to which results will be appended to
@@ -209,7 +215,7 @@ def metric_statistics(model, datasets, current_task, iteration, classes_per_task
         if scenario in ('domain', 'class'):
             precision = validate(
                 model, datasets[i], test_size=test_size, verbose=verbose, allowed_classes=None,
-                no_task_mask=no_task_mask, task=i + 1, with_exemplars=with_exemplars
+                no_task_mask=no_task_mask, task=i + 1, with_exemplars=with_exemplars, otr_exemplars=otr_exemplars
             ) if (not with_exemplars) or (i<current_task) else 0.
             precs_all_classes.append(precision)
         # -all classes up to trained task
@@ -217,21 +223,23 @@ def metric_statistics(model, datasets, current_task, iteration, classes_per_task
             allowed_classes = list(range(classes_per_task * current_task))
             precision = validate(model, datasets[i], test_size=test_size, verbose=verbose,
                                  allowed_classes=allowed_classes, no_task_mask=no_task_mask, task=i + 1,
-                                 with_exemplars=with_exemplars) if (i<current_task) else 0.
+                                 with_exemplars=with_exemplars, otr_exemplars=otr_exemplars) if (i<current_task) else 0.
             precs_all_classes_so_far.append(precision)
         # -all classes up to evaluated task
         if scenario in ('class'):
             allowed_classes = list(range(classes_per_task * (i+1)))
             precision = validate(model, datasets[i], test_size=test_size, verbose=verbose,
                                  allowed_classes=allowed_classes, no_task_mask=no_task_mask, task=i + 1,
-                                 with_exemplars=with_exemplars) if (not with_exemplars) or (i<current_task) else 0.
+                                 with_exemplars=with_exemplars, otr_exemplars=otr_exemplars) \
+                if (not with_exemplars) or (i<current_task) else 0.
             precs_all_classes_upto_task.append(precision)
         # -only classes in that task
         if scenario in ('task', 'class'):
             allowed_classes = list(range(classes_per_task * i, classes_per_task * (i + 1)))
             precision = validate(model, datasets[i], test_size=test_size, verbose=verbose,
                                  allowed_classes=allowed_classes, no_task_mask=no_task_mask, task=i + 1,
-                                 with_exemplars=with_exemplars) if (not with_exemplars) or (i<current_task) else 0.
+                                 with_exemplars=with_exemplars, otr_exemplars=otr_exemplars)\
+                if (not with_exemplars) or (i<current_task) else 0.
             precs_only_classes_in_task.append(precision)
 
     # Calcualte average accuracy over all tasks thus far

@@ -279,7 +279,7 @@ if __name__ == '__main__':
     ax.set_ylabel('Average accuracy')
     ax.set_xticks(x_pos)
     ax.set_xticklabels(methods)
-    ax.set_title('Memory sampling methods comparison')
+    # ax.set_title('Memory sampling methods comparison')
     ax.legend(loc='lower center', ncol=3, bbox_to_anchor=(0.5, -0.2))
 
     plt.xticks(rotation=30, ha='right')

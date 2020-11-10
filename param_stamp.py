@@ -119,9 +119,13 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
 
     # -for exemplars / iCaRL
     exemplar_stamp = ""
-    if hasattr(args, 'use_exemplars') and (args.add_exemplars or args.use_exemplars or args.replay=="exemplars"):
-        exemplar_opts = "b{}{}{}".format(args.budget, "H" if args.herding else "", "N" if args.norm_exemplars else "")
-        use = "{}{}".format("addEx-" if args.add_exemplars else "", "useEx-" if args.use_exemplars else "")
+    if hasattr(args, 'use_exemplars') and (args.add_exemplars or args.use_exemplars or args.replay == "exemplars"):
+        exemplar_opts = "b{}{}{}".format(args.online_memory_budget if args.otr_exemplars else args.budget,
+                                         "H" if args.herding else "",
+                                         "N" if args.norm_exemplars else "")
+        use = "{}{}{}".format("addEx-" if args.add_exemplars else "",
+                              "useEx-" if args.use_exemplars else "",
+                              "OTR-" if args.otr_exemplars else "")
         exemplar_stamp = "--{}{}".format(use, exemplar_opts)
         if verbose:
             print(" --> exemplars:     " + "{}{}".format(use, exemplar_opts))

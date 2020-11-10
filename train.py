@@ -17,6 +17,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
              batch_size=32, generator=None, gen_iters=0,
              gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
              use_exemplars=True, add_exemplars=False, metric_cbs=list(),
+             otr_exemplars=False,
              loss_fn=None, triplet_selection='HP-HN'):
     '''Train a model (with a "train_a_batch" method) on multiple tasks, with replay-strategy specified by [replay_mode].
 
@@ -63,8 +64,15 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
         # Add exemplars (if available) to current dataset (if requested)
         if add_exemplars and task > 1:
             target_transform = (lambda y, x=classes_per_task: y % x) if scenario == "domain" else None
-            exemplar_dataset = ExemplarDataset(model.exemplar_sets, target_transform=target_transform)
-            training_dataset = ConcatDataset([train_dataset, exemplar_dataset])
+            if otr_exemplars:
+                exemplar_sets = []
+                for c in range(len(model.online_exemplar_sets)):
+                    exemplar_sets.append(model.online_exemplar_sets[c][0])
+                exemplar_dataset = ExemplarDataset(exemplar_sets, target_transform=target_transform)
+                training_dataset = ConcatDataset([train_dataset, exemplar_dataset])
+            else:
+                exemplar_dataset = ExemplarDataset(model.exemplar_sets, target_transform=target_transform)
+                training_dataset = ConcatDataset([train_dataset, exemplar_dataset])
         else:
             training_dataset = train_dataset
 
@@ -248,7 +256,8 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
                                                 active_classes=active_classes, task=task, rnt=1. / task,
                                                 scenario=scenario, loss_fn=loss_fn, replay_mode=replay_mode,
-                                                teacher=teacher, triplet_selection=triplet_selection)
+                                                teacher=teacher, triplet_selection=triplet_selection,
+                                                otr_exemplars=otr_exemplars)
 
                 # Update running parameter importance estimates in W
                 if isinstance(model, ContinualLearner) and (model.si_c > 0):
@@ -334,24 +343,25 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
 
         # EXEMPLARS: update exemplar sets
         if (add_exemplars or use_exemplars) or replay_mode == "exemplars":
-            exemplars_per_class = int(np.floor(model.memory_budget / (classes_per_task * task)))
-            # reduce examplar-sets
-            model.reduce_exemplar_sets(exemplars_per_class)
-            # for each new class trained on, construct examplar-set
-            new_classes = list(range(classes_per_task)) if scenario == "domain" else list(
-                range(classes_per_task * (task - 1),
-                      classes_per_task * task))
-            for class_id in new_classes:
-                # create new dataset containing only all examples of this class
-                class_dataset = SubDataset(original_dataset=train_dataset, sub_labels=[class_id])
-                # based on this dataset, construct new exemplar-set for this class
-                model.construct_exemplar_set(dataset=class_dataset, n=exemplars_per_class)
+            if not otr_exemplars:
+                exemplars_per_class = int(np.floor(model.memory_budget / (classes_per_task * task)))
+                # reduce examplar-sets
+                model.reduce_exemplar_sets(exemplars_per_class)
+                # for each new class trained on, construct examplar-set
+                new_classes = list(range(classes_per_task)) if scenario == "domain" else list(
+                    range(classes_per_task * (task - 1),
+                          classes_per_task * task))
+                for class_id in new_classes:
+                    # create new dataset containing only all examples of this class
+                    class_dataset = SubDataset(original_dataset=train_dataset, sub_labels=[class_id])
+                    # based on this dataset, construct new exemplar-set for this class
+                    model.construct_exemplar_set(dataset=class_dataset, n=exemplars_per_class)
             model.compute_means = True
 
         # Calculate statistics required for metrics
         for metric_cb in metric_cbs:
             if metric_cb is not None:
-                metric_cb(model, iters, task=task)
+                metric_cb(model, iters, task=task, otr_exemplars=otr_exemplars)
 
         # REPLAY: update source for replay
         previous_model = copy.deepcopy(model).eval()
