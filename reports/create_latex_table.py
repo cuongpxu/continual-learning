@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from param_stamp import get_param_stamp_from_args
 from param_values import set_default_values
 
-
 description = 'Compare CL strategies using various metrics on each scenario of permuted or split MNIST.'
 parser = argparse.ArgumentParser('./create_result.py', description=description)
 parser.add_argument('--seed', type=int, default=1, help='[first] random seed (for each random-module used)')
@@ -15,7 +14,7 @@ parser.add_argument('--n-seeds', type=int, default=10, help='how often to repeat
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
-parser.add_argument('--results-dir', type=str, default='../benchmark_selection', dest='r_dir', help="default: %(default)s")
+parser.add_argument('--results-dir', type=str, default='../benchmark', dest='r_dir', help="default: %(default)s")
 
 # expirimental task parameters.
 task_params = parser.add_argument_group('Task Parameters')
@@ -37,8 +36,9 @@ model_params.add_argument('--fc-drop', type=float, default=0., help="dropout pro
 model_params.add_argument('--fc-bn', type=str, default="no", help="use batch-norm in the fc-layers (no|yes)")
 model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", "leakyrelu"])
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
-                                                                   " (instead of a 'multi-headed' one)")
-model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
+                                                                    " (instead of a 'multi-headed' one)")
+model_params.add_argument('--use-teacher', type=bool, default=False,
+                          help='Using an offline teacher for distill from memory')
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -88,6 +88,66 @@ eval_params.add_argument('--prec-n', type=int, default=1024, help="# samples for
 eval_params.add_argument('--sample-n', type=int, default=64, help="# images to show")
 
 
+def set_params(args, a):
+    if a == 'None':
+        args.replay = "none"
+    elif a == 'Offline':
+        args.replay = "offline"
+    elif a == 'EWC':
+        args.replay = 'none'
+        args.ewc = True
+    elif a == 'o-EWC':
+        args.replay = 'none'
+        args.ewc = True
+        args.online = True
+        args.ewc_lambda = args.o_lambda
+    elif a == 'SI':
+        args.replay = 'none'
+        args.si = True
+    elif a == 'LwF':
+        args.replay = "current"
+        args.distill = True
+    elif a == 'GR':
+        args.replay = "generative"
+        args.distill = False
+        if args.experiment in ['CIFAR10', 'CIFAR100']:
+            args.lr_gen = 0.0003
+    elif a == 'GR+distill':
+        args.replay = "generative"
+        args.distill = True
+        if args.experiment in ['CIFAR10', 'CIFAR100']:
+            args.lr_gen = 0.0003
+    elif a == 'A-GEM':
+        args.replay = "exemplars"
+        args.distill = False
+        args.agem = True
+        args.otr_exemplars = False
+    elif a == 'ER':
+        args.replay = "exemplars"
+        args.budget = 2000
+        args.otr_exemplars = False
+    elif a == 'OTR':
+        args.replay = 'online'
+        args.online_memory_budget = 2000
+        args.triplet_selection = 'HP-HN'
+        args.otr_exemplars = False
+    elif a == 'iCaRL':
+        args.replay = 'none'
+        args.bce = True
+        args.bce_distill = True
+        args.use_exemplars = True
+        args.add_exemplars = True
+        args.herding = True
+        args.norm_exemplars = True
+        args.otr_exemplars = False
+    else:
+        args.replay = 'online'
+        args.online_memory_budget = 2000
+        args.use_teacher = True
+        args.triplet_selection = 'HP-HN'
+        args.otr_exemplars = False
+
+
 def get_results(args):
     # -get param-stamp
     param_stamp = get_param_stamp_from_args(args)
@@ -123,18 +183,26 @@ def collect_all(method_dict, seed_list, args, name=None):
 
 
 if __name__ == '__main__':
-    experiments = ['splitMNIST', 'permMNIST', 'rotMNIST']
+    test = 'CIFAR'
+    if test == 'MNIST':
+        experiments = ['splitMNIST', 'permMNIST', 'rotMNIST']
+    else:
+        experiments = ['CIFAR10', 'CIFAR100']
     scenarios = ['task', 'domain', 'class']
-    algorithms = ['None', 'Offline', 'EWC', 'o-EWC', 'SI', 'LwF', 'GR', 'GR+distill', 'A-GEM', 'OTR', 'OTR+distill']
-    table_writer = open('./MNIST_table.tex', 'w+')
+    algorithms = ['None', 'Offline', 'EWC', 'o-EWC', 'SI', 'LwF', 'GR', 'GR+distill', 'A-GEM',
+                  'ER', 'iCaRL', 'OTR', 'OTR+distill']
+
+    table_writer = open('./{}_table.tex'.format(test), 'w+')
     table_writer.write('\\begin{table*}[!t]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
-    table_writer.write(
-        '\\caption{Means and Variances of Test Accuracy of The Proposed Method and The Benchmark Algorithms}\n')
-    table_writer.write('\\label{tab:mnist_table}\n')
+    if test == 'MNIST':
+        table_writer.write('\\caption{Average test accuracy of all tasks (over 10 run with difference random seed) on the ' + test + ' variant datasets.}\n')
+    else:
+        table_writer.write('\\caption{Average test accuracy of all tasks (over 10 run with difference random seed) on the ' + test + ' datasets.}\n')
+    table_writer.write('\\label{tab:' + test.lower() + '_table}\n')
     table_writer.write('\\centering\n')
     table_writer.write('\\begin{tabular}{l')
-    for e in range(len(experiments)):
+    for i in range(len(experiments)):
         table_writer.write('c@{\hskip 0.2cm}c@{\hskip 0.2cm}c@{\hskip 0.2cm}')
 
     table_writer.write('}\n')
@@ -145,139 +213,96 @@ if __name__ == '__main__':
             name = 'Split'
         elif ex == 'permMNIST':
             name = 'Permuted'
-        else:
+        elif ex == 'rotMNIST':
             name = 'Rotated'
+        elif ex == 'CIFAR10':
+            name = 'CIFAR-10'
+        else:
+            name = 'CIFAR-100'
+
         if i != len(experiments) - 1:
             table_writer.write('\\threecol{' + name + '} &')
         else:
             table_writer.write('\\threecol{' + name + '}\\\\\n')
     table_writer.write('\\cline{2-%d}\n' % (3 * len(experiments) + 1))
 
-    for a in range(len(experiments)):
-        if a != len(experiments) - 1:
-            table_writer.write(' & Task-IL & Domain-IL & Class-IL')
+    for i in range(len(experiments)):
+        if i != len(experiments) - 1:
+            table_writer.write(' & Task-IL & Domain-IL & Class-IL ')
         else:
             table_writer.write(' & Task-IL & Domain-IL & Class-IL \\\\\n')
     table_writer.write('\\hline\n')
 
-    # Load input-arguments
-    data = []
-    errs = []
-    for s in scenarios:
-        args = parser.parse_args()
-        args.r_dir = '{}/{}/{}'.format(args.r_dir, args.experiment, s)
-        args.scenario = s
-        # -set default-values for certain arguments based on chosen scenario & experiment
-        args = set_default_values(args)
-        # -set other default arguments
-        args.lr_gen = args.lr if args.lr_gen is None else args.lr_gen
-        args.g_iters = args.iters if args.g_iters is None else args.g_iters
-        args.g_fc_lay = args.fc_lay if args.g_fc_lay is None else args.g_fc_lay
-        args.g_fc_uni = args.fc_units if args.g_fc_uni is None else args.g_fc_uni
+    for a in algorithms:
+        table_writer.write(a + ' & ')
+        for ei, e in enumerate(experiments):
+            for si, s in enumerate(scenarios):
+                args = parser.parse_args()
+                args.r_dir = '{}/{}/{}'.format(args.r_dir, e, s)
+                args.experiment = e
+                args.scenario = s
 
-        # Add non-optional input argument that will be the same for all runs
-        args.metrics = True
-        args.feedback = False
-        args.log_per_task = True
+                # -set default-values for certain arguments based on chosen scenario & experiment
+                args = set_default_values(args)
+                # -set other default arguments
+                args.lr_gen = args.lr if args.lr_gen is None else args.lr_gen
+                args.g_iters = args.iters if args.g_iters is None else args.g_iters
+                args.g_fc_lay = args.fc_lay if args.g_fc_lay is None else args.g_fc_lay
+                args.g_fc_uni = args.fc_units if args.g_fc_uni is None else args.g_fc_uni
 
-        # Add input arguments that will be different for different runs
-        args.distill = False
-        args.agem = False
-        args.ewc = False
-        args.online = False
-        args.si = False
-        args.xdg = False
-        args.add_exemplars = False
-        args.bce_distill= False
-        args.icarl = False
-        # args.seed could of course also vary!
+                # Add non-optional input argument that will be the same for all runs
+                args.metrics = True
+                args.feedback = False
+                args.log_per_task = True
 
-        #-------------------------------------------------------------------------------------------------#
+                # Add input arguments that will be different for different runs
+                args.distill = False
+                args.agem = False
+                args.ewc = False
+                args.online = False
+                args.si = False
+                args.xdg = False
+                args.add_exemplars = False
+                args.bce_distill = False
+                args.icarl = False
 
-        #--------------------------#
-        #----- RUN ALL MODELS -----#
-        #--------------------------#
+                seed_list = list(range(args.seed, args.seed + args.n_seeds))
 
-        seed_list = list(range(args.seed, args.seed + args.n_seeds))
+                set_params(args, a)
 
-        ## Offline
-        args.replay = "offline"
-        OFF = {}
-        OFF = collect_all(OFF, seed_list, args, name="Offline")
+                DATA = {}
+                if a == 'iCaRL':
+                    if s == 'class':
+                        DATA = collect_all(DATA, seed_list, args, name=a)
 
-        ## None
-        args.replay = "none"
-        NONE = {}
-        NONE = collect_all(NONE, seed_list, args, name="None")
+                        acc = []
+                        for m in seed_list:
+                            acc.append(DATA[m][1])
 
-        ## EWC
-        args.ewc = True
-        EWC = {}
-        EWC = collect_all(EWC, seed_list, args, name="EWC")
+                        mean = np.mean(acc) * 100
+                        std = np.std(acc) * 100
 
-        ## online EWC
-        args.online = True
-        args.ewc_lambda = args.o_lambda
-        OEWC = {}
-        OEWC = collect_all(OEWC, seed_list, args, name="Online EWC")
-        args.ewc = False
-        args.online = False
+                        if ei == len(experiments) - 1 and si == len(scenarios) - 1:
+                            table_writer.write('{:.2f} ($\pm${:.3f}) \\\\\n'.format(mean, std))
+                        else:
+                            table_writer.write('{:.2f} ($\pm${:.3f}) & '.format(mean, std))
+                    else:
+                        table_writer.write('- & ')
+                else:
+                    DATA = collect_all(DATA, seed_list, args, name=a)
+                    acc = []
+                    for m in seed_list:
+                        acc.append(DATA[m][1])
 
-        ## SI
-        args.si = True
-        SI = {}
-        SI = collect_all(SI, seed_list, args, name="SI")
-        args.si = False
+                    mean = np.mean(acc) * 100
+                    std = np.std(acc) * 100
 
-        ## LwF
-        args.replay = "current"
-        args.distill = True
-        LWF = {}
-        LWF = collect_all(LWF, seed_list, args, name="LwF")
-
-        ## GR
-        args.replay = "generative"
-        args.distill = False
-        if args.experiment in ['CIFAR10', 'CIFAR100']:
-            args.lr_gen = 0.0003
-        RP = {}
-        RP = collect_all(RP, seed_list, args, name="GR")
-
-        ## GR+distill
-        args.replay = "generative"
-        args.distill = True
-        if args.experiment in ['CIFAR10', 'CIFAR100']:
-            args.lr_gen = 0.0003
-        RKD = {}
-        RKD = collect_all(RKD, seed_list, args, name="GR+distill")
-
-        ## A-GEM
-        args.replay = "exemplars"
-        args.distill = False
-        args.agem = True
-        AGEM = {}
-        AGEM = collect_all(AGEM, seed_list, args, name="AGEM (budget = {})".format(args.budget))
-        args.replay = "none"
-        args.agem = False
-
-        ## Experience Replay
-        args.replay = "exemplars"
-        ER = {}
-        ER = collect_all(ER, seed_list, args, name="Experience Replay (budget = {})".format(args.budget))
-        args.replay = "none"
-
-        ## Online Replay
-        args.replay = 'online'
-        args.online_memory_budget = 2000
-        OTR = {}
-        OTR = collect_all(OTR, seed_list, args, name='OTR (ours)')
-        args.replay = 'none'
-
-        ## OTR + distill
-        args.replay = 'online'
-        args.online_memory_budget = 2000
-        args.use_teacher = True
-        OTRDistill = {}
-        OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
-        args.replay = 'none'
-        args.use_teacher = False
+                    if ei == len(experiments) - 1 and si == len(scenarios) - 1:
+                        table_writer.write('{:.2f} ($\pm${:.3f}) \\\\\n'.format(mean, std))
+                    else:
+                        table_writer.write('{:.2f} ($\pm${:.3f}) & '.format(mean, std))
+                # reset_params(args, a)
+    table_writer.write('\\hline\n')
+    table_writer.write('\\end{tabular}\n')
+    table_writer.write('\\end{table*}\n')
+    table_writer.close()

@@ -14,3 +14,4 @@ test_grad.py
 
 stat/*.csv
 visualization/*.png
+reports/*.tex
