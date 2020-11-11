@@ -356,7 +356,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     class_dataset = SubDataset(original_dataset=train_dataset, sub_labels=[class_id])
                     # based on this dataset, construct new exemplar-set for this class
                     model.construct_exemplar_set(dataset=class_dataset, n=exemplars_per_class)
-            model.compute_means = True
+                model.compute_means = True
 
         # Calculate statistics required for metrics
         for metric_cb in metric_cbs:

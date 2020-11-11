@@ -170,6 +170,7 @@ if __name__ == '__main__':
     args.replay = "exemplars"
     args.distill = False
     args.agem = True
+    args.otr_exemplars = False
     AGEM = {}
     AGEM = collect_all(AGEM, mem_list, args, name="A-GEM")
     args.replay = "none"
@@ -177,12 +178,15 @@ if __name__ == '__main__':
 
     # Experience Replay
     args.replay = "exemplars"
+    args.otr_exemplars = False
     ER = {}
     ER = collect_all(ER, mem_list, args, name="ER")
     args.replay = "none"
 
     # Online Replay
     args.replay = 'online'
+    args.otr_exemplars = False
+    args.triplet_selection = 'HP-HN'
     OTR = {}
     OTR = collect_all(OTR, mem_list, args, name='OTR (ours)')
     args.replay = 'none'
@@ -190,6 +194,8 @@ if __name__ == '__main__':
     # OTR + distill
     args.replay = 'online'
     args.use_teacher = True
+    args.otr_exemplars = False
+    args.triplet_selection = 'HP-HN'
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, mem_list, args, name='OTR+distill (ours)')
     args.replay = 'none'
@@ -203,8 +209,19 @@ if __name__ == '__main__':
         args.add_exemplars = True
         args.herding = True
         args.norm_exemplars = True
+        args.otr_exemplars = False
         ICARL = {}
         ICARL = collect_all(ICARL, mem_list, args, name="iCaRL")
+
+        args.bce = True
+        args.bce_distill = True
+        args.use_exemplars = True
+        args.add_exemplars = True
+        args.herding = False
+        args.norm_exemplars = True
+        args.otr_exemplars = True
+        ICARLOTR = {}
+        ICARLOTR = collect_all(ICARLOTR, mem_list, args, name="iCaRL+OTR")
 
     # Drawing line graph between replay using memory methods
     acc_aGEM = []
@@ -212,6 +229,7 @@ if __name__ == '__main__':
     acc_OTR = []
     acc_OTRDistill = []
     acc_iCaRL = []
+    acc_iCaRL_OTR = []
 
     for m in mem_list:
         ## AVERAGE TEST ACCURACY
@@ -221,6 +239,7 @@ if __name__ == '__main__':
         acc_OTRDistill.append(OTRDistill[m][1])
         if args.scenario == "class":
             acc_iCaRL.append(ICARL[m][1])
+            acc_iCaRL_OTR.append(ICARLOTR[m][1])
 
     df = pd.DataFrame({'mem': mem_list, 'A-GEM': acc_aGEM, 'ER': acc_ER,
                        'OTR': acc_OTR, 'OTR+distill': acc_OTRDistill})
@@ -230,12 +249,20 @@ if __name__ == '__main__':
     plt.plot('mem', 'OTR', data=df, marker='*', color='teal')
     plt.plot('mem', 'OTR+distill', data=df, marker='', color='coral')
     if args.scenario == 'class':
-        df_iCaRL = pd.DataFrame({'mem': mem_list, 'iCaRL': acc_iCaRL})
+        df_iCaRL = pd.DataFrame({'mem': mem_list, 'iCaRL': acc_iCaRL, 'iCaRL+OTR': acc_iCaRL_OTR})
         plt.plot('mem', 'iCaRL', data=df_iCaRL, marker='h', color='violet')
-    plt.legend(loc='best')
+        plt.plot('mem', 'iCaRL+OTR', data=df_iCaRL, marker='d', color='peru')
+
+    if args.scenario == 'class':
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3)
     plt.title('{} memory budget comparison ({}-IL)'.format(args.experiment, args.scenario.capitalize()))
     plt.xlabel('Memory budget')
     plt.ylabel('Average precision')
     plt.xticks(mem_list)
+
+    plot_margin = 0.2
+    x0, x1, y0, y1 = plt.axis()
+    plt.axis((x0, x1, y0 - plot_margin, y1 ))
+    plt.tight_layout()
     # plt.show()
     plt.savefig('./{}_{}_mem_comparison.png'.format(args.experiment, args.scenario))

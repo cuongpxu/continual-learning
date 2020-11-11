@@ -341,7 +341,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     predL = None if y is None else y_score.mean()  # average over batch
 
                     if otr_exemplars:
-                        self.select_triplets(y_score, x, y, triplet_selection, task, scenario)
+                        softmax_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
+                        self.select_triplets(softmax_score, x, y, triplet_selection, task, scenario)
+                        # Update class mean
+                        self.compute_class_means()
                 else:
                     # -multiclass prediction loss
                     y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')

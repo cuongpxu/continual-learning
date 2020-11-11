@@ -399,7 +399,7 @@ def run(args, verbose=False):
         # -generator
         if generator is not None:
             utils.print_model_info(generator, title="GENERATOR")
-
+        # -teacher
         if teacher is not None:
             utils.print_model_info(teacher, title="TEACHER MODEL")
     # Prepare for keeping track of statistics required for metrics (also used for plotting in pdf)
