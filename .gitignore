@@ -15,3 +15,5 @@ test_grad.py
 stat/*.csv
 visualization/*.png
 reports/*.tex
+stat/wilcoxon_data/
+stat/*.xlsx
