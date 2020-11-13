@@ -183,7 +183,8 @@ def collect_all(method_dict, seed_list, args, name=None):
 
 
 if __name__ == '__main__':
-    test = 'CIFAR'
+    form = 'NIPS'
+    test = 'MNIST'
     if test == 'MNIST':
         experiments = ['splitMNIST', 'permMNIST', 'rotMNIST']
     else:
@@ -192,13 +193,13 @@ if __name__ == '__main__':
     algorithms = ['None', 'Offline', 'EWC', 'o-EWC', 'SI', 'LwF', 'GR', 'GR+distill', 'A-GEM',
                   'ER', 'iCaRL', 'OTR', 'OTR+distill']
 
-    table_writer = open('./{}_table.tex'.format(test), 'w+')
+    table_writer = open('./{}_table_{}.tex'.format(test, form), 'w+')
     table_writer.write('\\begin{table*}[!t]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
     if test == 'MNIST':
-        table_writer.write('\\caption{Average test accuracy of all tasks (over 10 run with difference random seed) on the ' + test + ' variant datasets.}\n')
+        table_writer.write('\\caption{Average test accuracy of all tasks (over 10 run with difference random seed) on the MNIST variant datasets. None and Offline methods are lower bound and upper bound for continual learning, while ER is a method using random sampling for selecting instances to build exemplar sets.}\n')
     else:
-        table_writer.write('\\caption{Average test accuracy of all tasks (over 10 run with difference random seed) on the ' + test + ' datasets.}\n')
+        table_writer.write('\\caption{Similar to table \\ref{tab:mnist_table} but for CIFAR-10 and CIFAR-100 datasets.}\n')
     table_writer.write('\\label{tab:' + test.lower() + '_table}\n')
     table_writer.write('\\centering\n')
     table_writer.write('\\begin{tabular}{l')
@@ -283,9 +284,15 @@ if __name__ == '__main__':
                         std = np.std(acc) * 100
 
                         if ei == len(experiments) - 1 and si == len(scenarios) - 1:
-                            table_writer.write('{:.2f} ($\pm${:.3f}) \\\\\n'.format(mean, std))
+                            if form == 'NIPS':
+                                table_writer.write('{:.2f} \\\\\n'.format(mean))
+                            else:
+                                table_writer.write('{:.2f} ($\pm${:.3f}) \\\\\n'.format(mean, std))
                         else:
-                            table_writer.write('{:.2f} ($\pm${:.3f}) & '.format(mean, std))
+                            if form == 'NIPS':
+                                table_writer.write('{:.2f} & '.format(mean))
+                            else:
+                                table_writer.write('{:.2f} ($\pm${:.3f}) & '.format(mean, std))
                     else:
                         table_writer.write('- & ')
                 else:
@@ -298,9 +305,15 @@ if __name__ == '__main__':
                     std = np.std(acc) * 100
 
                     if ei == len(experiments) - 1 and si == len(scenarios) - 1:
-                        table_writer.write('{:.2f} ($\pm${:.3f}) \\\\\n'.format(mean, std))
+                        if form == 'NIPS':
+                            table_writer.write('{:.2f} \\\\\n'.format(mean))
+                        else:
+                            table_writer.write('{:.2f} ($\pm${:.3f}) \\\\\n'.format(mean, std))
                     else:
-                        table_writer.write('{:.2f} ($\pm${:.3f}) & '.format(mean, std))
+                        if form == 'NIPS':
+                            table_writer.write('{:.2f} & '.format(mean))
+                        else:
+                            table_writer.write('{:.2f} ($\pm${:.3f}) & '.format(mean, std))
                 # reset_params(args, a)
     table_writer.write('\\hline\n')
     table_writer.write('\\end{tabular}\n')

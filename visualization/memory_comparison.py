@@ -260,21 +260,21 @@ if __name__ == '__main__':
                 acc_iCaRL.append(ICARL[m][s][1])
                 acc_iCaRL_OTR.append(ICARLOTR[m][s][1])
 
-        aGEM_mean.append(np.mean(acc_aGEM))
-        ER_mean.append(np.mean(acc_ER))
-        OTR_mean.append(np.mean(acc_OTR))
-        OTRDistill_mean.append(np.mean(acc_OTRDistill))
+        aGEM_mean.append(np.mean(acc_aGEM) * 100)
+        ER_mean.append(np.mean(acc_ER) * 100)
+        OTR_mean.append(np.mean(acc_OTR) * 100)
+        OTRDistill_mean.append(np.mean(acc_OTRDistill) * 100)
         if args.scenario == "class":
-            iCaRL_mean.append(np.mean(acc_iCaRL))
-            iCaRL_OTR_mean.append(np.mean(acc_iCaRL_OTR))
+            iCaRL_mean.append(np.mean(acc_iCaRL) * 100)
+            iCaRL_OTR_mean.append(np.mean(acc_iCaRL_OTR) * 100)
 
-        aGEM_std.append(np.std(acc_aGEM))
-        ER_std.append(np.std(acc_ER))
-        OTR_std.append(np.std(acc_OTR))
-        OTRDistill_std.append(np.std(acc_OTRDistill))
+        aGEM_std.append(np.std(acc_aGEM) * 100)
+        ER_std.append(np.std(acc_ER) * 100)
+        OTR_std.append(np.std(acc_OTR) * 100)
+        OTRDistill_std.append(np.std(acc_OTRDistill) * 100)
         if args.scenario == "class":
-            iCaRL_std.append(np.std(acc_iCaRL))
-            iCaRL_OTR_std.append(np.std(acc_iCaRL_OTR))
+            iCaRL_std.append(np.std(acc_iCaRL) * 100)
+            iCaRL_OTR_std.append(np.std(acc_iCaRL_OTR) * 100)
 
     df = pd.DataFrame({'mem': mem_list,
                        'A-GEM': aGEM_mean, 'A-GEM-std': aGEM_std,

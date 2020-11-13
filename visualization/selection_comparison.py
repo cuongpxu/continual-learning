@@ -50,7 +50,7 @@ train_params.add_argument('--optimizer', type=str, choices=['adam', 'adam_reset'
 replay_params = parser.add_argument_group('Replay Parameters')
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
 replay_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
-
+replay_params.add_argument('--triplet-selection', type=str, default='HP-HN', help="Triplet selection strategy")
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
@@ -78,7 +78,7 @@ icarl_params.add_argument('--budget', type=int, default=2000, dest="budget", hel
 icarl_params.add_argument('--herding', action='store_true', help="use herding to select exemplars (instead of random)")
 icarl_params.add_argument('--use-exemplars', action='store_true', help="use stored exemplars for classification?")
 icarl_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
-
+icarl_params.add_argument('--otr-exemplars', type=bool, default=False, help="use otr exemplars instead of random")
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
 eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
@@ -264,7 +264,7 @@ if __name__ == '__main__':
     x_pos = np.arange(len(methods))
 
     # Build the plot
-    fig, ax = plt.subplots(figsize=(12, 7))
+    fig, ax = plt.subplots(figsize=(10, 8))
     task_bar = ax.bar(x_pos - 0.25, data[0], yerr=errs[0], color='#07575B', ecolor='gray',
                       alpha=1, label='Task-IL', width=0.25)
     domain_bar = ax.bar(x_pos, data[1], yerr=errs[1], color='#C4DFE6', ecolor='gray',
