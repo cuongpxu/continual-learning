@@ -265,7 +265,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         means = torch.stack(exemplar_means)  # (n_classes, feature_size)
         means = torch.stack([means] * batch_size)  # (batch_size, n_classes, feature_size)
         means = means.transpose(1, 2)  # (batch_size, feature_size, n_classes)
-
+        means = means.to(self._device())
         # Extract features for input data (and reorganize)
         with torch.no_grad():
             feature = self.feature_extractor(x)  # (batch_size, feature_size)
