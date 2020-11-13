@@ -124,7 +124,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
 
     def compute_class_means(self):
         # compute features for each class
-        for i in range(len(self.online_exemplar_sets)):
+        for i in self.online_exemplar_sets:
             dataset = OnlineExemplarDataset(self.online_exemplar_sets[i])
             first_entry = True
             dataloader = utils.get_data_loader(dataset, 128, cuda=self._is_on_cuda())
@@ -265,7 +265,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         means = torch.stack(exemplar_means)  # (n_classes, feature_size)
         means = torch.stack([means] * batch_size)  # (batch_size, n_classes, feature_size)
         means = means.transpose(1, 2)  # (batch_size, feature_size, n_classes)
-        means = means.to(self._device())
+
         # Extract features for input data (and reorganize)
         with torch.no_grad():
             feature = self.feature_extractor(x)  # (batch_size, feature_size)
@@ -297,6 +297,11 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
 
         batch_size = x.size(0)
 
+        # Do the exemplar-means need to be recomputed?
+        # if self.compute_means:
+        #     self.compute_class_means()
+        #     self.compute_means = False
+
         ex_means = []
         for k in self.online_exemplar_means:
             ex_means.append(self.online_exemplar_means[k])
@@ -308,6 +313,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         means = torch.stack(exemplar_means)  # (n_classes, feature_size)
         means = torch.stack([means] * batch_size)  # (batch_size, n_classes, feature_size)
         means = means.transpose(1, 2)  # (batch_size, feature_size, n_classes)
+        means = means.to(self._device())
 
         # Extract features for input data (and reorganize)
         with torch.no_grad():

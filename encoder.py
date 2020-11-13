@@ -344,7 +344,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         softmax_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
                         self.select_triplets(softmax_score, x, y, triplet_selection, task, scenario)
                         # Update class mean
-                        self.compute_class_means()
+                        if self.check_full_memory():
+                            self.compute_class_means()
                 else:
                     # -multiclass prediction loss
                     y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
