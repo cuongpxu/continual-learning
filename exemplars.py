@@ -122,15 +122,16 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
                 self.online_exemplar_sets[m][1] = np.concatenate(
                     (self.online_exemplar_sets[m][1], y.cpu().detach().numpy()), axis=0)
 
-    def compute_class_means(self):
+    def compute_class_means(self, x, y):
         # compute features for each class
         for i in self.online_exemplar_sets:
+            mask = y == i
             dataset = OnlineExemplarDataset(self.online_exemplar_sets[i])
             first_entry = True
             dataloader = utils.get_data_loader(dataset, 128, cuda=self._is_on_cuda())
             for (image_batch, _) in dataloader:
                 image_batch = image_batch.to(self._device())
-
+                image_batch = torch.cat((image_batch, x[mask]), dim=0)
                 with torch.no_grad():
                     feature_batch = self.feature_extractor(image_batch).cpu()
                 if first_entry:
@@ -138,6 +139,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
                     first_entry = False
                 else:
                     features = torch.cat([features, feature_batch], dim=0)
+
             if self.norm_exemplars:
                 features = F.normalize(features, p=2, dim=1)
 
@@ -297,13 +299,8 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
 
         batch_size = x.size(0)
 
-        # Do the exemplar-means need to be recomputed?
-        # if self.compute_means:
-        #     self.compute_class_means()
-        #     self.compute_means = False
-
         ex_means = []
-        for k in self.online_exemplar_means:
+        for k in range(len(self.online_exemplar_means)):
             ex_means.append(self.online_exemplar_means[k])
 
         # Reorganize the [exemplar_means]-<tensor>

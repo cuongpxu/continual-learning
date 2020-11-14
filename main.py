@@ -305,6 +305,9 @@ def run(args, verbose=False):
     if isinstance(model, ExemplarHandler) and args.replay == 'online':
         model.online_memory_budget = args.online_memory_budget
 
+    if isinstance(model, ExemplarHandler) and args.otr_exemplars:
+        model.online_memory_budget = args.online_memory_budget
+
     #-------------------------------------------------------------------------------------------------#
 
     #-----------------------------------#
