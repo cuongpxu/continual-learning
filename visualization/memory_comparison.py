@@ -297,7 +297,7 @@ if __name__ == '__main__':
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3)
     # plt.title('{} memory budget comparison ({}-IL)'.format(args.experiment, args.scenario.capitalize()))
     plt.xlabel('Memory budget')
-    plt.ylabel('Accuracy')
+    plt.ylabel('Test accuracy')
     plt.xticks(mem_list)
 
     plot_margin = 0.2
@@ -305,4 +305,4 @@ if __name__ == '__main__':
     plt.axis((x0, x1, y0 - plot_margin, y1 ))
     plt.tight_layout()
     # plt.show()
-    plt.savefig('./{}_{}_mem_comparison.png'.format(args.experiment, args.scenario))
+    plt.savefig('./{}_mem_{}.png'.format(args.experiment, args.scenario))

@@ -15,7 +15,7 @@ parser.add_argument('--n-seeds', type=int, default=10, help='how often to repeat
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
-parser.add_argument('--results-dir', type=str, default='../benchmark_selection', dest='r_dir', help="default: %(default)s")
+parser.add_argument('--results-dir', type=str, default='../benchmark', dest='r_dir', help="default: %(default)s")
 
 # expirimental task parameters.
 task_params = parser.add_argument_group('Task Parameters')
@@ -51,6 +51,9 @@ replay_params = parser.add_argument_group('Replay Parameters')
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
 replay_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
 replay_params.add_argument('--triplet-selection', type=str, default='HP-HN', help="Triplet selection strategy")
+replay_choices = ['offline', 'exact', 'generative', 'none', 'current', 'exemplars', 'online']
+replay_params.add_argument('--replay', type=str, default='none', choices=replay_choices)
+
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
@@ -133,150 +136,186 @@ def autolabel(rects):
                     ha='center', va='bottom', fontsize='small')
 
 
+def get_list_forgetting(dict, seed_list):
+    f = []
+    for m in seed_list:
+        f.append(dict[m][0]['F'])
+    return f
+
+
+def get_experiment_name(ex):
+    if ex == 'splitMNIST':
+        return 'Split MNIST'
+    elif ex == 'permMNIST':
+        return 'Permuted MNIST'
+    elif ex == 'rotMNIST':
+        return 'Rotated MNIST'
+    elif ex == 'CIFAR10':
+        return 'CIFAR-10'
+    else:
+        return 'CIFAR-100'
+
+
 if __name__ == '__main__':
-
     # Load input-arguments
+    algorithms = ['EWC', 'o-EWC', 'SI', 'LwF', 'GR', 'GR+distill', 'A-GEM', 'ER', 'OTR', 'OTR+distill']
     scenarios = ['task', 'domain', 'class']
-    data = []
-    errs = []
-    for s in scenarios:
-        args = parser.parse_args()
-        args.r_dir = '{}/{}/{}'.format(args.r_dir, args.experiment, s)
-        args.scenario = s
-        # -set default-values for certain arguments based on chosen scenario & experiment
-        args = set_default_values(args)
-        # -set other default arguments
-        args.lr_gen = args.lr if args.lr_gen is None else args.lr_gen
-        args.g_iters = args.iters if args.g_iters is None else args.g_iters
-        args.g_fc_lay = args.fc_lay if args.g_fc_lay is None else args.g_fc_lay
-        args.g_fc_uni = args.fc_units if args.g_fc_uni is None else args.g_fc_uni
+    experiments = ['splitMNIST', 'permMNIST', 'rotMNIST', 'CIFAR10', 'CIFAR100']
+    colors = ['#C6B497', '#CFD3CE', '#839B97', '#34626C', '#FFDD93', '#C4B6B6']
+    data = {}
 
-        # Add non-optional input argument that will be the same for all runs
-        args.metrics = True
-        args.feedback = False
-        args.log_per_task = True
+    for ex in experiments:
+        for s in scenarios:
+            args = parser.parse_args()
+            args.experiment = ex
+            args.r_dir = '{}/{}/{}'.format(args.r_dir, ex, s)
+            args.scenario = s
+            # -set default-values for certain arguments based on chosen scenario & experiment
+            args = set_default_values(args)
+            # -set other default arguments
+            args.lr_gen = args.lr if args.lr_gen is None else args.lr_gen
+            args.g_iters = args.iters if args.g_iters is None else args.g_iters
+            args.g_fc_lay = args.fc_lay if args.g_fc_lay is None else args.g_fc_lay
+            args.g_fc_uni = args.fc_units if args.g_fc_uni is None else args.g_fc_uni
 
-        # Add input arguments that will be different for different runs
-        args.distill = False
-        args.agem = False
-        args.ewc = False
-        args.online = False
-        args.si = False
-        args.xdg = False
-        args.add_exemplars = False
-        args.bce_distill= False
-        args.icarl = False
-        # args.seed could of course also vary!
+            # Add non-optional input argument that will be the same for all runs
+            args.metrics = True
+            args.feedback = False
+            args.log_per_task = True
 
-        #-------------------------------------------------------------------------------------------------#
+            # Add input arguments that will be different for different runs
+            args.distill = False
+            args.agem = False
+            args.ewc = False
+            args.online = False
+            args.si = False
+            args.xdg = False
+            args.add_exemplars = False
+            args.bce_distill= False
+            args.icarl = False
+            # args.seed could of course also vary!
 
-        #--------------------------#
-        #----- RUN ALL MODELS -----#
-        #--------------------------#
+            #-------------------------------------------------------------------------------------------------#
 
-        seed_list = list(range(args.seed, args.seed + args.n_seeds))
+            #--------------------------#
+            #----- RUN ALL MODELS -----#
+            #--------------------------#
 
-        # Experience Replay + Herding
-        args.replay = "exemplars"
-        args.herding = True
-        args.budget = 2000
-        ERH = {}
-        ERH = collect_all(ERH, seed_list, args, name="ER+herding")
-        args.replay = "none"
-        args.herding = False
+            seed_list = list(range(args.seed, args.seed + args.n_seeds))
 
-        # Experience Replay
-        args.replay = "exemplars"
-        ER = {}
-        ER = collect_all(ER, seed_list, args, name="ER")
-        args.replay = "none"
+            ## EWC
+            args.ewc = True
+            EWC = {}
+            EWC = collect_all(EWC, seed_list, args, name="EWC")
 
-        # Online Replay
-        args.replay = 'online'
-        args.triplet_selection = 'HP-HN'
-        args.online_memory_budget = 2000
-        OTR = {}
-        OTR = collect_all(OTR, seed_list, args, name='OTR (HP-HN)')
-        args.replay = 'none'
+            ## online EWC
+            args.online = True
+            args.ewc_lambda = args.o_lambda
+            OEWC = {}
+            OEWC = collect_all(OEWC, seed_list, args, name="Online EWC")
+            args.ewc = False
+            args.online = False
 
-        # Online Replay
-        args.replay = 'online'
-        args.triplet_selection = 'HP-SHN'
-        args.online_memory_budget = 2000
-        OTR_HPSHN = {}
-        OTR_HPSHN = collect_all(OTR_HPSHN, seed_list, args, name='OTR (HP-SHN)')
-        args.replay = 'none'
+            ## SI
+            args.si = True
+            SI = {}
+            SI = collect_all(SI, seed_list, args, name="SI")
+            args.si = False
 
-        # Online Replay
-        args.replay = 'online'
-        args.triplet_selection = 'EP-HN'
-        args.online_memory_budget = 2000
-        OTR_EPHN = {}
-        OTR_EPHN = collect_all(OTR_EPHN, seed_list, args, name='OTR (EP-HN)')
-        args.replay = 'none'
+            ## LwF
+            args.replay = "current"
+            args.distill = True
+            LWF = {}
+            LWF = collect_all(LWF, seed_list, args, name="LwF")
 
-        # Online Replay
-        args.replay = 'online'
-        args.triplet_selection = 'EP-SHN'
-        args.online_memory_budget = 2000
-        OTR_EPSHN = {}
-        OTR_EPSHN = collect_all(OTR_EPSHN, seed_list, args, name='OTR (EP-SHN)')
-        args.replay = 'none'
+            ## GR
+            args.replay = "generative"
+            args.distill = False
+            if args.experiment in ['CIFAR10', 'CIFAR100']:
+                args.lr_gen = 0.0003
+            RP = {}
+            RP = collect_all(RP, seed_list, args, name="GR")
 
-        # Drawing line graph between replay using memory methods
-        acc_ER = []
-        acc_ERH = []
-        acc_OTR = []
-        acc_OTR_HPSHN = []
-        acc_OTR_EPHN = []
-        acc_OTR_EPSHN = []
+            ## GR+distill
+            args.replay = "generative"
+            args.distill = True
+            if args.experiment in ['CIFAR10', 'CIFAR100']:
+                args.lr_gen = 0.0003
+            RKD = {}
+            RKD = collect_all(RKD, seed_list, args, name="GR+distill")
 
-        for m in seed_list:
-            ## AVERAGE TEST ACCURACY
-            acc_ER.append(ER[m][1])
-            acc_ERH.append(ERH[m][1])
-            acc_OTR.append(OTR[m][1])
-            acc_OTR_HPSHN.append(OTR_HPSHN[m][1])
-            acc_OTR_EPHN.append(OTR_EPHN[m][1])
-            acc_OTR_EPSHN.append(OTR_EPSHN[m][1])
+            ## A-GEM
+            args.replay = "exemplars"
+            args.distill = False
+            args.agem = True
+            AGEM = {}
+            AGEM = collect_all(AGEM, seed_list, args, name="AGEM (budget = {})".format(args.budget))
+            args.replay = "none"
+            args.agem = False
 
-        # Calculate the average
-        ER_mean = np.mean(acc_ER)
-        ERH_mean = np.mean(acc_ERH)
-        OTR_mean = np.mean(acc_OTR)
-        OTR_HPSHN_mean = np.mean(acc_OTR_HPSHN)
-        OTR_EPHN_mean = np.mean(acc_OTR_EPHN)
-        OTR_EPSHN_mean = np.mean(acc_OTR_EPSHN)
-        print(ER_mean, ERH_mean, OTR_mean, OTR_HPSHN_mean, OTR_EPHN_mean, OTR_EPSHN_mean)
-        # Calculate the standard deviation
-        ER_std = np.std(acc_ER)
-        ERH_std = np.std(acc_ERH)
-        OTR_std = np.std(acc_OTR)
-        OTR_HPSHN_std = np.std(acc_OTR_HPSHN)
-        OTR_EPHN_std = np.std(acc_OTR_EPHN)
-        OTR_EPSHN_std = np.std(acc_OTR_EPSHN)
+            ## Experience Replay
+            args.replay = "exemplars"
+            ER = {}
+            ER = collect_all(ER, seed_list, args, name="Experience Replay (budget = {})".format(args.budget))
+            args.replay = "none"
 
-        data.append([ERH_mean, ERH_mean, OTR_mean, OTR_HPSHN_mean, OTR_EPHN_mean, OTR_EPSHN_mean ])
-        errs.append([ER_std, ERH_std, OTR_std, OTR_HPSHN_std, OTR_EPHN_std, OTR_EPSHN_std])
+            ## Online Replay
+            args.replay = 'online'
+            args.online_memory_budget = 2000
+            OTR = {}
+            OTR = collect_all(OTR, seed_list, args, name='OTR (ours)')
+            args.replay = 'none'
 
-    # Create lists for the plot
-    methods = ['ER', 'Herding', 'OTR (HP-HN)', 'OTR (HP-SHN)', 'OTR (EP-HN)', 'OTR (EP-SHN)']
-    x_pos = np.arange(len(methods))
+            ## OTR + distill
+            args.replay = 'online'
+            args.online_memory_budget = 2000
+            args.use_teacher = True
+            OTRDistill = {}
+            OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
+            args.replay = 'none'
+            args.use_teacher = False
+
+            # Collect data to draw stack bar chart
+            for a in algorithms:
+                if a == 'EWC':
+                    f = get_list_forgetting(EWC, seed_list)
+                elif a == 'o-EWC':
+                    f = get_list_forgetting(OEWC, seed_list)
+                elif a == 'SI':
+                    f = get_list_forgetting(SI, seed_list)
+                elif a == 'LwF':
+                    f = get_list_forgetting(LWF, seed_list)
+                elif a == 'GR':
+                    f = get_list_forgetting(RP, seed_list)
+                elif a == 'GR+distill':
+                    f = get_list_forgetting(RKD, seed_list)
+                elif a == 'A-GEM':
+                    f = get_list_forgetting(AGEM, seed_list)
+                elif a == 'ER':
+                    f = get_list_forgetting(ER, seed_list)
+                elif a == 'OTR':
+                    f = get_list_forgetting(OTR, seed_list)
+                else:
+                    f = get_list_forgetting(OTRDistill, seed_list)
+
+                data['{}_{}_{}_mean'.format(ex, s, a)] = np.mean(f)
+                data['{}_{}_{}_std'.format(ex, s, a)] = np.std(f)
 
     # Build the plot
     fig, ax = plt.subplots(figsize=(12, 7))
-    task_bar = ax.bar(x_pos - 0.25, data[0], yerr=errs[0], color='#07575B', ecolor='gray',
-                      alpha=1, label='Task-IL', width=0.25)
-    domain_bar = ax.bar(x_pos, data[1], yerr=errs[1], color='#C4DFE6', ecolor='gray',
-                        alpha=1, label='Domain-IL', width=0.25)
-    class_bar = ax.bar(x_pos + 0.25, data[2], yerr=errs[2], color='#6FB98F', ecolor='gray',
-                       alpha=1, label='Class-IL', width=0.25)
 
-    autolabel(task_bar)
-    autolabel(domain_bar)
-    autolabel(class_bar)
+    # Create lists for the plot
+    methods = ['EWC', 'o-EWC', 'SI', 'LwF', 'GR', 'GR+distill', 'A-GEM', 'ER', 'OTR (ours)', 'OTR+distill (ours)']
+    x_pos = np.arange(len(algorithms))
+    for i, ex in enumerate(experiments):
+        fs = []
+        for a in algorithms:
+            fs.append(data['{}_{}_{}_mean'.format(ex, 'task', a)] + data['{}_{}_{}_mean'.format(ex, 'domain', a)] +
+                      data['{}_{}_{}_mean'.format(ex, 'class', a)])
 
-    ax.set_ylabel('Test accuracy')
+        task_bar = ax.bar(x_pos + (0.15 * (i - (len(experiments) - 1)//2)), fs, color=colors[i], width=0.15, label=get_experiment_name(ex))
+
+    ax.set_ylabel('Average forgetting')
     ax.set_xticks(x_pos)
     ax.set_xticklabels(methods)
     # ax.set_title('Memory sampling methods comparison')
@@ -289,4 +328,4 @@ if __name__ == '__main__':
     plt.tight_layout()
     # Save the figure and show
     # plt.show()
-    plt.savefig('{}_selection.png'.format(args.experiment))
+    plt.savefig('forgetting.png')

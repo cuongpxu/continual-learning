@@ -53,7 +53,7 @@ replay_params = parser.add_argument_group('Replay Parameters')
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
 replay_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
 replay_params.add_argument('--triplet-selection', type=str, default='HP-HN', help="Triplet selection strategy")
-
+replay_params.add_argument('--otr-exemplars', type=bool, default=False, help="use otr exemplars instead of random")
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
