@@ -90,7 +90,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         else:
             return self.fcE(self.flatten(images))
 
-    def select_triplets(self,y_score, x, y, triplet_selection, task, scenario):
+    def select_triplets(self, embeds, y_score, x, y, triplet_selection, task, scenario, use_embeddings):
         uq = torch.unique(y).cpu().numpy()
         selection_strategies = triplet_selection.split('-')
         # Select instances in the batch for replay later
@@ -100,7 +100,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             ce_m = y_score[mask]
             if ce_m.size(0) != 0:
                 # Select anchor and hard positive instances for class m
-                positive_batch = x[mask]
+                if use_embeddings:
+                    positive_batch = embeds[mask]
+                else:
+                    positive_batch = x[mask]
                 anchor_idx = torch.argmin(ce_m)
                 anchor_x = positive_batch[anchor_idx].unsqueeze(dim=0)
                 # anchor should not equal positive
@@ -131,7 +134,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     self.add_instances_to_online_exemplar_sets(x_m, y_m, m)
 
                 # Select hard negative instances
-                negative_batch = x[mask_neg]
+                if use_embeddings:
+                    negative_batch = embeds[mask_neg]
+                else:
+                    negative_batch = x[mask_neg]
                 if negative_batch.size(0) != 0:
                     anchor_batch = anchor_x.expand(negative_batch.size())
                     negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
@@ -174,6 +180,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
                       active_classes=None, task=1, scenario='class',
                       loss_fn=None, replay_mode='none', triplet_selection='HP-HN',
+                      use_embeddings=False,
                       teacher=None, otr_exemplars=False):
         '''Train model for one batch ([x],[y]), possibly supplemented with replayed data ([x_],[y_/scores_]).
 
@@ -286,7 +293,13 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 self.apply_XdGmask(task=task)
 
             # Run model
-            y_hat = self(x)
+            # y_hat = self(x)
+
+            if self.experiment not in ['splitMNIST', 'permMNIST', 'rotMNIST']:
+                embeds = self.fcE(x)
+            else:
+                embeds = self.fcE(self.flatten(x))
+            y_hat = self.classifier(embeds)
 
             if teacher is not None:
                 if teacher.is_ready_distill:
@@ -342,7 +355,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                     if otr_exemplars:
                         softmax_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
-                        self.select_triplets(softmax_score, x, y, triplet_selection, task, scenario)
+                        self.select_triplets(embeds, softmax_score, x, y, triplet_selection, task, scenario, use_embeddings)
                         # Update class mean
                         self.compute_class_means(x, y)
                 else:
@@ -351,7 +364,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     predL = None if y is None else y_score.mean()
 
                     if replay_mode == 'online':
-                        self.select_triplets(y_score, x, y, triplet_selection, task, scenario)
+                        self.select_triplets(embeds, y_score, x, y, triplet_selection, task, scenario, use_embeddings)
 
             # Weigh losses
             if teacherL is not None:

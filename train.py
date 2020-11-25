@@ -17,8 +17,8 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
              batch_size=32, generator=None, gen_iters=0,
              gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
              use_exemplars=True, add_exemplars=False, metric_cbs=list(),
-             otr_exemplars=False,
-             loss_fn=None, triplet_selection='HP-HN'):
+             otr_exemplars=False, triplet_selection='HP-HN', use_embeddings=False,
+             loss_fn=None ):
     '''Train a model (with a "train_a_batch" method) on multiple tasks, with replay-strategy specified by [replay_mode].
 
     [model]             <nn.Module> main model to optimize across all tasks
@@ -256,7 +256,8 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
                                                 active_classes=active_classes, task=task, rnt=1. / task,
                                                 scenario=scenario, loss_fn=loss_fn, replay_mode=replay_mode,
-                                                teacher=teacher, triplet_selection=triplet_selection,
+                                                teacher=teacher,
+                                                triplet_selection=triplet_selection, use_embeddings=use_embeddings,
                                                 otr_exemplars=otr_exemplars)
 
                 # Update running parameter importance estimates in W
