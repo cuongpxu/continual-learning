@@ -54,6 +54,8 @@ replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="
 replay_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
 replay_params.add_argument('--triplet-selection', type=str, default='HP-HN', help="Triplet selection strategy")
 replay_params.add_argument('--otr-exemplars', type=bool, default=False, help="use otr exemplars instead of random")
+replay_params.add_argument('--use-embeddings', type=bool, default=False,
+                          help="use embeddings space for otr exemplars instead of features space")
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
@@ -89,7 +91,6 @@ eval_params.add_argument('--pdf', action='store_true', help="generate pdfs for i
 eval_params.add_argument('--visdom', action='store_true', help="use visdom for on-the-fly plots")
 eval_params.add_argument('--prec-n', type=int, default=1024, help="# samples for evaluating solver's precision")
 eval_params.add_argument('--sample-n', type=int, default=64, help="# images to show")
-
 
 
 def get_results(args):
@@ -256,44 +257,31 @@ if __name__ == '__main__':
     ## Online Replay
     args.replay = 'online'
     args.online_memory_budget = 2000
+    args.use_embeddings = False
     OTR = {}
     OTR = collect_all(OTR, seed_list, args, name='OTR (ours)')
     args.replay = 'none'
+    args.use_embeddings = False
+
+    ## Online Replay + embed
+    args.replay = 'online'
+    args.online_memory_budget = 2000
+    args.use_embeddings = True
+    OTREmbed = {}
+    OTREmbed = collect_all(OTREmbed, seed_list, args, name='OTR+Embeds (ours)')
+    args.replay = 'none'
+    args.use_embeddings = False
 
     ## OTR + distill
     args.replay = 'online'
     args.online_memory_budget = 2000
     args.use_teacher = True
+    args.use_embeddings = False
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
     args.replay = 'none'
     args.use_teacher = False
-    ## OTFL
-    # args.loss = 'otfl'
-    # args.otfl_alpha = 1.0
-    # args.otfl_beta = 1.0
-    # args.use_cs = False
-    # args.otfl_strategy = 'hard'
-    # OTFL_hard = {}
-    # OTFL_hard = collect_all(OTFL_hard, seed_list, args, name='OTFL-hard')
-    # args.otfl_strategy = 'all'
-    # OTFL_all = {}
-    # OTFL_all = collect_all(OTFL_all, seed_list, args, name='OTFL-all')
-    # args.loss = 'none'
-
-    ## OTFL with replay
-    # args.replay = 'online'
-    # args.online_memory_budget = 2000
-    # args.online_replay_mode = 'c3'
-    # args.loss = 'otfl'
-    # args.otfl_alpha = 1.0
-    # args.otfl_beta = 1.0
-    # args.use_cs = False
-    # args.otfl_strategy = 'hard'
-    # OTFL_replay = {}
-    # OTFL_replay = collect_all(OTFL_replay, seed_list, args, name='OTFL-replay')
-    # args.loss = 'none'
-    # args.replay = 'none'
+    args.use_embeddings = False
     ###----"EXEMPLARS + REPLAY"----####
 
     ## iCaRL
