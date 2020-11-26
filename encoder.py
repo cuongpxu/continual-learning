@@ -100,19 +100,25 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             ce_m = y_score[mask]
             if ce_m.size(0) != 0:
                 # Select anchor and hard positive instances for class m
-                if use_embeddings:
-                    positive_batch = embeds[mask]
-                else:
-                    positive_batch = x[mask]
+                positive_batch = x[mask]
+                positive_embed_batch = embeds[mask]
                 anchor_idx = torch.argmin(ce_m)
                 anchor_x = positive_batch[anchor_idx].unsqueeze(dim=0)
+                anchor_embed = positive_embed_batch[anchor_idx].unsqueeze(dim=0)
                 # anchor should not equal positive
                 positive_batch = torch.cat(
                         (positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
+                positive_embed_batch = torch.cat(
+                    (positive_embed_batch[:anchor_idx], positive_embed_batch[anchor_idx + 1:]), dim=0)
                 if positive_batch.size(0) != 0:
-                    anchor_batch = anchor_x.expand(positive_batch.size())
-                    positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                            positive_batch.view(positive_batch.size(0), -1))
+                    if use_embeddings:
+                        anchor_batch = anchor_embed.expand(positive_embed_batch.size())
+                        positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                            positive_embed_batch.view(positive_embed_batch.size(0), -1))
+                    else:
+                        anchor_batch = anchor_x.expand(positive_batch.size())
+                        positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                                positive_batch.view(positive_batch.size(0), -1))
 
                     if selection_strategies[0] == 'HP':
                         # Hard positive
@@ -133,15 +139,18 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 else:
                     self.add_instances_to_online_exemplar_sets(x_m, y_m, m)
 
-                # Select hard negative instances
-                if use_embeddings:
-                    negative_batch = embeds[mask_neg]
-                else:
-                    negative_batch = x[mask_neg]
+                # Select negative instance
+                negative_batch = x[mask_neg]
+                negative_embed_batch = embeds[mask_neg]
                 if negative_batch.size(0) != 0:
-                    anchor_batch = anchor_x.expand(negative_batch.size())
-                    negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                            negative_batch.view(negative_batch.size(0), -1))
+                    if use_embeddings:
+                        anchor_batch = anchor_embed.expand(negative_embed_batch.size())
+                        negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                            negative_embed_batch.view(negative_embed_batch.size(0), -1))
+                    else:
+                        anchor_batch = anchor_x.expand(negative_batch.size())
+                        negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                                negative_batch.view(negative_batch.size(0), -1))
 
                     if selection_strategies[1] == 'HN':
                         # Hard negative
@@ -150,8 +159,13 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         negative_y = y[mask_neg][negative_idx].unsqueeze(dim=0)
                     elif selection_strategies[1] == 'SHN':
                         # Semi-hard negative
-                        dap = F.pairwise_distance(anchor_x.view(anchor_x.size(0), -1),
-                                                      positive_x.view(positive_x.size(0), -1))
+                        if use_embeddings:
+                            positive_embed = positive_embed_batch[positive_idx].unsqueeze(dim=0)
+                            dap = F.pairwise_distance(anchor_embed.view(anchor_x.size(0), -1),
+                                                      positive_embed.view(positive_x.size(0), -1))
+                        else:
+                            dap = F.pairwise_distance(anchor_x.view(anchor_x.size(0), -1),
+                                                          positive_x.view(positive_x.size(0), -1))
                         valid_shn_idx = negative_dist > dap
                         if valid_shn_idx.any():
                             shn_batch = negative_batch[valid_shn_idx]
