@@ -9,6 +9,7 @@ benchmark/
 benchmark_memory/
 benchmark_selection/
 benchmark_distill/
+benchmark_OTREmbed/
 test_grad.py
 *.sh
 

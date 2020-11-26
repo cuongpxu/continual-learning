@@ -418,7 +418,7 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda):
     mem_val_loader = utils.get_data_loader(mem_val_set, batch_size=batch_size,
                                            shuffle=False, drop_last=False, cuda=cuda)
     teacher_optimizer = optim.Adam(teacher.parameters(), lr=teacher_lr, betas=(0.9, 0.999))
-    scheduler = torch.optim.ReduceLROnPlateau(teacher_optimizer, 'min', patience=3)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, 'min', patience=3)
     teacher_criterion = torch.nn.CrossEntropyLoss()
     id = uuid.uuid1()
     early_stopping = EarlyStopping(model_name=id.hex, verbose=False)
@@ -430,7 +430,7 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda):
     for epoch in tk:
         teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer, epoch)
         vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion)
-        scheduler.step(vlosses)
+        scheduler.step(np.average(vlosses))
         early_stopping(np.average(vlosses), teacher, epoch)
         if early_stopping.early_stop:
             # print("Teacher early stopping detected")
