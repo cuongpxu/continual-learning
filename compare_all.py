@@ -275,13 +275,13 @@ if __name__ == '__main__':
     args.use_embeddings = False
 
     ## Online Replay + embed
-    args.replay = 'online'
-    args.online_memory_budget = 2000
-    args.use_embeddings = True
-    OTREmbed = {}
-    OTREmbed = collect_all(OTREmbed, seed_list, args, name='OTR+Embeds (ours)')
-    args.replay = 'none'
-    args.use_embeddings = False
+    # args.replay = 'online'
+    # args.online_memory_budget = 2000
+    # args.use_embeddings = True
+    # OTREmbed = {}
+    # OTREmbed = collect_all(OTREmbed, seed_list, args, name='OTR+Embeds (ours)')
+    # args.replay = 'none'
+    # args.use_embeddings = False
 
     ###----"EXEMPLARS + REPLAY"----####
 
@@ -324,7 +324,7 @@ if __name__ == '__main__':
         ## AVERAGE TEST ACCURACY
         ave_prec[seed] = [NONE[seed][1], OFF[seed][1], EWC[seed][1], OEWC[seed][1], SI[seed][1], LWF[seed][1],
                           RP[seed][1], RKD[seed][1], AGEM[seed][1], ER[seed][1],
-                          OTR[seed][1], OTRDistill[seed][1], OTREmbed[seed][1]]
+                          OTR[seed][1], OTRDistill[seed][1]]
         if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
             ave_prec[seed].append(XDG[seed][1])
         elif args.scenario=="class":
@@ -333,7 +333,7 @@ if __name__ == '__main__':
         key = "average"
         prec[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                       LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
-                      OTR[seed][0][key], OTRDistill[seed][0][key], OTREmbed[seed][0][key]]
+                      OTR[seed][0][key], OTRDistill[seed][0][key]]
         if args.scenario=="task" and False: # ignore XDG
             prec[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -343,7 +343,7 @@ if __name__ == '__main__':
         key = 'BWT'
         ave_BWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                          LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
-                         OTR[seed][0][key], OTRDistill[seed][0][key], OTREmbed[seed][0][key]]
+                         OTR[seed][0][key], OTRDistill[seed][0][key]]
         if args.scenario=="task" and False: # ignore XDG
             ave_BWT[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -353,7 +353,7 @@ if __name__ == '__main__':
         key = 'FWT'
         ave_FWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                          LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
-                         OTR[seed][0][key], OTRDistill[seed][0][key], OTREmbed[seed][0][key]]
+                         OTR[seed][0][key], OTRDistill[seed][0][key]]
         if args.scenario=="task" and False: # ignore XDG
             ave_FWT[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -363,7 +363,7 @@ if __name__ == '__main__':
         key = 'F'
         ave_F[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                        LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
-                       OTR[seed][0][key], OTRDistill[seed][0][key], OTREmbed[seed][0][key]]
+                       OTR[seed][0][key], OTRDistill[seed][0][key]]
         if args.scenario=="task" and False: # ignore XDG
             ave_F[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -408,9 +408,6 @@ if __name__ == '__main__':
             np.mean([(
                     OFF[seed][0][key]['task {}'.format(i + 1)][i] - OTRDistill[seed][0][key]['task {}'.format(i + 1)][i]
             ) for i in range(1, args.tasks)]),
-            np.mean([(
-                    OFF[seed][0][key]['task {}'.format(i + 1)][i] - OTREmbed[seed][0][key]['task {}'.format(i + 1)][i]
-            ) for i in range(1, args.tasks)]),
         ]
         if args.scenario=="task" and False: # ignore XDG
             ave_I[seed].append(np.mean([(
@@ -440,16 +437,16 @@ if __name__ == '__main__':
     if args.scenario=="task" and False: # ignore XDG
         names.append("XdG")
         colors.append("purple")
-        ids.append(13)
+        ids.append(12)
     names += ["EWC", "o-EWC", "SI", "LwF", "GR", "GR+distil", "ER (b={})".format(args.budget),
-              "A-GEM (b={})".format(args.budget), "OTR (ours)", "OTR+distill (ours)", "OTR+Embeds (ours)"]
+              "A-GEM (b={})".format(args.budget), "OTR (ours)", "OTR+distill (ours)"]
     colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "indianred", "red", "darkblue", "brown",
-               "teal", "coral", 'peru'] # "darkviolet", "coral", 'peru'
-    ids += [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+               "teal", "coral"] # "darkviolet", "coral", 'peru'
+    ids += [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     if args.scenario=="class":
         names.append("iCaRL (b={})".format(args.budget))
         colors.append("violet")
-        ids.append(13)
+        ids.append(12)
 
     # open pdf
     pp = visual_plt.open_pdf("{}/{}.pdf".format(args.p_dir, plot_name))

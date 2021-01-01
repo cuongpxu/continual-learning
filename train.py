@@ -316,7 +316,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
 
                     teacher_dataset = ConcatDataset(memory_datasets)
                     teacher_lr = model.optimizer.param_groups[0]['lr']
-
+                    # teacher_lr = 0.003
                     teacherThread = TeacherThread(1, teacher_dataset, teacher, teacher_lr, batch_size, cuda)
                     teacherThread.start()
 
@@ -411,14 +411,17 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda):
     teacher.is_ready_distill = False
 
     # Split dataset into train and val sets
-    mem_train_size = int(0.8 * len(teacher_dataset))
+    mem_train_size = int(0.7 * len(teacher_dataset))
     mem_train_set, mem_val_set = random_split(teacher_dataset, [mem_train_size,
                                                                 len(teacher_dataset) - mem_train_size])
     mem_train_loader = utils.get_data_loader(mem_train_set, batch_size=batch_size,
                                              shuffle=True, drop_last=False, cuda=cuda)
     mem_val_loader = utils.get_data_loader(mem_val_set, batch_size=batch_size,
                                            shuffle=False, drop_last=False, cuda=cuda)
-    teacher_optimizer = optimizer.eAdLR(teacher.parameters(), lr=teacher_lr)
+    teacher_optimizer = optim.Adam(teacher.parameters(), lr=teacher_lr, betas=(0.9, 0.999))
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, 'min', patience=3)
+    # teacher_optimizer = optimizer.AdLR(teacher.parameters(), lr=teacher_lr)
+    # teacher_optimizer = optimizer.eAdLR(teacher.parameters(), lr=teacher_lr)
 
     teacher_criterion = torch.nn.CrossEntropyLoss()
     id = uuid.uuid1()
@@ -431,7 +434,7 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda):
     for epoch in tk:
         teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer, epoch)
         vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion)
-        # scheduler.step(np.average(vlosses))
+        scheduler.step(np.average(vlosses))
         early_stopping(np.average(vlosses), teacher, epoch)
         if early_stopping.early_stop:
             # print("Teacher early stopping detected")

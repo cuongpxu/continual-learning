@@ -14,7 +14,7 @@ parser.add_argument('--n-seeds', type=int, default=10, help='how often to repeat
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
-parser.add_argument('--results-dir', type=str, default='../benchmark', dest='r_dir', help="default: %(default)s")
+parser.add_argument('--results-dir', type=str, default='../benchmark_OTR_LR', dest='r_dir', help="default: %(default)s")
 
 # expirimental task parameters.
 task_params = parser.add_argument_group('Task Parameters')
@@ -197,7 +197,7 @@ if __name__ == '__main__':
     table_writer.write('\\begin{table*}[!t]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
     if test == 'MNIST':
-        table_writer.write('\\caption{Average test accuracy of all tasks (over 10 run with difference random seed) on the MNIST variant datasets. None and Offline methods are lower bound and upper bound for continual learning, while ER is a method using random sampling for selecting instances to build exemplar sets.}\n')
+        table_writer.write('\\caption{Average test accuracy (\%) of all tasks (over 10 run with difference random seeds) on the MNIST variant datasets. None and Offline methods are lower bound and upper bound for continual learning, while ER is a method using random sampling for selecting instances to build exemplar sets.}\n')
     else:
         table_writer.write('\\caption{Similar to table \\ref{tab:mnist_table} but for CIFAR-10 and CIFAR-100 datasets.}\n')
     table_writer.write('\\label{tab:' + test.lower() + '_table}\n')
