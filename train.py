@@ -19,7 +19,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
              gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
              use_exemplars=True, add_exemplars=False, metric_cbs=list(),
              otr_exemplars=False, triplet_selection='HP-HN', use_embeddings=False,
-             loss_fn=None ):
+             loss_fn=None, teacher_split=0.8):
     '''Train a model (with a "train_a_batch" method) on multiple tasks, with replay-strategy specified by [replay_mode].
 
     [model]             <nn.Module> main model to optimize across all tasks
@@ -317,7 +317,8 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     teacher_dataset = ConcatDataset(memory_datasets)
                     teacher_lr = model.optimizer.param_groups[0]['lr']
                     # teacher_lr = 0.003
-                    teacherThread = TeacherThread(1, teacher_dataset, teacher, teacher_lr, batch_size, cuda)
+                    teacherThread = TeacherThread(1, teacher_dataset, teacher, teacher_lr, teacher_split,
+                                                  batch_size, cuda)
                     teacherThread.start()
 
         ##----------> UPON FINISHING EACH TASK...
@@ -405,13 +406,13 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                         ExemplarDataset(model.exemplar_sets, target_transform=target_transform)]
 
 
-def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda):
+def training_teacher(teacher_dataset, teacher, teacher_lr, teacher_split, batch_size, cuda):
     # Start training a teacher in offline mode from memory
     teacher.is_offline_training = True
     teacher.is_ready_distill = False
 
     # Split dataset into train and val sets
-    mem_train_size = int(0.7 * len(teacher_dataset))
+    mem_train_size = int(teacher_split * len(teacher_dataset))
     mem_train_set, mem_val_set = random_split(teacher_dataset, [mem_train_size,
                                                                 len(teacher_dataset) - mem_train_size])
     mem_train_loader = utils.get_data_loader(mem_train_set, batch_size=batch_size,
@@ -454,14 +455,16 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda):
 
 
 class TeacherThread(threading.Thread):
-    def __init__(self, threadID, teacher_dataset, teacher, teacher_lr, batch_size, cuda):
+    def __init__(self, threadID, teacher_dataset, teacher, teacher_lr, teacher_split, batch_size, cuda):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.teacher_dataset = teacher_dataset
         self.teacher = teacher
+        self.teacher_split = teacher_split
         self.teacher_lr = teacher_lr
         self.batch_size = batch_size
         self.cuda = cuda
 
     def run(self):
-        training_teacher(self.teacher_dataset, self.teacher, self.teacher_lr, self.batch_size, self.cuda)
+        training_teacher(self.teacher_dataset, self.teacher, self.teacher_lr,
+                         self.teacher_split, self.batch_size, self.cuda)
