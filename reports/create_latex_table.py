@@ -39,6 +39,7 @@ model_params.add_argument('--singlehead', action='store_true', help="for Task-IL
                                                                     " (instead of a 'multi-headed' one)")
 model_params.add_argument('--use-teacher', type=bool, default=False,
                           help='Using an offline teacher for distill from memory')
+model_params.add_argument('--teacher-split', type=float, default=0.8, help='split ratio for teacher training')
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -50,7 +51,9 @@ train_params.add_argument('--optimizer', type=str, choices=['adam', 'adam_reset'
 replay_params = parser.add_argument_group('Replay Parameters')
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
 replay_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
-
+replay_params.add_argument('--triplet-selection', type=str, default='HP-HN', help="Triplet selection strategy")
+replay_params.add_argument('--use-embeddings', type=bool, default=False,
+                          help="use embeddings space for otr exemplars instead of features space")
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
@@ -197,12 +200,13 @@ if __name__ == '__main__':
     table_writer.write('\\begin{table*}[!t]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
     if test == 'MNIST':
-        table_writer.write('\\caption{Average test accuracy (\%) of all tasks (over 10 run with difference random seeds) on the MNIST variant datasets. None and Offline methods are lower bound and upper bound for continual learning, while ER is a method using random sampling for selecting instances to build exemplar sets.}\n')
+        # table_writer.write('\\caption{Average test accuracy (\%) of all tasks (over 10 run with difference random seeds) on the MNIST variant datasets. None and Offline methods are lower bound and upper bound for continual learning, while ER is a method using random sampling for selecting instances to build exemplar sets.}\n')
+        table_writer.write('\\caption{OTR+distill, eAdLR, split 0.8}\n')
     else:
         table_writer.write('\\caption{Similar to table \\ref{tab:mnist_table} but for CIFAR-10 and CIFAR-100 datasets.}\n')
     table_writer.write('\\label{tab:' + test.lower() + '_table}\n')
     table_writer.write('\\centering\n')
-    table_writer.write('\\begin{tabular}{l')
+    table_writer.write('\\hspace*{-3cm}\\begin{tabular}{l')
     for i in range(len(experiments)):
         table_writer.write('c@{\hskip 0.2cm}c@{\hskip 0.2cm}c@{\hskip 0.2cm}')
 

@@ -438,8 +438,8 @@ if __name__ == '__main__':
         names.append("XdG")
         colors.append("purple")
         ids.append(12)
-    names += ["EWC", "o-EWC", "SI", "LwF", "GR", "GR+distil", "ER (b={})".format(args.budget),
-              "A-GEM (b={})".format(args.budget), "OTR (ours)", "OTR+distill (ours)"]
+    names += ["EWC", "o-EWC", "SI", "LwF", "GR", "GR+distil", "A-GEM (b={})".format(args.budget),
+              "ER (b={})".format(args.budget), "OTR (ours)", "OTR+distill (ours)"]
     colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "indianred", "red", "darkblue", "brown",
                "teal", "coral"] # "darkviolet", "coral", 'peru'
     ids += [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
