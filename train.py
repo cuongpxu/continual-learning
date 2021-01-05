@@ -316,7 +316,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
 
                     teacher_dataset = ConcatDataset(memory_datasets)
                     teacher_lr = model.optimizer.param_groups[0]['lr']
-                    # teacher_lr = 0.003
+
                     teacherThread = TeacherThread(1, teacher_dataset, teacher, teacher_lr, teacher_split,
                                                   batch_size, cuda)
                     teacherThread.start()
@@ -444,8 +444,6 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, teacher_split, batch_
             teacher.is_ready_distill = True
             # Using best model from last check point
             teacher.load_state_dict(torch.load(early_stopping.model_name))
-            if os.path.exists(early_stopping.model_name):
-                os.remove(early_stopping.model_name)
             break
 
     # teacher.is_offline_training = False

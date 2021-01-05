@@ -317,9 +317,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
             if teacher is not None:
                 if teacher.is_ready_distill:
-                    with torch.no_grad():
-                        teacher.eval()
-                        y_hat_teacher = teacher(x)
+                    # with torch.no_grad():
+                    #     teacher.eval()
+                    y_hat_teacher = teacher(x)
 
                 else:
                     y_hat_teacher = None
@@ -333,14 +333,26 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 if y_hat_teacher is not None:
                     y_hat_teacher = y_hat_teacher[:, class_entries]
 
+            # Compute distillation loss from teacher outputs
             if y_hat_teacher is not None:
-                # Compute distilation loss from teacher outputs
+                # teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                #                           F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
+                #            * (self.alpha_t * self.KD_temp * self.KD_temp) \
+                #            + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
+                y_hat_ensemble = 0.5 * (y_hat + y_hat_teacher)
+
                 teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                          F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
-                           * (self.alpha_t * self.KD_temp * self.KD_temp) \
-                           + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
+                                          F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
+                           * (self.KD_temp * self.KD_temp)
+
+                studentL = nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                                          F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
+                           * (self.KD_temp * self.KD_temp)
+
             else:
                 teacherL = None
+                studentL = None
+
             # Calculate prediction loss
             if self.loss in ['ofl', 'otfl', 'fgfl', 'gbfg']:
                 predL, selected_data = loss_fn(x, y_hat, y)
@@ -381,8 +393,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         self.select_triplets(embeds, y_score, x, y, triplet_selection, task, scenario, use_embeddings)
 
             # Weigh losses
-            if teacherL is not None:
-                loss_cur = rnt * predL + (1 - rnt) * teacherL
+            if teacherL is not None and studentL is not None:
+                loss_cur = rnt * predL + (1 - rnt) * (1/2) * (teacherL + studentL)
             else:
                 loss_cur = predL
 
