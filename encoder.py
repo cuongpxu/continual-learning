@@ -139,9 +139,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     y_m = torch.tensor([m])
 
                 if scenario in ['task', 'domain']:
-                    self.add_instances_to_online_exemplar_sets(x_m, y_m, np.array(m + len(uq) * (task - 1)))
+                    self.add_instances_to_online_exemplar_sets(x_m, y_m, (y_m + len(uq) * (task - 1)).detach().cpu().numpy())
                 else:
-                    self.add_instances_to_online_exemplar_sets(x_m, y_m, np.array([m]))
+                    self.add_instances_to_online_exemplar_sets(x_m, y_m, y_m.detach().cpu().numpy())
 
                 # Select negative instance
                 negative_batch = x[mask_neg]
