@@ -113,7 +113,8 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
             replay_stamp = '{}-b{}{}{}{}'.format(replay_stamp, args.online_memory_budget,
                                                  '-distill' if args.use_teacher else '',
                                                  '-embeds' if args.use_embeddings else '',
-                                                 '' if args.triplet_selection == 'HP-HN' else args.triplet_selection)
+                                                 '' if args.triplet_selection == 'HP-HN-1'
+                                                 else f'({args.triplet_selection})')
         if verbose:
             print(" --> replay:        " + replay_stamp)
     replay_stamp = "--{}".format(replay_stamp) if replay else ""

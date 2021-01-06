@@ -97,7 +97,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
                 self.online_exemplar_sets[m][1] = np.delete(self.online_exemplar_sets[m][1],
                                                             np.arange(n_exemplar_of_m - class_budget), axis=0)
 
-    def add_instances_to_online_exemplar_sets(self, x, y, m):
+    def add_single_instance_to_exempalr(self, x, y, m):
         # print('Exemplar size: {}, adding size {}, class {}'.format(self.get_online_exemplar_size(), x.size(0), m))
         if m not in self.online_classes_so_far:
             x, y = self.drop_instances_out_of_class_budget(x, y, len(self.online_classes_so_far) + 1)
@@ -121,6 +121,15 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
                     (self.online_exemplar_sets[m][0], x.cpu().detach().numpy()), axis=0)
                 self.online_exemplar_sets[m][1] = np.concatenate(
                     (self.online_exemplar_sets[m][1], y.cpu().detach().numpy()), axis=0)
+
+    def add_instances_to_online_exemplar_sets(self, x, y, m):
+        if m.shape[0] == 1:
+            self.add_single_instance_to_exempalr(x, y, m[0])
+        else:
+            for i in range(m.shape[0]):
+                xm = x[i].unsqueeze(dim=0)
+                ym = y[i].unsqueeze(dim=0)
+                self.add_single_instance_to_exempalr(xm, ym, m[i])
 
     def compute_class_means(self, x, y):
         # compute features for each class

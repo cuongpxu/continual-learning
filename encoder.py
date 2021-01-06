@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import models.resnet as rn
@@ -122,12 +123,15 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                     if selection_strategies[0] == 'HP':
                         # Hard positive
-                        positive_idx = torch.argmax(positive_dist)
+                        # positive_idx = torch.argmax(positive_dist)
+
+                        _, positive_idx = torch.topk(positive_dist, 1)
                     else:
                         # Easy positive
-                        positive_idx = torch.argmin(positive_dist)
+                        # positive_idx = torch.argmin(positive_dist)
+                        _, positive_idx = torch.topk(positive_dist, 1, largest=False)
 
-                    positive_x = positive_batch[positive_idx].unsqueeze(dim=0)
+                    positive_x = positive_batch[positive_idx]
                     x_m = torch.cat((anchor_x, positive_x), dim=0)
                     y_m = torch.tensor([m, m])
                 else:
@@ -135,9 +139,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     y_m = torch.tensor([m])
 
                 if scenario in ['task', 'domain']:
-                    self.add_instances_to_online_exemplar_sets(x_m, y_m, m + len(uq) * (task - 1))
+                    self.add_instances_to_online_exemplar_sets(x_m, y_m, np.array(m + len(uq) * (task - 1)))
                 else:
-                    self.add_instances_to_online_exemplar_sets(x_m, y_m, m)
+                    self.add_instances_to_online_exemplar_sets(x_m, y_m, np.array([m]))
 
                 # Select negative instance
                 negative_batch = x[mask_neg]
@@ -154,9 +158,14 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                     if selection_strategies[1] == 'HN':
                         # Hard negative
-                        negative_idx = torch.argmin(negative_dist)
-                        negative_x = negative_batch[negative_idx].unsqueeze(dim=0)
-                        negative_y = y[mask_neg][negative_idx].unsqueeze(dim=0)
+                        # if int(selection_strategies[2]) == 1:
+                        #     negative_idx = torch.argmin(negative_dist)
+                        #     negative_x = negative_batch[negative_idx].unsqueeze(dim=0)
+                        #     negative_y = y[mask_neg][negative_idx].unsqueeze(dim=0)
+                        # else:
+                        _, negative_idx = torch.topk(negative_dist, int(selection_strategies[2]), largest=False)
+                        negative_x = negative_batch[negative_idx]
+                        negative_y = y[mask_neg][negative_idx]
                     elif selection_strategies[1] == 'SHN':
                         # Semi-hard negative
                         if use_embeddings:
@@ -187,9 +196,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     if negative_x is not None and negative_y is not None:
                         if scenario in ['task', 'domain']:
                             self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
-                                                                       negative_y.item() + len(uq) * (task - 1))
+                                                                       (negative_y + len(uq) * (task - 1)).detach().cpu().numpy())
                         else:
-                            self.add_instances_to_online_exemplar_sets(negative_x, negative_y, negative_y.item())
+                            self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
+                                                                       negative_y.detach().cpu().numpy())
 
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
                       active_classes=None, task=1, scenario='class',
@@ -339,7 +349,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 #                           F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
                 #            * (self.alpha_t * self.KD_temp * self.KD_temp) \
                 #            + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
-                y_hat_ensemble = 0.5 * (y_hat + y_hat_teacher)
+                with torch.no_grad():
+                    y_hat_ensemble = 0.5 * (y_hat + y_hat_teacher)
 
                 teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                           F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
