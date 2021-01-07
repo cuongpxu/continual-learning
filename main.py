@@ -65,6 +65,8 @@ model_params.add_argument('--singlehead', action='store_true', help="for Task-IL
 
 model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
 model_params.add_argument('--teacher-split', type=float, default=0.8, help='split ratio for teacher training')
+model_params.add_argument('--teacher-opt', type=str, default='Adam', help='teacher optimizer')
+model_params.add_argument('--use-scheduler', type=bool, default=False, help='Using learning rate scheduler for teacher')
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -497,6 +499,10 @@ def run(args, verbose=False):
 
     # Keep track of training-time
     start = time.time()
+
+    # Get params dict
+    params_dict = {'teacher_split': args.teacher_split, 'teacher_opt': args.teacher_opt,
+                   'use_scheduler': args.use_scheduler}
     # Train model
     train_cl(
         model, teacher, train_datasets, replay_mode=args.replay, scenario=scenario, classes_per_task=classes_per_task,
@@ -505,7 +511,7 @@ def run(args, verbose=False):
         sample_cbs=sample_cbs, eval_cbs=eval_cbs, loss_cbs=generator_loss_cbs if args.feedback else solver_loss_cbs,
         metric_cbs=metric_cbs, use_exemplars=args.use_exemplars, add_exemplars=args.add_exemplars,
         otr_exemplars=args.otr_exemplars, triplet_selection=args.triplet_selection, use_embeddings=args.use_embeddings,
-        loss_fn=loss_fn, teacher_split=args.teacher_split
+        loss_fn=loss_fn, params_dict=params_dict
     )
     # Get total training-time in seconds, and write to file
     if args.time:
