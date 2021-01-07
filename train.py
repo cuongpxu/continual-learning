@@ -420,7 +420,7 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, teacher_split, batch_
     mem_val_loader = utils.get_data_loader(mem_val_set, batch_size=batch_size,
                                            shuffle=False, drop_last=False, cuda=cuda)
     teacher_optimizer = optim.Adam(teacher.parameters(), lr=teacher_lr, betas=(0.9, 0.999))
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, 'min', patience=3)
+    # scheduler = optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, 'min', patience=3)
     # teacher_optimizer = optimizer.AdLR(teacher.parameters(), lr=teacher_lr)
     # teacher_optimizer = optimizer.eAdLR(teacher.parameters(), lr=teacher_lr)
 
@@ -429,13 +429,12 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, teacher_split, batch_
     early_stopping = EarlyStopping(model_name=id.hex, verbose=False)
 
     # Training teacher
-
     tk = tqdm.tqdm(range(1, 100))
     tk.set_description('<Teacher> ')
     for epoch in tk:
         teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer, epoch)
         vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion)
-        scheduler.step(np.average(vlosses))
+        # scheduler.step(np.average(vlosses))
         early_stopping(np.average(vlosses), teacher, epoch)
         if early_stopping.early_stop:
             # print("Teacher early stopping detected")
