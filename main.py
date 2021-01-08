@@ -207,7 +207,7 @@ def run(args, verbose=False):
         print("CUDA is {}used".format("" if cuda else "NOT(!!) "))
 
     # Set random seeds
-    torch.set_deterministic(True)
+    # torch.set_deterministic(True)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     np.random.seed(args.seed)
