@@ -534,10 +534,12 @@ def run(args, verbose=False):
         print("\n\nEVALUATION RESULTS:")
 
     # Evaluate precision of final model on full test-set
-    precs = [evaluate.validate(
-        model, test_datasets[i], verbose=False, test_size=None, task=i+1, with_exemplars=False,
-        allowed_classes=list(range(classes_per_task*i, classes_per_task*(i+1))) if scenario=="task" else None
-    ) for i in range(args.tasks)]
+    precs = []
+    for i in range(args.tasks):
+        precs.append(evaluate.validate(
+            model, test_datasets[i], verbose=True, test_size=None, task=i+1, with_exemplars=False,
+            allowed_classes=list(range(classes_per_task*i, classes_per_task*(i+1))) if scenario == "task" else None
+        ))
     average_precs = sum(precs) / args.tasks
     # -print on screen
     if verbose:

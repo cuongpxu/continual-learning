@@ -180,18 +180,20 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                             shn_batch = negative_batch[valid_shn_idx]
                             negative_y_batch = y[mask_neg]
                             shn_y = negative_y_batch[valid_shn_idx]
-                            negative_idx = torch.argmin(negative_dist[valid_shn_idx])
-                            negative_x = shn_batch[negative_idx].unsqueeze(dim=0)
-                            negative_y = shn_y[negative_idx].unsqueeze(dim=0)
+                            # negative_idx = torch.argmin(negative_dist[valid_shn_idx])
+                            _, negative_idx = torch.topk(negative_dist, int(selection_strategies[2]), largest=False)
+                            negative_x = shn_batch[negative_idx]
+                            negative_y = shn_y[negative_idx]
                         else:
                             # There is no semi-hard negative sample, ignore negative sample
                             negative_x = None
                             negative_y = None
                     else:
                         # Easy negative
-                        negative_idx = torch.argmax(negative_dist)
-                        negative_x = negative_batch[negative_idx].unsqueeze(dim=0)
-                        negative_y = y[mask_neg][negative_idx].unsqueeze(dim=0)
+                        # negative_idx = torch.argmax(negative_dist)
+                        _, negative_idx = torch.topk(negative_dist, int(selection_strategies[2]))
+                        negative_x = negative_batch[negative_idx]
+                        negative_y = y[mask_neg][negative_idx]
 
                     if negative_x is not None and negative_y is not None:
                         if scenario in ['task', 'domain']:
