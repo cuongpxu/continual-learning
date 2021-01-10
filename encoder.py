@@ -354,11 +354,11 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 with torch.no_grad():
                     y_hat_ensemble = 0.5 * (y_hat + y_hat_teacher)
 
-                teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                teacherL = nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
                                           F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
                            * (self.KD_temp * self.KD_temp)
 
-                studentL = nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                studentL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                           F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
                            * (self.KD_temp * self.KD_temp)
 
@@ -392,9 +392,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     ).sum(dim=1) # --> sum over classes,
                     predL = None if y is None else y_score.mean()  # average over batch
 
+                    self.select_triplets(embeds, y_score, x, y, triplet_selection, task, scenario, use_embeddings)
                     if otr_exemplars:
-                        softmax_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
-                        self.select_triplets(embeds, softmax_score, x, y, triplet_selection, task, scenario, use_embeddings)
+                        # softmax_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
+                        # self.select_triplets(embeds, softmax_score, x, y, triplet_selection, task, scenario, use_embeddings)
                         # Update class mean
                         self.compute_class_means(x, y)
                 else:
