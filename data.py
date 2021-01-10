@@ -219,16 +219,16 @@ AVAILABLE_TRANSFORMS = {
         transforms.ToTensor(),
     ],
     'cifar10_norm': [
-        transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2470, 0.2435, 0.2616])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ],
     'cifar100_norm': [
         transforms.Normalize(mean=[0.5071, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761])
     ],
-    'cifar10_denorm': UnNormalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2470, 0.2435, 0.2616]),
+    'cifar10_denorm': UnNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     'cifar100_denorm': UnNormalize(mean=[0.5071, 0.4865, 0.4409], std=[0.2673, 0.2564, 0.2761]),
     'augment': [
-        transforms.RandomCrop(32, padding=4, padding_mode='symmetric'),
         transforms.RandomHorizontalFlip(),
+        transforms.RandomCrop(32, padding=4),
     ],
     'imagenet': [
         transforms.ToTensor()

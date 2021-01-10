@@ -1,7 +1,7 @@
 
 def set_default_values(args, also_hyper_params=True):
     # -set default-values for certain arguments based on chosen scenario & experiment
-    args.normalize = True if args.experiment in ['ImageNet'] else False
+    args.normalize = True if args.experiment in ['CIFAR10', 'ImageNet'] else False
     args.augment = True if args.experiment in ['CIFAR10', 'CIFAR100', 'ImageNet'] else False
 
     args.tasks = (5 if args.experiment in ['splitMNIST', 'CIFAR10'] else 10) if args.tasks is None else args.tasks
