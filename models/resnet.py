@@ -21,6 +21,7 @@ Reference:
 If you use this implementation in you work, please don't forget to mention the
 author, Yerlan Idelbayev.
 '''
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
@@ -116,12 +117,18 @@ class ResNet(nn.Module):
         return out
 
 
-def resnet20(num_classes=10):
-    return ResNet(BasicBlock, [3, 3, 3], num_classes=num_classes, label='ResNet-20')
+def resnet20(num_classes=10, pretrained=False):
+    model = ResNet(BasicBlock, [3, 3, 3], num_classes=num_classes, label='ResNet-20')
+    if pretrained:
+        model.load_state_dict(torch.load('./pretrained/resnet20-12fca82f.th'))
+    return model
 
 
-def resnet32(num_classes=10):
-    return ResNet(BasicBlock, [5, 5, 5], num_classes=num_classes, label='ResNet-32')
+def resnet32(num_classes=10, pretrained=False):
+    model = ResNet(BasicBlock, [5, 5, 5], num_classes=num_classes, label='ResNet-32')
+    if pretrained:
+        model.load_state_dict(torch.load('./pretrained/resnet32-d509ac18.th'))
+    return model
 
 
 def resnet44(num_classes=10):

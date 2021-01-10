@@ -44,7 +44,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         ######------SPECIFY MODEL------######
         self.experiment = experiment
         if self.experiment in ['CIFAR10', 'CIFAR100']:
-            self.fcE = rn.resnet32(classes)
+            self.fcE = rn.resnet20(classes, pretrained=True)
             self.fcE.linear = nn.Identity()
 
             self.classifier = fc_layer(64, classes, excit_buffer=True, nl='none', drop=fc_drop)

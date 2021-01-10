@@ -19,3 +19,4 @@ visualization/*.png
 reports/*.tex
 stat/wilcoxon_data/
 stat/*.xlsx
+models/pretrained/
