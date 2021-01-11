@@ -123,12 +123,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                     if selection_strategies[0] == 'HP':
                         # Hard positive
-                        # positive_idx = torch.argmax(positive_dist)
-
                         _, positive_idx = torch.topk(positive_dist, 1)
                     else:
                         # Easy positive
-                        # positive_idx = torch.argmin(positive_dist)
                         _, positive_idx = torch.topk(positive_dist, 1, largest=False)
 
                     positive_x = positive_batch[positive_idx]
@@ -158,11 +155,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                     if selection_strategies[1] == 'HN':
                         # Hard negative
-                        # if int(selection_strategies[2]) == 1:
-                        #     negative_idx = torch.argmin(negative_dist)
-                        #     negative_x = negative_batch[negative_idx].unsqueeze(dim=0)
-                        #     negative_y = y[mask_neg][negative_idx].unsqueeze(dim=0)
-                        # else:
                         _, negative_idx = torch.topk(negative_dist, int(selection_strategies[2]), largest=False)
                         negative_x = negative_batch[negative_idx]
                         negative_y = y[mask_neg][negative_idx]
@@ -190,7 +182,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                             negative_y = None
                     else:
                         # Easy negative
-                        # negative_idx = torch.argmax(negative_dist)
                         _, negative_idx = torch.topk(negative_dist, int(selection_strategies[2]))
                         negative_x = negative_batch[negative_idx]
                         negative_y = y[mask_neg][negative_idx]
@@ -482,7 +473,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             'precision': precision if precision is not None else 0.,
         }
 
-    def train_epoch(self, train_loader, criterion, optimizer, epoch):
+    def train_epoch(self, train_loader, criterion, optimizer, active_classes, params_dict):
         self.train()
         for batch_idx, batch in enumerate(train_loader):
             x, y = batch
@@ -490,11 +481,19 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
             optimizer.zero_grad()
             y_hat = self(x)
+
+            if active_classes is not None:
+                class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
+                y_hat = y_hat[:, class_entries]
+
+            if params_dict['teacher_loss'] == 'BCE':
+                y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
+
             loss = criterion(y_hat, y)
             loss.backward()
             optimizer.step()
 
-    def valid_epoch(self, val_loader, criterion):
+    def valid_epoch(self, val_loader, criterion, active_classes, params_dict):
         valid_losses = []
         self.eval()
         with torch.no_grad():
@@ -502,6 +501,14 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 x, y = batch
                 x, y = x.to(self._device()), y.to(self._device())
                 y_hat = self(x)
+
+                if active_classes is not None:
+                    class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
+                    y_hat = y_hat[:, class_entries]
+
+                if params_dict['teacher_loss'] == 'BCE':
+                    y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
+
                 valid_loss = criterion(y_hat, y)
                 valid_losses.append(valid_loss.item())
         self.train()

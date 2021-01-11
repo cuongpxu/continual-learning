@@ -64,6 +64,8 @@ model_params.add_argument('--singlehead', action='store_true', help="for Task-IL
                                                                    " (instead of a 'multi-headed' one)")
 
 model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
+model_params.add_argument('--teacher-epochs', type=int, default=100, help='number of epochs to train teacher')
+model_params.add_argument('--teacher-loss', type=str, default='CE', help='teacher loss function')
 model_params.add_argument('--teacher-split', type=float, default=0.8, help='split ratio for teacher training')
 model_params.add_argument('--teacher-opt', type=str, default='Adam', help='teacher optimizer')
 model_params.add_argument('--use-scheduler', type=bool, default=False, help='Using learning rate scheduler for teacher')
@@ -504,8 +506,9 @@ def run(args, verbose=False):
     start = time.time()
 
     # Get params dict
-    params_dict = {'teacher_split': args.teacher_split, 'teacher_opt': args.teacher_opt,
-                   'use_scheduler': args.use_scheduler}
+    params_dict = {'teacher_split': args.teacher_split, 'teacher_loss':args.teacher_loss,
+                   'teacher_opt': args.teacher_opt, 'use_scheduler': args.use_scheduler,
+                   'teacher_epochs': args.teacher_epochs}
     # Train model
     train_cl(
         model, teacher, train_datasets, replay_mode=args.replay, scenario=scenario, classes_per_task=classes_per_task,

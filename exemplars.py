@@ -47,8 +47,10 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
 
     ####----MANAGING ONLINE EXEMPLAR SETS----####
     def check_full_memory(self):
+        class_budget = self.online_memory_budget // len(self.online_classes_so_far)
+        max_budget = class_budget * len(self.online_classes_so_far)
         current_size = self.get_online_exemplar_size()
-        return current_size >= self.online_memory_budget
+        return current_size >= max_budget
 
     def get_online_exemplar_size(self):
         total = 0

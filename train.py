@@ -300,6 +300,10 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
             # ---> Train Teacher in offline mode
             if teacher is not None and (replay_mode == 'online' and model.check_full_memory()):
                 if not teacher.is_offline_training:
+                    # Start training a teacher in offline mode from memory
+                    teacher.is_offline_training = True
+                    teacher.is_ready_distill = False
+
                     # Get dataset from online memory
                     if scenario in ['task', 'domain']:
                         memory_datasets = []
@@ -315,10 +319,10 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                             memory_datasets.append(OnlineExemplarDataset(model.online_exemplar_sets[c]))
 
                     teacher_dataset = ConcatDataset(memory_datasets)
-                    teacher_lr = model.optimizer.param_groups[0]['lr']
-
-                    teacherThread = TeacherThread(1, teacher_dataset, teacher, teacher_lr,
-                                                  batch_size, cuda, params_dict)
+                    params_dict['teacher_lr'] = model.optimizer.param_groups[0]['lr']
+                    params_dict['batch_size'] = batch_size
+                    params_dict['cuda'] = cuda
+                    teacherThread = TeacherThread(1, teacher_dataset, teacher, active_classes, params_dict)
                     teacherThread.start()
 
         ##----------> UPON FINISHING EACH TASK...
@@ -406,33 +410,29 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                         ExemplarDataset(model.exemplar_sets, target_transform=target_transform)]
 
 
-def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda, params_dict):
-    # Start training a teacher in offline mode from memory
-    teacher.is_offline_training = True
-    teacher.is_ready_distill = False
-
+def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
     # Split dataset into train and val sets
     teacher_split = params_dict['teacher_split']
     mem_train_size = int(teacher_split * len(teacher_dataset))
     mem_train_set, mem_val_set = random_split(teacher_dataset, [mem_train_size,
                                                                 len(teacher_dataset) - mem_train_size])
-    mem_train_loader = utils.get_data_loader(mem_train_set, batch_size=batch_size,
-                                             shuffle=True, drop_last=False, cuda=cuda)
-    mem_val_loader = utils.get_data_loader(mem_val_set, batch_size=batch_size,
-                                           shuffle=False, drop_last=False, cuda=cuda)
+    mem_train_loader = utils.get_data_loader(mem_train_set, batch_size=params_dict['batch_size'],
+                                             shuffle=True, drop_last=False, cuda=params_dict['cuda'])
+    mem_val_loader = utils.get_data_loader(mem_val_set, batch_size=params_dict['batch_size'],
+                                           shuffle=False, drop_last=False, cuda=params_dict['cuda'])
     if params_dict['teacher_opt'] == 'Adam':
-        teacher_optimizer = optim.Adam(teacher.parameters(), lr=teacher_lr, betas=(0.9, 0.999))
+        teacher_optimizer = optim.Adam(teacher.parameters(), lr=params_dict['teacher_lr'], betas=(0.9, 0.999))
     elif params_dict['teacher_opt'] == 'AdLR':
-        teacher_optimizer = optimizer.AdLR(teacher.parameters(), lr=teacher_lr)
+        teacher_optimizer = optimizer.AdLR(teacher.parameters(), lr=params_dict['teacher_lr'])
     elif params_dict['teacher_opt'] == 'eAdLR':
-        teacher_optimizer = optimizer.eAdLR(teacher.parameters(), lr=teacher_lr)
+        teacher_optimizer = optimizer.eAdLR(teacher.parameters(), lr=params_dict['teacher_lr'])
     else:
-        teacher_optimizer = optim.SGD(teacher.parameters(), lr=teacher_lr, momentum=0.9)
+        teacher_optimizer = optim.SGD(teacher.parameters(), lr=params_dict['teacher_lr'], momentum=0.9)
 
     if params_dict['use_scheduler']:
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, 'min', patience=3)
 
-    if params_dict['loss'] == 'CE':
+    if params_dict['teacher_loss'] == 'CE':
         teacher_criterion = torch.nn.CrossEntropyLoss()
     else:
         teacher_criterion = torch.nn.BCEWithLogitsLoss()
@@ -440,11 +440,11 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda, par
     early_stopping = EarlyStopping(model_name=id.hex, verbose=False)
 
     # Training teacher
-    tk = tqdm.tqdm(range(1, 100))
+    tk = tqdm.tqdm(range(1, params_dict['teacher_epochs']))
     tk.set_description('<Teacher> ')
     for epoch in tk:
-        teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer, epoch)
-        vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion)
+        teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer, active_classes, params_dict)
+        vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion, active_classes, params_dict)
         if params_dict['use_scheduler']:
             scheduler.step(np.average(vlosses))
         early_stopping(np.average(vlosses), teacher, epoch)
@@ -464,16 +464,13 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda, par
 
 
 class TeacherThread(threading.Thread):
-    def __init__(self, threadID, teacher_dataset, teacher, teacher_lr, batch_size, cuda, params_dict):
+    def __init__(self, threadID, teacher_dataset, teacher, active_classes, params_dict):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.teacher_dataset = teacher_dataset
         self.teacher = teacher
-        self.teacher_lr = teacher_lr
-        self.batch_size = batch_size
-        self.cuda = cuda
+        self.active_classes = active_classes
         self.params_dict = params_dict
 
     def run(self):
-        training_teacher(self.teacher_dataset, self.teacher, self.teacher_lr,
-                         self.batch_size, self.cuda, self.params_dict)
+        training_teacher(self.teacher_dataset, self.teacher, self.active_classes, self.params_dict)
