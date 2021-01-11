@@ -432,7 +432,10 @@ def training_teacher(teacher_dataset, teacher, teacher_lr, batch_size, cuda, par
     if params_dict['use_scheduler']:
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, 'min', patience=3)
 
-    teacher_criterion = torch.nn.CrossEntropyLoss()
+    if params_dict['loss'] == 'CE':
+        teacher_criterion = torch.nn.CrossEntropyLoss()
+    else:
+        teacher_criterion = torch.nn.BCEWithLogitsLoss()
     id = uuid.uuid1()
     early_stopping = EarlyStopping(model_name=id.hex, verbose=False)
 
