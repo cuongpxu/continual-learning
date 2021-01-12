@@ -499,7 +499,8 @@ def run(args, verbose=False):
     # Get params dict
     params_dict = {
         # OTR
-        'use_otr': True if (hasattr(args, 'otr') and args.otr) or (hasattr(args, 'otr_distill')) else False,
+        'use_otr': True if ((hasattr(args, 'otr') and args.otr) or (hasattr(args, 'otr_distill'))
+                            or args.replay == 'online') else False,
         'otr_exemplars': args.otr_exemplars,
         'triplet_selection': args.triplet_selection,
         'use_embeddings': args.use_embeddings,

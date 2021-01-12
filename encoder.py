@@ -350,18 +350,14 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 #                           F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
                 #            * (self.KD_temp * self.KD_temp)
 
-                teacherL = 0.5 * (nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                                 F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) *
-                                  (self.KD_temp * self.KD_temp) +
-                                  nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                 F.softmax(y_hat_teacher / self.KD_temp, dim=1)) *
-                                  (self.KD_temp * self.KD_temp))
+                teacherL = nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                                          F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) * (self.KD_temp * self.KD_temp)
 
                 studentL = 0.5 * (nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
                                   * (self.KD_temp * self.KD_temp) +
                                   nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                 F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
+                                                 F.softmax(y_hat_teacher / self.KD_temp, dim=1))
                                   * (self.KD_temp * self.KD_temp))
 
             else:

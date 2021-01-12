@@ -285,11 +285,11 @@ if __name__ == '__main__':
     args.budget = 2000
     args.use_teacher = True
     args.use_embeddings = False
-    args.triplet_selection = 'HP-HN-1'
+    args.triplet_selection = 'HP-HN-3'
     args.teacher_epochs = 100
     args.teacher_loss = 'CE'
     args.teacher_split = 0.8
-    args.teacher_opt = 'Adam'
+    args.teacher_opt = 'SGD'
     args.use_scheduler = False
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
