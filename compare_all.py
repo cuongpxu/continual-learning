@@ -254,20 +254,23 @@ if __name__ == '__main__':
 
     ## Online Replay
     args.replay = 'online'
-    args.online_memory_budget = 2000
+    args.budget = 2000
+    args.bce = True
+    if args.scenario == 'class':
+        args.bce_distill = True
     args.use_embeddings = False
-    args.triplet_selection = 'HP-HN-1'
     OTR = {}
     OTR = collect_all(OTR, seed_list, args, name='OTR (ours)')
     args.replay = 'none'
+    args.bce = False
+    args.bce_distill = False
     args.use_embeddings = False
 
     ## OTR + distill
     args.replay = 'online'
-    args.online_memory_budget = 2000
+    args.budget = 2000
     args.use_teacher = True
     args.use_embeddings = False
-    args.triplet_selection = 'HP-HN-1'
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
     args.replay = 'none'

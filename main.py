@@ -154,22 +154,24 @@ def run(args, verbose=False):
 
     # -if [OTR] is selected, select all accompanying options
     if hasattr(args, "otr") and args.otr:
-        args.bce = True
-        if args.scenario == 'class':
-            args.bce_distill = True
+        if args.experiment != 'CIFAR100':
+            args.bce = True
+            if args.scenario == 'class':
+                args.bce_distill = True
         args.replay = 'online'
 
-        if args.add_exemplars:
+        if hasattr(args, "add_exemplars") and args.add_exemplars:
             args.otr_exemplars = True
 
     if hasattr(args, "otr_distill") and args.otr_distill:
-        args.bce = True
-        if args.scenario == 'class':
-            args.bce_distill = True
+        if args.experiment != 'CIFAR100':
+            args.bce = True
+            if args.scenario == 'class':
+                args.bce_distill = True
         args.replay = 'online'
         args.use_teacher = True
 
-        if args.add_exemplars:
+        if hasattr(args, "add_exemplars") and args.add_exemplars:
             args.otr_exemplars = True
 
     # -if XdG is selected but not the Task-IL scenario, give error
