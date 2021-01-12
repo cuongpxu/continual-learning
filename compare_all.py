@@ -285,7 +285,7 @@ if __name__ == '__main__':
     args.use_teacher = True
     args.use_embeddings = False
     args.teacher_loss = 'CE'
-    args.teacher_opt = 'Adam'
+    args.teacher_opt = 'SGD'
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
     args.replay = 'none'
