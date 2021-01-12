@@ -29,7 +29,6 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         # Proposed method
         self.online_exemplar_sets = {}  # --> exemplar_set is a dictionary contains an <np.array> of N images
                                         # with shape (N, Ch, H, W) and its corresponding true label
-        self.online_memory_budget = 1000
         self.online_classes_so_far = []
         self.online_exemplar_means = {}
         # self.online_exemplar_features = {}
@@ -47,7 +46,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
 
     ####----MANAGING ONLINE EXEMPLAR SETS----####
     def check_full_memory(self):
-        class_budget = self.online_memory_budget // len(self.online_classes_so_far)
+        class_budget = self.memory_budget // len(self.online_classes_so_far)
         max_budget = class_budget * len(self.online_classes_so_far)
         current_size = self.get_online_exemplar_size()
         return current_size >= max_budget
@@ -59,17 +58,17 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         return total
 
     def check_online_budget(self, n_new):
-        return self.get_online_exemplar_size() + n_new < self.online_memory_budget
+        return self.get_online_exemplar_size() + n_new < self.memory_budget
 
     def check_online_budget_for_each_class(self, n_new, m):
         # print(m, n_new)
         n_exemplar_of_m = self.online_exemplar_sets[m][0].shape[0]
-        class_budget = (self.online_memory_budget // len(self.online_classes_so_far))
+        class_budget = (self.memory_budget // len(self.online_classes_so_far))
         return (n_exemplar_of_m + n_new) < class_budget
 
     def drop_old_instances(self, n_new, m):
         # print('Drop old instances to make memory available for current instances')
-        class_budget = self.online_memory_budget // len(self.online_classes_so_far)
+        class_budget = self.memory_budget // len(self.online_classes_so_far)
         n_exemplar_of_m = self.online_exemplar_sets[m][0].shape[0]
         memory_left = class_budget - n_exemplar_of_m
         self.online_exemplar_sets[m][0] = np.delete(self.online_exemplar_sets[m][0], np.arange(n_new - memory_left),
@@ -78,7 +77,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
                                                     axis=0)
 
     def drop_instances_out_of_class_budget(self, x, y, n_classes):
-        class_budget = self.online_memory_budget // n_classes
+        class_budget = self.memory_budget // n_classes
         # Reduce adding size when it is bigger than class budget
         if x.size(0) > class_budget:
             x = x[x.size(0) - class_budget:]
@@ -89,7 +88,7 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         # print('Reduce memory for new class')
         for m in self.online_classes_so_far:
             n_exemplar_of_m = self.online_exemplar_sets[m][0].shape[0]
-            class_budget = self.online_memory_budget // (len(self.online_classes_so_far) + 1)
+            class_budget = self.memory_budget // (len(self.online_classes_so_far) + 1)
             if class_budget == 0:
                 raise ValueError('Memory budget is too small, increase it to cover all classes so far!!!')
 

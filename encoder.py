@@ -17,7 +17,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def __init__(self, image_size, image_channels, classes,
                  fc_layers=3, fc_units=1000, fc_drop=0, fc_bn=False, fc_nl="relu", gated=False,
                  bias=True, excitability=False, excit_buffer=False, binaryCE=False, binaryCE_distill=False, AGEM=False,
-                 loss='bce', experiment='splitMNIST'):
+                 experiment='splitMNIST'):
 
         # configurations
         super().__init__()
@@ -31,9 +31,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         #   predicted probs as binary targets (only in Class-IL with binaryCE)
         self.AGEM = AGEM  # -> use gradient of replayed data as inequality constraint for (instead of adding it to)
         #   the gradient of the current data (as in A-GEM, see Chaudry et al., 2019; ICLR)
-        self.loss = loss
 
-        # Online mem distilation
+        # Online mem distillation
         self.is_offline_training = False
         self.is_ready_distill = False
         self.alpha_t = 0.5
@@ -195,10 +194,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                                                        negative_y.detach().cpu().numpy())
 
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
-                      active_classes=None, task=1, scenario='class',
-                      loss_fn=None, replay_mode='none', triplet_selection='HP-HN',
-                      use_embeddings=False,
-                      teacher=None, otr_exemplars=False):
+                      active_classes=None, task=1, scenario='class', teacher=None,
+                      params_dict=None):
         '''Train model for one batch ([x],[y]), possibly supplemented with replayed data ([x_],[y_/scores_]).
 
         [x]               <tensor> batch of inputs (could be None, in which case only 'replayed' data is used)
@@ -358,44 +355,34 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 studentL = None
 
             # Calculate prediction loss
-            if self.loss in ['ofl', 'otfl', 'fgfl', 'gbfg']:
-                predL, selected_data = loss_fn(x, y_hat, y)
-                if replay_mode == 'online':
-                    for k in selected_data.keys():
-                        if scenario in ['task', 'domain']:  # Task-IL scenario
-                            self.add_instances_to_online_exemplar_sets(selected_data[k][0], selected_data[k][1],
-                                                                       k + len(selected_data.keys()) * (task - 1))
-                        else:
-                            self.add_instances_to_online_exemplar_sets(selected_data[k][0], selected_data[k][1], k)
+            if self.binaryCE:
+                # -binary prediction loss
+                binary_targets = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
+                if self.binaryCE_distill and (scores is not None):
+                    classes_per_task = int(y_hat.size(1) / task)
+                    binary_targets = binary_targets[:, -(classes_per_task):]
+                    binary_targets = torch.cat([torch.sigmoid(scores / self.KD_temp), binary_targets], dim=1)
+                y_score = F.binary_cross_entropy_with_logits(
+                    input=y_hat, target=binary_targets, reduction='none'
+                ).sum(dim=1)  # --> sum over classes,
+                predL = None if y is None else y_score.mean()  # average over batch
 
-            elif self.loss in ['focal', 'ce']:
-                predL = loss_fn(y_hat, y)
+                if params_dict['use_otr']:
+                    self.select_triplets(embeds, y_score, x, y,
+                                         params_dict['triplet_selection'], task, scenario,
+                                         params_dict['use_embeddings'])
+                # if params_dict['otr_exemplars']:
+                #     # Update class mean
+                #     self.compute_class_means(x, y)
             else:
-                if self.binaryCE:
-                    # -binary prediction loss
-                    binary_targets = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
-                    if self.binaryCE_distill and (scores is not None):
-                        classes_per_task = int(y_hat.size(1) / task)
-                        binary_targets = binary_targets[:, -(classes_per_task):]
-                        binary_targets = torch.cat([torch.sigmoid(scores / self.KD_temp), binary_targets], dim=1)
-                    y_score = F.binary_cross_entropy_with_logits(
-                        input=y_hat, target=binary_targets, reduction='none'
-                    ).sum(dim=1) # --> sum over classes,
-                    predL = None if y is None else y_score.mean()  # average over batch
+                # -multiclass prediction loss
+                y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
+                predL = None if y is None else y_score.mean()
 
-                    self.select_triplets(embeds, y_score, x, y, triplet_selection, task, scenario, use_embeddings)
-                    if otr_exemplars:
-                        # softmax_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
-                        # self.select_triplets(embeds, softmax_score, x, y, triplet_selection, task, scenario, use_embeddings)
-                        # Update class mean
-                        self.compute_class_means(x, y)
-                else:
-                    # -multiclass prediction loss
-                    y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
-                    predL = None if y is None else y_score.mean()
-
-                    if replay_mode == 'online':
-                        self.select_triplets(embeds, y_score, x, y, triplet_selection, task, scenario, use_embeddings)
+                if params_dict['use_otr']:
+                    self.select_triplets(embeds, y_score, x, y,
+                                         params_dict['triplet_selection'], task, scenario,
+                                         params_dict['use_embeddings'])
 
             # Weigh losses
             if teacherL is not None and studentL is not None:
@@ -482,9 +469,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             optimizer.zero_grad()
             y_hat = self(x)
 
-            if active_classes is not None:
-                class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
-                y_hat = y_hat[:, class_entries]
+            # if active_classes is not None:
+            #     class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
+            #     y_hat = y_hat[:, class_entries]
 
             if params_dict['teacher_loss'] == 'BCE':
                 y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
@@ -502,9 +489,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 x, y = x.to(self._device()), y.to(self._device())
                 y_hat = self(x)
 
-                if active_classes is not None:
-                    class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
-                    y_hat = y_hat[:, class_entries]
+                # if active_classes is not None:
+                #     class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
+                #     y_hat = y_hat[:, class_entries]
 
                 if params_dict['teacher_loss'] == 'BCE':
                     y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)

@@ -18,8 +18,8 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
              batch_size=32, generator=None, gen_iters=0,
              gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
              use_exemplars=True, add_exemplars=False, metric_cbs=list(),
-             otr_exemplars=False, triplet_selection='HP-HN', use_embeddings=False,
-             loss_fn=None, params_dict=None):
+             # otr_exemplars=False, triplet_selection='HP-HN-1', use_embeddings=False,
+             params_dict=None):
     '''Train a model (with a "train_a_batch" method) on multiple tasks, with replay-strategy specified by [replay_mode].
 
     [model]             <nn.Module> main model to optimize across all tasks
@@ -65,10 +65,11 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
         # Add exemplars (if available) to current dataset (if requested)
         if add_exemplars and task > 1:
             target_transform = (lambda y, x=classes_per_task: y % x) if scenario == "domain" else None
-            if otr_exemplars:
+            if params_dict['use_otr']:
                 exemplar_sets = []
                 for c in range(len(model.online_exemplar_sets)):
                     exemplar_sets.append(model.online_exemplar_sets[c][0])
+
                 exemplar_dataset = ExemplarDataset(exemplar_sets, target_transform=target_transform)
                 training_dataset = ConcatDataset([train_dataset, exemplar_dataset])
             else:
@@ -256,10 +257,8 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 # Train the main model with this batch
                 loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
                                                 active_classes=active_classes, task=task, rnt=1. / task,
-                                                scenario=scenario, loss_fn=loss_fn, replay_mode=replay_mode,
-                                                teacher=teacher,
-                                                triplet_selection=triplet_selection, use_embeddings=use_embeddings,
-                                                otr_exemplars=otr_exemplars)
+                                                scenario=scenario, teacher=teacher,
+                                                params_dict=params_dict)
 
                 # Update running parameter importance estimates in W
                 if isinstance(model, ContinualLearner) and (model.si_c > 0):
@@ -350,7 +349,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
 
         # EXEMPLARS: update exemplar sets
         if (add_exemplars or use_exemplars) or replay_mode == "exemplars":
-            if not otr_exemplars:
+            if not params_dict['use_otr']:
                 exemplars_per_class = int(np.floor(model.memory_budget / (classes_per_task * task)))
                 # reduce examplar-sets
                 model.reduce_exemplar_sets(exemplars_per_class)
@@ -368,7 +367,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
         # Calculate statistics required for metrics
         for metric_cb in metric_cbs:
             if metric_cb is not None:
-                metric_cb(model, iters, task=task, otr_exemplars=otr_exemplars)
+                metric_cb(model, iters, task=task, otr_exemplars=params_dict['otr_exemplars'])
 
         # REPLAY: update source for replay
         previous_model = copy.deepcopy(model).eval()
@@ -382,18 +381,21 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
             if replay_mode == "exact":
                 previous_datasets = train_datasets[:task]
             elif replay_mode == 'online':
-                if scenario in ['task', 'domain']:
-                    previous_datasets = []
-                    for task_id in range(task):
-                        classes = np.arange((classes_per_task * task_id), (classes_per_task * (task_id + 1)))
-                        for c in classes:
-                            previous_datasets.append(
-                                OnlineExemplarDataset(model.online_exemplar_sets[c])
-                            )
+                if not add_exemplars:
+                    if scenario in ['task', 'domain']:
+                        previous_datasets = []
+                        for task_id in range(task):
+                            classes = np.arange((classes_per_task * task_id), (classes_per_task * (task_id + 1)))
+                            for c in classes:
+                                previous_datasets.append(
+                                    OnlineExemplarDataset(model.online_exemplar_sets[c])
+                                )
+                    else:
+                        previous_datasets = []
+                        for c in range(len(model.online_exemplar_sets)):
+                            previous_datasets.append(OnlineExemplarDataset(model.online_exemplar_sets[c]))
                 else:
-                    previous_datasets = []
-                    for c in range(len(model.online_exemplar_sets)):
-                        previous_datasets.append(OnlineExemplarDataset(model.online_exemplar_sets[c]))
+                    Exact = False
             else:
                 if scenario == "task":
                     previous_datasets = []

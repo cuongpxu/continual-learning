@@ -27,8 +27,6 @@ task_params.add_argument('--tasks', type=int, help='number of tasks')
 
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
-loss_params.add_argument('--loss', type=str, default='none',
-                         choices=['otfl', 'fgfl', 'focal', 'ce', 'gbfg', 'none'])
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
 
 # model architecture parameters

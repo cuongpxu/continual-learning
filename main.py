@@ -19,8 +19,7 @@ from continual_learner import ContinualLearner
 from exemplars import ExemplarHandler
 from replayer import Replayer
 from param_values import set_default_values
-from loss.losses import OTFL, FGFL, FocalLoss, GBFG, OFL
-from itertools import chain
+
 
 parser = argparse.ArgumentParser('./main.py', description='Run individual continual learning experiment.')
 parser.add_argument('--get-stamp', action='store_true', help='print param-stamp & exit')
@@ -38,20 +37,9 @@ task_params.add_argument('--scenario', type=str, default='class', choices=['task
 task_params.add_argument('--tasks', type=int, help='number of tasks')
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
-loss_params.add_argument('--loss', type=str, default='none',
-                         choices=['ofl', 'otfl', 'fgfl', 'focal', 'ce', 'gbfg', 'none'])
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
 loss_params.add_argument('--bce-distill', action='store_true', help='distilled loss on previous classes for new'
                                                                     ' examples (only if --bce & --scenario="class")')
-loss_params.add_argument('--use-cs', action='store_true', help='Using cosine similarity to compute forgetting loss')
-loss_params.add_argument('--otfl-strategy', type=str, default='all', choices=['all', 'hard'])
-loss_params.add_argument('--otfl-alpha', type=float,  default=1.0, help="controlling parameter")
-loss_params.add_argument('--otfl-beta', type=float,  default=1.0, help="controlling parameter")
-
-loss_params.add_argument('--fgfl-gamma', type=float,  default=0.25, help="controlling hyperparameter 1")
-loss_params.add_argument('--fgfl-delta', type=float,  default=0.25, help="controlling hyperparameter 2")
-
-loss_params.add_argument('--gbfg-delta', type=float, default=1.0, help='controlling hyperparameter')
 # model architecture parameters
 model_params = parser.add_argument_group('Model Parameters')
 model_params.add_argument('--model_arc', type=str, default='MLP', help='Type of network used in experiment')
@@ -63,12 +51,12 @@ model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", 
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                    " (instead of a 'multi-headed' one)")
 
-model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
-model_params.add_argument('--teacher-epochs', type=int, default=100, help='number of epochs to train teacher')
-model_params.add_argument('--teacher-loss', type=str, default='CE', help='teacher loss function')
-model_params.add_argument('--teacher-split', type=float, default=0.8, help='split ratio for teacher training')
-model_params.add_argument('--teacher-opt', type=str, default='Adam', help='teacher optimizer')
-model_params.add_argument('--use-scheduler', type=bool, default=False, help='Using learning rate scheduler for teacher')
+model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
+model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
+model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
+model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
+model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
+model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -111,17 +99,15 @@ cl_params.add_argument('--gating-prop', type=float, metavar="PROP", help="--> Xd
 
 # data storage ('exemplars') parameters
 store_params = parser.add_argument_group('Data Storage Parameters')
-store_params.add_argument('--icarl', action='store_true', help="bce-distill, use-exemplars & add-exemplars")
-store_params.add_argument('--use-exemplars', action='store_true', help="use exemplars for classification")
-store_params.add_argument('--add-exemplars', action='store_true', help="add exemplars to current task's training set")
+store_params.add_argument('--use_exemplars', action='store_true', help="use exemplars for classification")
+store_params.add_argument('--add_exemplars', action='store_true', help="add exemplars to current task's training set")
 store_params.add_argument('--budget', type=int, default=1000, dest="budget", help="how many samples can be stored?")
-store_params.add_argument('--otr-exemplars', type=bool, default=False, help="use otr exemplars instead of random")
 store_params.add_argument('--herding', action='store_true', help="use herding to select stored data (instead of random)")
 store_params.add_argument('--norm-exemplars', action='store_true', help="normalize features/averages of exemplars")
 
-store_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
-store_params.add_argument('--triplet-selection', type=str, default='HP-HN', help="Triplet selection strategy")
-store_params.add_argument('--use-embeddings', type=bool, default=False,
+store_params.add_argument('--otr_exemplars', action='store_true', help="use otr exemplars instead of random")
+store_params.add_argument('--triplet_selection', type=str, default='HP-HN-1', help="Triplet selection strategy")
+store_params.add_argument('--use_embeddings', action='store_true',
                           help="use embeddings space for otr exemplars instead of features space")
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
@@ -136,9 +122,14 @@ eval_params.add_argument('--prec-n', type=int, default=1024, help="# samples for
 eval_params.add_argument('--sample-log', type=int, default=500, metavar="N", help="# iters after which to plot samples")
 eval_params.add_argument('--sample-n', type=int, default=64, help="# images to show")
 
+# shortcut parameters
+shortcut_params = parser.add_argument_group('Shortcut parameters')
+shortcut_params.add_argument('--otr', action='store_true', help='online triplet replay')
+shortcut_params.add_argument('--otr_distill', action='store_true', help='online triplet replay with distillation')
+shortcut_params.add_argument('--icarl', action='store_true', help="bce-distill, use-exemplars & add-exemplars")
+
 
 def run(args, verbose=False):
-
     # Set default arguments & check for incompatible options
     args.lr_gen = args.lr if args.lr_gen is None else args.lr_gen
     args.g_iters = args.iters if args.g_iters is None else args.g_iters
@@ -160,6 +151,26 @@ def run(args, verbose=False):
         else:
             args.herding = True
             args.norm_exemplars = True
+
+    # -if [OTR] is selected, select all accompanying options
+    if hasattr(args, "otr") and args.otr:
+        args.bce = True
+        if args.scenario == 'class':
+            args.bce_distill = True
+        args.replay = 'online'
+
+        if args.add_exemplars:
+            args.otr_exemplars = True
+
+    if hasattr(args, "otr_distill") and args.otr_distill:
+        args.bce = True
+        if args.scenario == 'class':
+            args.bce_distill = True
+        args.replay = 'online'
+        args.use_teacher = True
+
+        if args.add_exemplars:
+            args.otr_exemplars = True
 
     # -if XdG is selected but not the Task-IL scenario, give error
     if (not args.scenario=="task") and args.xdg:
@@ -256,7 +267,7 @@ def run(args, verbose=False):
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
             fc_bn=True if args.fc_bn=="yes" else False, excit_buffer=True if args.xdg and args.gating_prop>0 else False,
             binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem,
-            loss=args.loss, experiment=args.experiment
+            experiment=args.experiment
         ).to(device)
 
     if args.use_teacher:
@@ -264,38 +275,18 @@ def run(args, verbose=False):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
             fc_bn=True if args.fc_bn == "yes" else False,
-            loss=args.loss, experiment=args.experiment
+            experiment=args.experiment
         ).to(device)
     else:
         teacher = None
 
     # Define loss function
-    if args.loss == 'otfl':
-        loss_fn = OTFL(strategy=args.otfl_strategy, use_cs=args.use_cs,
-                           alpha=args.otfl_alpha, beta=args.otfl_beta, device=device)
-    elif args.loss == 'ofl':
-        loss_fn = OFL(alpha=args.otfl_alpha, device=device)
-    elif args.loss == 'fgfl':
-        loss_fn = FGFL(gamma=args.fgfl_gamma, delta=args.fgfl_delta, device=device, n_classes=config['classes'])
-    elif args.loss == 'gbfg':
-        loss_fn = GBFG(delta=args.gbfg_delta, device=device)
-    elif args.loss == 'focal':
-        loss_fn = FocalLoss(alpha=0.25, gamma=0.25)
-    elif args.loss == 'ce':
-        loss_fn = torch.nn.CrossEntropyLoss()
-    else:
-        loss_fn = None
-
-    # Define optimizer (only include parameters that "requires_grad")
-    if args.loss == 'otfl':
-        model.optim_list = [{'params': chain(model.parameters(), loss_fn.parameters()), 'lr': args.lr}]
-    else:
-        model.optim_list = [{'params': filter(lambda p: p.requires_grad, model.parameters()), 'lr': args.lr}]
+    model.optim_list = [{'params': filter(lambda p: p.requires_grad, model.parameters()), 'lr': args.lr}]
     model.optim_type = args.optimizer
     if model.optim_type in ("adam", "adam_reset"):
         model.optimizer = optim.Adam(model.optim_list, betas=(0.9, 0.999))
-    elif model.optim_type=="sgd":
-        model.optimizer = optim.SGD(model.optim_list)
+    elif model.optim_type == "sgd":
+        model.optimizer = optim.SGD(model.optim_list, momentum=0.9)
     else:
         raise ValueError("Unrecognized optimizer, '{}' is not currently a valid option".format(args.optimizer))
 
@@ -307,16 +298,14 @@ def run(args, verbose=False):
     #----------------------------------#
 
     # Store in model whether, how many and in what way to store exemplars
-    if isinstance(model, ExemplarHandler) and (args.use_exemplars or args.add_exemplars or args.replay=="exemplars"):
+    if isinstance(model, ExemplarHandler) and (args.use_exemplars or args.add_exemplars or args.otr_exemplars
+                                               or args.replay=="exemplars"):
         model.memory_budget = args.budget
         model.norm_exemplars = args.norm_exemplars
         model.herding = args.herding
 
-    if isinstance(model, ExemplarHandler) and args.replay == 'online':
-        model.online_memory_budget = args.online_memory_budget
-
-    if isinstance(model, ExemplarHandler) and args.otr_exemplars:
-        model.online_memory_budget = args.online_memory_budget
+    if args.otr:
+        model.memory_budget = args.budget
 
     #-------------------------------------------------------------------------------------------------#
 
@@ -506,9 +495,16 @@ def run(args, verbose=False):
     start = time.time()
 
     # Get params dict
-    params_dict = {'teacher_split': args.teacher_split, 'teacher_loss':args.teacher_loss,
-                   'teacher_opt': args.teacher_opt, 'use_scheduler': args.use_scheduler,
-                   'teacher_epochs': args.teacher_epochs}
+    params_dict = {
+        # OTR
+        'use_otr': True if (hasattr(args, 'otr') and args.otr) or (hasattr(args, 'otr_distill')) else False,
+        'otr_exemplars': args.otr_exemplars,
+        'triplet_selection': args.triplet_selection,
+        'use_embeddings': args.use_embeddings,
+        # Teacher params
+        'teacher_split': args.teacher_split, 'teacher_loss':args.teacher_loss,
+        'teacher_opt': args.teacher_opt, 'use_scheduler': args.use_scheduler,
+        'teacher_epochs': args.teacher_epochs}
     # Train model
     train_cl(
         model, teacher, train_datasets, replay_mode=args.replay, scenario=scenario, classes_per_task=classes_per_task,
@@ -516,8 +512,7 @@ def run(args, verbose=False):
         generator=generator, gen_iters=args.g_iters, gen_loss_cbs=generator_loss_cbs,
         sample_cbs=sample_cbs, eval_cbs=eval_cbs, loss_cbs=generator_loss_cbs if args.feedback else solver_loss_cbs,
         metric_cbs=metric_cbs, use_exemplars=args.use_exemplars, add_exemplars=args.add_exemplars,
-        otr_exemplars=args.otr_exemplars, triplet_selection=args.triplet_selection, use_embeddings=args.use_embeddings,
-        loss_fn=loss_fn, params_dict=params_dict
+        params_dict=params_dict
     )
     # Get total training-time in seconds, and write to file
     if args.time:

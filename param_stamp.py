@@ -30,7 +30,7 @@ def get_param_stamp_from_args(args):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
             fc_bn=True if args.fc_bn=="yes" else False, excit_buffer=True if args.xdg and args.gating_prop>0 else False,
-            loss=args.loss, experiment=args.experiment
+            experiment=args.experiment
         )
 
     train_gen = True if (args.replay=="generative" and not args.feedback) else False
@@ -110,19 +110,20 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
             ) else ""
         )
         if args.replay == 'online':
-            replay_stamp = '{}-b{}{}{}{}'.format(replay_stamp, args.online_memory_budget,
+            selection = '' if args.triplet_selection == 'HP-HN-1' else f'({args.triplet_selection})'
+            replay_stamp = '{}-b{}{}{}{}{}'.format(replay_stamp, args.budget,
                                                  '-distill' if args.use_teacher else '',
                                                  '-embeds' if args.use_embeddings else '',
-                                                 '' if args.triplet_selection == 'HP-HN-1'
-                                                 else f'({args.triplet_selection})')
+                                                 f'{selection}',
+                                                 '-addEx' if args.add_exemplars else '')
         if verbose:
             print(" --> replay:        " + replay_stamp)
     replay_stamp = "--{}".format(replay_stamp) if replay else ""
 
     # -for exemplars / iCaRL
     exemplar_stamp = ""
-    if hasattr(args, 'use_exemplars') and (args.add_exemplars or args.use_exemplars or args.replay == "exemplars"):
-        exemplar_opts = "b{}{}{}".format(args.online_memory_budget if args.otr_exemplars else args.budget,
+    if args.replay == "exemplars" or (args.add_exemplars and args.use_exemplars):
+        exemplar_opts = "b{}{}{}".format(args.budget,
                                          "H" if args.herding else "",
                                          "N" if args.norm_exemplars else "")
         use = "{}{}{}".format("addEx-" if args.add_exemplars else "",
@@ -134,23 +135,10 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
 
     # -for binary classification loss
     binLoss_stamp = ""
-    if args.loss == 'bce':
-        if hasattr(args, 'bce') and args.bce:
-            binLoss_stamp = '--BCE_dist' if (args.bce_distill and args.scenario=="class") else '--BCE'
-    elif args.loss == 'ofl':
-        binLoss_stamp = '--OFL-a{}'.format(args.otfl_alpha)
-    elif args.loss == 'otfl':
-        binLoss_stamp = '--OTFL-{}-{}-a{}-b{}'.format(args.otfl_strategy, args.use_cs, args.otfl_alpha, args.otfl_beta)
-    elif args.loss == 'fgfl':
-        binLoss_stamp = '--FGFL-g{}-d{}'.format(args.fgfl_gamma, args.fgfl_delta)
-    elif args.loss == 'gbfg':
-        binLoss_stamp = '--GBFG-d{}'.format(args.gbfg_delta)
-    elif args.loss == 'focal':
-        binLoss_stamp = '--FocalLoss-a0.25-g0.25'
-    elif args.loss == 'ce':
-        binLoss_stamp = '--CE'
-    else:
-        binLoss_stamp = ''
+    # if hasattr(args, 'bce') and args.bce:
+    #     if not ((hasattr(args, 'otr') and args.otr) or (hasattr(args, 'otr_distill') and args.otr_distill)):
+    #         binLoss_stamp = '--BCE_dist' if (args.bce_distill and args.scenario == "class") else '--BCE'
+
     # --> combine
     param_stamp = "{}--{}--{}{}{}{}{}{}{}".format(
         task_stamp, model_stamp, hyper_stamp, ewc_stamp, xdg_stamp, replay_stamp, exemplar_stamp,
