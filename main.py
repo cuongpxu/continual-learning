@@ -306,7 +306,7 @@ def run(args, verbose=False):
         model.norm_exemplars = args.norm_exemplars
         model.herding = args.herding
 
-    if args.otr:
+    if (hasattr(args, 'otr') and args.otr) or args.replay == 'online':
         model.memory_budget = args.budget
 
     #-------------------------------------------------------------------------------------------------#

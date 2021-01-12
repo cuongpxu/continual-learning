@@ -111,15 +111,15 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
         )
         if args.replay == 'online':
             distill = '-distill' if hasattr(args, 'use_teacher') and args.use_teacher else ''
-            teacher_stamp = '({}{}{}{})'.format('' if args.teacher_epochs == 100 else f'e{args.teacher_epochs}',
+            teacher_stamp = '{}{}{}{}'.format('' if args.teacher_epochs == 100 else f'-e{args.teacher_epochs}',
                                                 '' if args.teacher_split == 0.8 else f'-s{args.teacher_split}',
                                                 '' if args.teacher_loss == 'CE' else f'-{args.teacher_loss}',
                                                 '' if args.use_scheduler == False else '-useSche')
-            distill = distill + teacher_stamp
+
             embeds = '-embeds' if args.use_embeddings else ''
             selection = '' if args.triplet_selection == 'HP-HN-1' else f'({args.triplet_selection})'
-            replay_stamp = '{}-b{}{}{}{}{}'.format(replay_stamp, args.budget, f'{distill}', f'{embeds}',
-                                                   f'{selection}', '-addEx' if args.add_exemplars else '')
+            replay_stamp = '{}-b{}{}{}{}{}{}'.format(replay_stamp, args.budget, f'{distill}', f'{teacher_stamp}',
+                                                     f'{embeds}', f'{selection}', '-addEx' if args.add_exemplars else '')
         if verbose:
             print(" --> replay:        " + replay_stamp)
     replay_stamp = "--{}".format(replay_stamp) if replay else ""

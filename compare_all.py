@@ -38,7 +38,14 @@ model_params.add_argument('--fc-bn', type=str, default="no", help="use batch-nor
 model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", "leakyrelu"])
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                    " (instead of a 'multi-headed' one)")
-model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
+# model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
+
+model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
+model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
+model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
+model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
+model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
+model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -75,6 +82,8 @@ cl_params.add_argument('--c', type=float, dest="si_c", help="--> SI: regularisat
 cl_params.add_argument('--epsilon', type=float, default=0.1, dest="epsilon", help="--> SI: dampening parameter")
 cl_params.add_argument('--gating-prop', type=float, metavar="PROP", help="--> XdG: prop neurons per layer to gate")
 
+
+
 # iCaRL parameters
 icarl_params = parser.add_argument_group('iCaRL Parameters')
 icarl_params.add_argument('--budget', type=int, default=2000, dest="budget", help="how many exemplars can be stored?")
@@ -89,6 +98,10 @@ eval_params.add_argument('--pdf', action='store_true', help="generate pdfs for i
 eval_params.add_argument('--visdom', action='store_true', help="use visdom for on-the-fly plots")
 eval_params.add_argument('--prec-n', type=int, default=1024, help="# samples for evaluating solver's precision")
 eval_params.add_argument('--sample-n', type=int, default=64, help="# images to show")
+
+shortcut_params = parser.add_argument_group('Shortcut parameters')
+shortcut_params.add_argument('--otr', action='store_true', help='online triplet replay')
+shortcut_params.add_argument('--otr_distill', action='store_true', help='online triplet replay with distillation')
 
 
 def get_results(args):
@@ -155,7 +168,7 @@ if __name__ == '__main__':
     args.si = False
     args.xdg = False
     args.add_exemplars = False
-    args.bce_distill= False
+    args.bce_distill = False
     args.icarl = False
     # args.seed could of course also vary!
 
@@ -271,6 +284,8 @@ if __name__ == '__main__':
     args.budget = 2000
     args.use_teacher = True
     args.use_embeddings = False
+    args.teacher_loss = 'CE'
+    args.teacher_opt = 'Adam'
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
     args.replay = 'none'
