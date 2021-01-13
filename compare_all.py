@@ -46,6 +46,7 @@ model_params.add_argument('--teacher_loss', type=str, default='CE', help='teache
 model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
 model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
+model_params.add_argument('--distill_type', type=str, default='T', choices=['T', 'TS', 'E', 'ET', 'ETS'])
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -291,6 +292,7 @@ if __name__ == '__main__':
     args.teacher_split = 0.8
     args.teacher_opt = 'Adam'
     args.use_scheduler = False
+    args.distill_type = 'T'
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
     args.replay = 'none'

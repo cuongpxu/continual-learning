@@ -110,7 +110,9 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
             ) else ""
         )
         if args.replay == 'online':
-            distill = '-distill' if hasattr(args, 'use_teacher') and args.use_teacher else ''
+            distill = ''
+            if hasattr(args, 'use_teacher') and args.use_teacher:
+                distill = '-distill-{}'.format(args.distill_type)
             teacher_stamp = '{}{}{}{}{}'.format('' if args.teacher_epochs == 100 else f'-e{args.teacher_epochs}',
                                                 '' if args.teacher_split == 0.8 else f'-s{args.teacher_split}',
                                                 '' if args.teacher_loss == 'CE' else f'-{args.teacher_loss}',
