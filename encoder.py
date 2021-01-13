@@ -96,7 +96,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         # Select instances in the batch for replay later
         for m in uq:
             neg_y = np.delete(uq, np.where(uq == m))
-            print(neg_y)
             mask = y == m
             # mask_neg = y != m
             ce_m = y_score[mask]
