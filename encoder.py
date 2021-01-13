@@ -95,8 +95,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         selection_strategies = triplet_selection.split('-')
         # Select instances in the batch for replay later
         for m in uq:
+            neg_y = np.delete(uq, np.where(uq == m))
+            print(neg_y)
             mask = y == m
-            mask_neg = y != m
+            # mask_neg = y != m
             ce_m = y_score[mask]
             if ce_m.size(0) != 0:
                 # Select anchor and hard positive instances for class m
@@ -107,7 +109,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 anchor_embed = positive_embed_batch[anchor_idx].unsqueeze(dim=0)
                 # anchor should not equal positive
                 positive_batch = torch.cat(
-                        (positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
+                    (positive_batch[:anchor_idx], positive_batch[anchor_idx + 1:]), dim=0)
                 positive_embed_batch = torch.cat(
                     (positive_embed_batch[:anchor_idx], positive_embed_batch[anchor_idx + 1:]), dim=0)
                 if positive_batch.size(0) != 0:
@@ -118,7 +120,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     else:
                         anchor_batch = anchor_x.expand(positive_batch.size())
                         positive_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                                positive_batch.view(positive_batch.size(0), -1))
+                                                            positive_batch.view(positive_batch.size(0), -1))
 
                     if selection_strategies[0] == 'HP':
                         # Hard positive
@@ -135,28 +137,32 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     y_m = torch.tensor([m])
 
                 if scenario in ['task', 'domain']:
-                    self.add_instances_to_online_exemplar_sets(x_m, y_m, (y_m + len(uq) * (task - 1)).detach().cpu().numpy())
+                    self.add_instances_to_online_exemplar_sets(x_m, y_m,
+                                                               (y_m + len(uq) * (task - 1)).detach().cpu().numpy())
                 else:
                     self.add_instances_to_online_exemplar_sets(x_m, y_m, y_m.detach().cpu().numpy())
 
-                # Select negative instance
-                negative_batch = x[mask_neg]
-                negative_embed_batch = embeds[mask_neg]
-                if negative_batch.size(0) != 0:
-                    if use_embeddings:
-                        anchor_batch = anchor_embed.expand(negative_embed_batch.size())
-                        negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
-                                                            negative_embed_batch.view(negative_embed_batch.size(0), -1))
-                    else:
-                        anchor_batch = anchor_x.expand(negative_batch.size())
-                        negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                # Select instances for each negative class
+                for n in neg_y:
+                    mask_neg_n = y == n
+                    negative_batch = x[mask_neg_n]
+                    negative_embed_batch = embeds[mask_neg_n]
+
+                    if negative_batch.size(0) != 0:
+                        if use_embeddings:
+                            anchor_batch = anchor_embed.expand(negative_embed_batch.size())
+                            negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
+                                                                negative_embed_batch.view(negative_embed_batch.size(0), -1))
+                        else:
+                            anchor_batch = anchor_x.expand(negative_batch.size())
+                            negative_dist = F.pairwise_distance(anchor_batch.view(anchor_batch.size(0), -1),
                                                                 negative_batch.view(negative_batch.size(0), -1))
 
                     if selection_strategies[1] == 'HN':
                         # Hard negative
                         _, negative_idx = torch.topk(negative_dist, int(selection_strategies[2]), largest=False)
                         negative_x = negative_batch[negative_idx]
-                        negative_y = y[mask_neg][negative_idx]
+                        negative_y = y[mask_neg_n][negative_idx]
                     elif selection_strategies[1] == 'SHN':
                         # Semi-hard negative
                         if use_embeddings:
@@ -165,11 +171,11 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                                       positive_embed.view(positive_x.size(0), -1))
                         else:
                             dap = F.pairwise_distance(anchor_x.view(anchor_x.size(0), -1),
-                                                          positive_x.view(positive_x.size(0), -1))
+                                                      positive_x.view(positive_x.size(0), -1))
                         valid_shn_idx = negative_dist > dap
                         if valid_shn_idx.any():
                             shn_batch = negative_batch[valid_shn_idx]
-                            negative_y_batch = y[mask_neg]
+                            negative_y_batch = y[mask_neg_n]
                             shn_y = negative_y_batch[valid_shn_idx]
                             # negative_idx = torch.argmin(negative_dist[valid_shn_idx])
                             _, negative_idx = torch.topk(negative_dist, int(selection_strategies[2]), largest=False)
@@ -183,12 +189,13 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         # Easy negative
                         _, negative_idx = torch.topk(negative_dist, int(selection_strategies[2]))
                         negative_x = negative_batch[negative_idx]
-                        negative_y = y[mask_neg][negative_idx]
+                        negative_y = y[mask_neg_n][negative_idx]
 
                     if negative_x is not None and negative_y is not None:
                         if scenario in ['task', 'domain']:
                             self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
-                                                                       (negative_y + len(uq) * (task - 1)).detach().cpu().numpy())
+                                                                       (negative_y + len(uq) * (
+                                                                                   task - 1)).detach().cpu().numpy())
                         else:
                             self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
                                                                        negative_y.detach().cpu().numpy())
@@ -339,26 +346,28 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 #                           F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
                 #            * (self.alpha_t * self.KD_temp * self.KD_temp) \
                 #            + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
+
                 with torch.no_grad():
                     y_hat_ensemble = 0.5 * (y_hat + y_hat_teacher)
 
-                # teacherL = nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                #                           F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
-                #            * (self.KD_temp * self.KD_temp)
-                #
-                # studentL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                #                           F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
-                #            * (self.KD_temp * self.KD_temp)
-
                 teacherL = nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                          F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) * (self.KD_temp * self.KD_temp)
+                                          F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
+                           * (self.KD_temp * self.KD_temp)
 
-                studentL = 0.5 * (nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                 F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
-                                  * (self.KD_temp * self.KD_temp) +
-                                  nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                 F.softmax(y_hat_teacher / self.KD_temp, dim=1))
-                                  * (self.KD_temp * self.KD_temp))
+                studentL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                          F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
+                           * (self.KD_temp * self.KD_temp)
+
+                # teacherL = nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                #                           F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) * (
+                #                        self.KD_temp * self.KD_temp)
+                #
+                # studentL = 0.5 * (nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                #                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
+                #                   * (self.KD_temp * self.KD_temp) +
+                #                   nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                #                                  F.softmax(y_hat_teacher / self.KD_temp, dim=1))
+                #                   * (self.KD_temp * self.KD_temp))
 
             else:
                 teacherL = None
@@ -396,7 +405,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
             # Weigh losses
             if teacherL is not None and studentL is not None:
-                loss_cur = rnt * predL + (1 - rnt) * (1/2) * (teacherL + studentL)
+                loss_cur = rnt * predL + (1 - rnt) * (1 / 2) * (teacherL + studentL)
             else:
                 loss_cur = predL
 
@@ -510,4 +519,3 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 valid_losses.append(valid_loss.item())
         self.train()
         return valid_losses
-
