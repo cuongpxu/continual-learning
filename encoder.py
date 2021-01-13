@@ -344,7 +344,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
             # Compute distillation loss from teacher outputs
             if y_hat_teacher is not None:
-                if params_dict['distill_type'] in ['E', 'ET', 'ETS']:
+                if params_dict['distill_type'] in ['E', 'ET', 'ES', 'ETS']:
                     with torch.no_grad():
                         y_hat_ensemble = 0.5 * (y_hat + y_hat_teacher)
 
@@ -359,6 +359,17 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                           nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                                          F.softmax(y_hat_teacher / self.KD_temp, dim=1))
                                           * (self.KD_temp * self.KD_temp))
+                    elif params_dict['distill_type'] == 'ES':
+                        teacherL = 0.5 * (nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) * (
+                                           self.KD_temp * self.KD_temp) +
+                                          nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                                                         F.softmax(y_hat / self.KD_temp, dim=1))
+                                          * (self.KD_temp * self.KD_temp))
+
+                        studentL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1))\
+                                   * (self.KD_temp * self.KD_temp)
                     elif params_dict['distill_type'] == 'ETS':
                         teacherL = 0.5 * (nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
                                                          F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
