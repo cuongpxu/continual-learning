@@ -62,7 +62,6 @@ class AdLR(Optimizer):
                 p.add_(grad, alpha=-group['lr'])
 
             # Update learning rate
-            print(self.prev_grad1.device, self.prev_grad2.device, all_grad.device)
             group['lr'] = group['lr'] + \
                               group['gamma1'] * torch.dot(self.prev_grad1, all_grad.to(self.device)) + \
                               group['gamma2'] * torch.dot(self.prev_grad2, self.prev_grad1)
@@ -131,7 +130,7 @@ class eAdLR(Optimizer):
                 # Update learning rate
                 if self.iter >= 3:
                     group['lr'] = group['lr'] + \
-                                  group['gamma1'] * torch.dot(torch.flatten(self.prev_grad1[k]), torch.flatten(grad)) +\
+                                  group['gamma1'] * torch.dot(torch.flatten(self.prev_grad1[k]), torch.flatten(grad).to(self.device)) +\
                                   group['gamma2'] * torch.dot(torch.flatten(self.prev_grad2[k]), torch.flatten(self.prev_grad1[k]))
                     if group['lr'] < 0:
                         group['lr'] = group['gamma3'] * self.init_lr
@@ -253,7 +252,7 @@ class AdamAdLR(Optimizer):
                 # Update learning rate
                 if self.iter >= 3:
                     group['lr'] = group['lr'] + \
-                                  group['gamma1'] * torch.dot(torch.flatten(self.prev_grad1[k]), torch.flatten(grad)) +\
+                                  group['gamma1'] * torch.dot(torch.flatten(self.prev_grad1[k]), torch.flatten(grad).to(self.device)) +\
                                   group['gamma2'] * torch.dot(torch.flatten(self.prev_grad2[k]), torch.flatten(self.prev_grad1[k]))
                     if group['lr'] < 0:
                         group['lr'] = group['gamma3'] * self.init_lr
