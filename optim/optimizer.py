@@ -15,21 +15,22 @@ class AdLR(Optimizer):
         gamma3: meta-learning rate 3
     """
 
-    def __init__(self, params, lr=0.01, gamma1=0.01, gamma2=0.001, gamma3=0.01):
+    def __init__(self, params, lr=0.01, gamma1=0.01, gamma2=0.001, gamma3=0.01, device='cpu'):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         defaults = dict(lr=lr, gamma1=gamma1, gamma2=gamma2, gamma3=gamma3)
         super(AdLR, self).__init__(params, defaults)
         self.init_lr = lr
+        self.device = device
 
         # Initialize previous grad
         for k, p in enumerate(self.param_groups[0]['params']):
             if k == 0:
-                self.prev_grad1 = torch.zeros(p.view(-1).size())
+                self.prev_grad1 = torch.zeros(p.view(-1).size()).to(device)
             else:
-                self.prev_grad1 = torch.cat((self.prev_grad1, torch.zeros(p.view(-1).size())))
+                self.prev_grad1 = torch.cat((self.prev_grad1, torch.zeros(p.view(-1).size()).to(self.device)))
 
-        self.prev_grad2 = self.prev_grad1.clone()
+        self.prev_grad2 = self.prev_grad1.detach().clone().to(self.device)
 
     def __setstate__(self, state):
         super(AdLR, self).__setstate__(state)
@@ -68,8 +69,8 @@ class AdLR(Optimizer):
                 group['lr'] = group['gamma3'] * self.init_lr
 
             # Store prev grad
-            self.prev_grad2 = self.prev_grad1.clone()
-            self.prev_grad1 = all_grad.clone()
+            self.prev_grad2 = self.prev_grad1.detach().clone().to(self.device)
+            self.prev_grad1 = all_grad.detach().clone().to(self.device)
 
         return loss
 
@@ -86,20 +87,21 @@ class eAdLR(Optimizer):
         gamma3: meta-learning rate 3
     """
 
-    def __init__(self, params, lr=0.01, gamma1=0.01, gamma2=0.001, gamma3=0.01):
+    def __init__(self, params, lr=0.01, gamma1=0.01, gamma2=0.001, gamma3=0.01, device='cpu'):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         defaults = dict(lr=lr, gamma1=gamma1, gamma2=gamma2, gamma3=gamma3)
         super(eAdLR, self).__init__(params, defaults)
         self.init_lr = lr
         self.iter = 0
+        self.device = device
 
         # Initialize previous grad
         self.prev_grad1 = dict({})
         self.prev_grad2 = dict({})
         for k, p in enumerate(self.param_groups[0]['params']):
-            self.prev_grad1[k] = torch.zeros(p.size())
-            self.prev_grad2[k] = torch.zeros(p.size())
+            self.prev_grad1[k] = torch.zeros(p.size()).to(self.device)
+            self.prev_grad2[k] = torch.zeros(p.size()).to(self.device)
 
     def __setstate__(self, state):
         super(eAdLR, self).__setstate__(state)
@@ -134,8 +136,8 @@ class eAdLR(Optimizer):
                         group['lr'] = group['gamma3'] * self.init_lr
 
                 # Store prev grad
-                self.prev_grad2[k] = self.prev_grad1[k].clone()
-                self.prev_grad1[k] = grad.clone()
+                self.prev_grad2[k] = self.prev_grad1[k].detach().clone().to(self.device)
+                self.prev_grad1[k] = grad.detach().clone().to(self.device)
 
         self.iter += 1
         return loss
@@ -154,7 +156,7 @@ class AdamAdLR(Optimizer):
     """
 
     def __init__(self, params, lr=0.01, gamma1=0.01, gamma2=0.001, gamma3=0.01,
-                 betas=(0.9, 0.999), eps=1e-8, weight_decay=0, amsgrad=False):
+                 betas=(0.9, 0.999), eps=1e-8, weight_decay=0, amsgrad=False, device='cpu'):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -170,13 +172,14 @@ class AdamAdLR(Optimizer):
         super(AdamAdLR, self).__init__(params, defaults)
         self.init_lr = lr
         self.iter = 0
+        self.device = device
 
         # Initialize previous grad
         self.prev_grad1 = dict({})
         self.prev_grad2 = dict({})
         for k, p in enumerate(self.param_groups[0]['params']):
-            self.prev_grad1[k] = torch.zeros(p.size())
-            self.prev_grad2[k] = torch.zeros(p.size())
+            self.prev_grad1[k] = torch.zeros(p.size()).to(self.device)
+            self.prev_grad2[k] = torch.zeros(p.size()).to(self.device)
 
     def __setstate__(self, state):
         super(AdamAdLR, self).__setstate__(state)
@@ -212,12 +215,12 @@ class AdamAdLR(Optimizer):
                 if len(state) == 0:
                     state['step'] = 0
                     # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format).to(self.device)
                     # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format).to(self.device)
                     if amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
-                        state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                        state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format).to(self.device)
 
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
                 if amsgrad:
@@ -255,8 +258,8 @@ class AdamAdLR(Optimizer):
                         group['lr'] = group['gamma3'] * self.init_lr
 
                 # Store prev grad
-                self.prev_grad2[k] = self.prev_grad1[k].clone()
-                self.prev_grad1[k] = grad.clone()
+                self.prev_grad2[k] = self.prev_grad1[k].detach().clone().to(self.device)
+                self.prev_grad1[k] = grad.detach().clone().to(self.device)
 
         self.iter += 1
         return loss
