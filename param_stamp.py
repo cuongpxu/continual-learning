@@ -121,7 +121,8 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
 
             embeds = '-embeds' if args.use_embeddings else ''
             selection = '' if args.triplet_selection == 'HP-HN-1' else f'({args.triplet_selection})'
-            replay_stamp = '{}-b{}{}{}{}{}{}'.format(replay_stamp, args.budget, f'{distill}', f'{teacher_stamp}',
+            replay_stamp = '{}-b{}{}{}{}{}{}{}'.format(replay_stamp, args.budget, '' if not args.multi_negative else 'MN',
+                                                     f'{distill}', f'{teacher_stamp}',
                                                      f'{embeds}', f'{selection}', '-addEx' if args.add_exemplars else '')
         if verbose:
             print(" --> replay:        " + replay_stamp)
