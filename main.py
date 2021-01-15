@@ -165,10 +165,10 @@ def run(args, verbose=False):
             args.otr_exemplars = True
 
     if hasattr(args, "otr_distill") and args.otr_distill:
-        # if args.experiment in ['splitMNIST', 'CIFAR10']:
-        #     args.bce = True
-        #     if args.scenario == 'class':
-        #         args.bce_distill = True
+        if args.experiment in ['splitMNIST', 'CIFAR10']:
+            args.bce = True
+            if args.scenario == 'class':
+                args.bce_distill = True
         args.replay = 'online'
         args.use_teacher = True
 
