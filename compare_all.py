@@ -292,7 +292,7 @@ if __name__ == '__main__':
     args.teacher_split = 0.8
     args.teacher_opt = 'Adam'
     args.use_scheduler = False
-    args.distill_type = 'T'
+    args.distill_type = 'E'
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
     args.replay = 'none'

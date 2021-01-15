@@ -155,7 +155,7 @@ def run(args, verbose=False):
 
     # -if [OTR] is selected, select all accompanying options
     if hasattr(args, "otr") and args.otr:
-        if args.experiment != 'CIFAR100':
+        if args.experiment in ['splitMNIST', 'CIFAR10']:
             args.bce = True
             if args.scenario == 'class':
                 args.bce_distill = True
@@ -165,7 +165,7 @@ def run(args, verbose=False):
             args.otr_exemplars = True
 
     if hasattr(args, "otr_distill") and args.otr_distill:
-        if args.experiment != 'CIFAR100':
+        if args.experiment in ['splitMNIST', 'CIFAR10']:
             args.bce = True
             if args.scenario == 'class':
                 args.bce_distill = True
