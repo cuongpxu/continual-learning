@@ -47,6 +47,7 @@ model_params.add_argument('--teacher_split', type=float, default=0.8, help='spli
 model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
 model_params.add_argument('--distill_type', type=str, default='T', choices=['T', 'TS', 'E', 'ET', 'ETS'])
+model_params.add_argument('--multi_negative', type=bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -271,6 +272,7 @@ if __name__ == '__main__':
     args.budget = 2000
     args.triplet_selection = 'HP-HN-1'
     args.bce = True
+    args.multi_negative = False
     if args.scenario == 'class':
         args.bce_distill = True
     args.use_embeddings = False
@@ -280,6 +282,7 @@ if __name__ == '__main__':
     args.bce = False
     args.bce_distill = False
     args.use_embeddings = False
+    args.multi_negative = False
 
     ## OTR + distill
     args.replay = 'online'
@@ -293,11 +296,13 @@ if __name__ == '__main__':
     args.teacher_opt = 'Adam'
     args.use_scheduler = False
     args.distill_type = 'E'
+    args.multi_negative = False
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
     args.replay = 'none'
     args.use_teacher = False
     args.use_embeddings = False
+    args.multi_negative = False
 
     ## Online Replay + embed
     # args.replay = 'online'

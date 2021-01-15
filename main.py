@@ -577,7 +577,7 @@ def run(args, verbose=False):
                 'NA' for _ in range(args.tasks)
             ]
             R = R.reindex(['at start'] + ['after task {}'.format(i + 1) for i in range(args.tasks)])
-            BWTs = [(R.loc['after task {}'.format(args.tasks), 'task {}'.format(i + 1)] - \
+            BWTs = [(R.loc['after task {}'.format(args.tasks), 'task {}'.format(i + 1)] -
                      R.loc['after task {}'.format(i + 1), 'task {}'.format(i + 1)]) for i in range(args.tasks - 1)]
             FWTs = [0. if args.use_exemplars else (
                 R.loc['after task {}'.format(i+1), 'task {}'.format(i + 2)] - R.loc['at start', 'task {}'.format(i+2)]
@@ -637,7 +637,7 @@ def run(args, verbose=False):
                 'initial acc per task (only classes in task)'
             ] if not args.use_exemplars else ['NA' for _ in range(args.tasks)]
             R = R.reindex(['at start'] + ['after task {}'.format(i + 1) for i in range(args.tasks)])
-            BWTs = [(R.loc['after task {}'.format(args.tasks), 'task {}'.format(i + 1)] - \
+            BWTs = [(R.loc['after task {}'.format(args.tasks), 'task {}'.format(i + 1)] -
                      R.loc['after task {}'.format(i + 1), 'task {}'.format(i + 1)]) for i in range(args.tasks-1)]
             FWTs = [0. if args.use_exemplars else (
                 R.loc['after task {}'.format(i+1), 'task {}'.format(i+2)] - R.loc['at start', 'task {}'.format(i+2)]
