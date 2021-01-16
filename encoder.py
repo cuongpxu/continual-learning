@@ -395,6 +395,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                          F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                                   F.softmax(y_hat_teacher.detach() / self.KD_temp, dim=1), reduction='batchmean')
                                          * (self.KD_temp * self.KD_temp))
+
                     else: # distill: E, ES
                         loss_KD = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                            F.softmax(y_hat_ensemble / self.KD_temp, dim=1), reduction='batchmean') \
@@ -403,7 +404,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 else: # distill: T, TS
                     loss_KD = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                        F.softmax(y_hat_teacher.detach() / self.KD_temp, dim=1), reduction='batchmean') \
-                                   * (self.KD_temp * self.KD_temp)
+                                   * (self.alpha_t * self.KD_temp * self.KD_temp)
+                loss_KD = self.alpha_t * loss_KD + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
             else:
                 loss_KD = None
 
@@ -524,9 +526,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             optimizer.zero_grad()
             y_hat = self(x)
 
-            if active_classes is not None:
-                class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
-                y_hat = y_hat[:, class_entries]
+            # if active_classes is not None:
+            #     class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
+            #     y_hat = y_hat[:, class_entries]
 
             if params_dict['teacher_loss'] == 'BCE':
                 y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
@@ -544,9 +546,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 x, y = x.to(self._device()), y.to(self._device())
                 y_hat = self(x)
 
-                if active_classes is not None:
-                    class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
-                    y_hat = y_hat[:, class_entries]
+                # if active_classes is not None:
+                #     class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
+                #     y_hat = y_hat[:, class_entries]
 
                 if params_dict['teacher_loss'] == 'BCE':
                     y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
