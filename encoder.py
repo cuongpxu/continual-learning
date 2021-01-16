@@ -405,7 +405,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     loss_KD = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                        F.softmax(y_hat_teacher.detach() / self.KD_temp, dim=1)) \
                                    * (self.alpha_t * self.KD_temp * self.KD_temp)
-                # loss_KD = self.alpha_t * loss_KD + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
+                loss_KD = self.alpha_t * loss_KD + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
             else:
                 loss_KD = None
 
