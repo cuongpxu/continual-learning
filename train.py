@@ -260,7 +260,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                                                 scenario=scenario, teacher=teacher,
                                                 params_dict=params_dict)
                 if teacher.is_ready_distill:
-                    teacher.train_via_KD(x, loss_dict['y_hat'], active_classes, params_dict['distill_type'])
+                    teacher.train_via_KD(loss_dict['y_hat_teacher'], loss_dict['y_hat'], params_dict['distill_type'])
 
                 # Update running parameter importance estimates in W
                 if isinstance(model, ContinualLearner) and (model.si_c > 0):
