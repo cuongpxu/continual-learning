@@ -294,6 +294,15 @@ def run(args, verbose=False):
     else:
         raise ValueError("Unrecognized optimizer, '{}' is not currently a valid option".format(args.optimizer))
 
+    if teacher is not None:
+        teacher.optim_list = [{'params': filter(lambda p: p.requires_grad, teacher.parameters()), 'lr': args.lr}]
+        teacher.optim_type = args.optimizer
+        if teacher.optim_type in ("adam", "adam_reset"):
+            teacher.optimizer = optim.Adam(model.optim_list, betas=(0.9, 0.999))
+        elif teacher.optim_type == "sgd":
+            teacher.optimizer = optim.SGD(model.optim_list, momentum=0.9)
+        else:
+            raise ValueError("Unrecognized optimizer, '{}' is not currently a valid option".format(args.optimizer))
 
     #-------------------------------------------------------------------------------------------------#
 
@@ -362,6 +371,9 @@ def run(args, verbose=False):
     if isinstance(model, Replayer):
         model.replay_targets = "soft" if args.distill else "hard"
         model.KD_temp = args.temp
+
+        if teacher is not None:
+            teacher.KD_temp = args.temp
 
     # If needed, specify separate model for the generator
     train_gen = True if (args.replay=="generative" and not args.feedback) else False

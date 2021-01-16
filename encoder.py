@@ -369,12 +369,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
             if teacher is not None:
                 if teacher.is_ready_distill:
-                    if params_dict['distill_type'] == 'T':
-                        teacher.eval()
-                        with torch.no_grad():
-                            y_hat_teacher = teacher(x)
-                    else:
-                        teacher.eval()
+                    teacher.eval()
+                    with torch.no_grad():
                         y_hat_teacher = teacher(x)
                 else:
                     y_hat_teacher = None
@@ -394,68 +390,24 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     with torch.no_grad():
                         y_hat_ensemble = 0.5 * (y_hat + y_hat_teacher)
 
-                    if params_dict['distill_type'] == 'ET':
-                        teacherL = nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) * (
-                                               self.KD_temp * self.KD_temp)
-
-                        studentL = 0.5 * (nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                         F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
-                                          * (self.KD_temp * self.KD_temp) +
-                                          nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                         F.softmax(y_hat_teacher / self.KD_temp, dim=1))
-                                          * (self.KD_temp * self.KD_temp))
-                    elif params_dict['distill_type'] == 'ES':
-                        teacherL = 0.5 * (nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) * (
-                                           self.KD_temp * self.KD_temp) +
-                                          nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                                         F.softmax(y_hat / self.KD_temp, dim=1))
-                                          * (self.KD_temp * self.KD_temp))
-
-                        studentL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1))\
-                                   * (self.KD_temp * self.KD_temp)
-                    elif params_dict['distill_type'] == 'ETS':
-                        teacherL = 0.5 * (nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                                         F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
-                                          * (self.KD_temp * self.KD_temp) +
-                                          nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                                         F.softmax(y_hat / self.KD_temp, dim=1))
-                                          * (self.KD_temp * self.KD_temp))
-
-                        studentL = 0.5 * (nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                         F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
-                                          * (self.KD_temp * self.KD_temp) +
-                                          nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                         F.softmax(y_hat_teacher / self.KD_temp, dim=1))
-                                          * (self.KD_temp * self.KD_temp))
-
-                    else: #distill: E
-                        teacherL = nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
-                                   * (self.KD_temp * self.KD_temp)
-                        studentL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
+                    if params_dict['distill_type'] in ['ET', 'ETS']:
+                        loss_KD = 0.5 * (F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1), reduction='batchmean')
+                                         * (self.KD_temp * self.KD_temp) +
+                                         F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                                  F.softmax(y_hat_teacher / self.KD_temp, dim=1), reduction='batchmean')
+                                         * (self.KD_temp * self.KD_temp))
+                    else: # distill: E, ES
+                        loss_KD = F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                                           F.softmax(y_hat_ensemble / self.KD_temp, dim=1), reduction='batchmean') \
                                    * (self.KD_temp * self.KD_temp)
 
-                else:
-                    if params_dict['distill_type'] == 'TS':
-                        teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat_teacher / self.KD_temp, dim=1))\
+                else: # distill: T, TS
+                    loss_KD = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                       F.softmax(y_hat_teacher / self.KD_temp, dim=1), reduction='batchmean') \
                                    * (self.KD_temp * self.KD_temp)
-
-                        studentL = nn.KLDivLoss()(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat / self.KD_temp, dim=1)) \
-                                   * (self.KD_temp * self.KD_temp)
-                    else: #distill: T
-                        teacherL = nn.KLDivLoss()(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
-                                   * (self.KD_temp * self.KD_temp)
-                        studentL = None
             else:
-                teacherL = None
-                studentL = None
+                loss_KD = None
 
             # Calculate prediction loss
             if self.binaryCE:
@@ -488,11 +440,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                          params_dict['use_embeddings'], params_dict['multi_negative'])
 
             # Weigh losses
-            if teacherL is not None:
-                if studentL is not None:
-                    loss_cur = rnt * predL + (1 - rnt) * (1 / 2) * (teacherL + studentL)
-                else:
-                    loss_cur = rnt * predL + (1 - rnt) * teacherL
+            if loss_KD is not None:
+                loss_cur = rnt * predL + (1 - rnt) * loss_KD
             else:
                 loss_cur = predL
 
@@ -556,6 +505,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
         # Return the dictionary with different training-loss split in categories
         return {
+            'y_hat': y_hat.detach().clone(),
             'loss_total': loss_total.item(),
             'loss_current': loss_cur.item() if x is not None else 0,
             'loss_replay': loss_replay.item() if (x_ is not None and loss_replay is not None) else 0,
@@ -606,3 +556,34 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 valid_losses.append(valid_loss.item())
         self.train()
         return valid_losses
+
+    def train_via_KD(self, x, y_hat, active_classes, distill_type):
+        if distill_type == 'T':
+            return
+        self.train()
+        y_hat_teacher = self(x)
+        # -if needed, remove predictions for classes not in current task
+        if active_classes is not None:
+            class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
+            y_hat_teacher = y_hat_teacher[:, class_entries]
+        self.optimizer.zero_grad()
+        if distill_type in ['E', 'ET', 'ES', 'ETS']:
+            with torch.no_grad():
+                y_hat_ensemble = 0.5 * (y_hat_teacher + y_hat)
+            if distill_type in ['ES', 'ETS']: # distill from ensemble and student to teacher
+                loss = 0.5 * (F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                                       F.softmax(y_hat_ensemble / self.KD_temp, dim=1), reduction='batchmean')
+                              * (self.KD_temp * self.KD_temp) +
+                              F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                                       F.softmax(y_hat / self.KD_temp, dim=1), reduction='batchmean')
+                              * (self.KD_temp * self.KD_temp))
+            else: # distill from ensemble to teacher
+                loss = F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                                F.softmax(y_hat_ensemble / self.KD_temp, dim=1), reduction='batchmean') \
+                       * (self.KD_temp * self.KD_temp)
+        else:
+            loss = F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
+                            F.softmax(y_hat / self.KD_temp, dim=1), reduction='batchmean') \
+                   * (self.KD_temp * self.KD_temp)
+        loss.backward()
+        self.optimizer.step()
