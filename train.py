@@ -54,6 +54,8 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
         # Re-train teacher in every task
         if teacher is not None:
             teacher.is_offline_training = False
+            teacher.is_ready_distill = False
+            
         # If offline replay-setting, create large database of all tasks so far
         if replay_mode == "offline" and (not scenario == "task"):
             train_dataset = ConcatDataset(train_datasets[:task])
