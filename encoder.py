@@ -524,9 +524,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             optimizer.zero_grad()
             y_hat = self(x)
 
-            # if active_classes is not None:
-            #     class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
-            #     y_hat = y_hat[:, class_entries]
+            if active_classes is not None:
+                class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
+                y_hat = y_hat[:, class_entries]
 
             if params_dict['teacher_loss'] == 'BCE':
                 y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
@@ -544,9 +544,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 x, y = x.to(self._device()), y.to(self._device())
                 y_hat = self(x)
 
-                # if active_classes is not None:
-                #     class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
-                #     y_hat = y_hat[:, class_entries]
+                if active_classes is not None:
+                    class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
+                    y_hat = y_hat[:, class_entries]
 
                 if params_dict['teacher_loss'] == 'BCE':
                     y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
