@@ -564,7 +564,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         if distill_type == 'T':
             return
         self.train()
-        self.optimizer.zero_grad()
+
         if distill_type in ['E', 'ET', 'ES', 'ETS']:
             with torch.no_grad():
                 y_hat_ensemble = 0.5 * (y_hat_teacher + y_hat)
@@ -583,5 +583,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             loss = F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
                             F.softmax(y_hat / self.KD_temp, dim=1), reduction='batchmean') \
                    * (self.KD_temp * self.KD_temp)
+        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
