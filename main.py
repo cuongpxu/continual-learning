@@ -57,7 +57,7 @@ model_params.add_argument('--teacher_loss', type=str, default='CE', help='teache
 model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
 model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
-model_params.add_argument('--distill_type', type=str, default='T', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
+model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
 model_params.add_argument('--multi_negative', type=bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
@@ -162,8 +162,10 @@ def run(args, verbose=False):
                 args.bce_distill = True
         args.replay = 'online'
 
-        if hasattr(args, "add_exemplars") and args.add_exemplars:
+        if (hasattr(args, "add_exemplars") and args.add_exemplars) \
+                or (hasattr(args, "use_exemplars") and args.use_exemplars):
             args.otr_exemplars = True
+            args.norm_exemplars = True
 
     if hasattr(args, "otr_distill") and args.otr_distill:
         if args.experiment in ['splitMNIST', 'CIFAR10']:
@@ -173,8 +175,10 @@ def run(args, verbose=False):
         args.replay = 'online'
         args.use_teacher = True
 
-        if hasattr(args, "add_exemplars") and args.add_exemplars:
+        if (hasattr(args, "add_exemplars") and args.add_exemplars) \
+                or (hasattr(args, "use_exemplars") and args.use_exemplars):
             args.otr_exemplars = True
+            args.norm_exemplars = True
 
     # -if XdG is selected but not the Task-IL scenario, give error
     if (not args.scenario=="task") and args.xdg:
@@ -513,7 +517,7 @@ def run(args, verbose=False):
     # Get params dict
     params_dict = {
         # OTR
-        'use_otr': True if ((hasattr(args, 'otr') and args.otr) or (hasattr(args, 'otr_distill'))
+        'use_otr': True if ((hasattr(args, 'otr') and args.otr) or (hasattr(args, 'otr_distill') and args.otr_distill)
                             or args.replay == 'online') else False,
         'otr_exemplars': args.otr_exemplars,
         'triplet_selection': args.triplet_selection,

@@ -32,6 +32,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
     [*_cbs]             <list> of call-back functions to evaluate training-progress'''
 
     # Set model in training-mode
+    params_dict['use_exemplars'] = use_exemplars
     model.train()
     torch.autograd.set_detect_anomaly(True)
     # Use cuda?
@@ -55,7 +56,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
         if teacher is not None:
             teacher.is_offline_training = False
             teacher.is_ready_distill = False
-            
+
         # If offline replay-setting, create large database of all tasks so far
         if replay_mode == "offline" and (not scenario == "task"):
             train_dataset = ConcatDataset(train_datasets[:task])
@@ -261,7 +262,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                                                 active_classes=active_classes, task=task, rnt=1. / task,
                                                 scenario=scenario, teacher=teacher,
                                                 params_dict=params_dict)
-                if teacher.is_ready_distill:
+                if teacher is not None and teacher.is_ready_distill:
                     teacher.train_via_KD(loss_dict['y_hat_teacher'], loss_dict['y_hat'], params_dict['distill_type'])
 
                 # Update running parameter importance estimates in W
@@ -307,6 +308,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     teacher.is_offline_training = True
                     teacher.is_ready_distill = False
 
+                    # TODO: Adding augmentation for memory dataset
                     # Get dataset from online memory
                     if scenario in ['task', 'domain']:
                         memory_datasets = []
@@ -318,7 +320,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                                 )
                     else:
                         memory_datasets = []
-                        for c in range(len(model.online_exemplar_sets)):
+                        for c in sorted(model.online_exemplar_sets):
                             memory_datasets.append(OnlineExemplarDataset(model.online_exemplar_sets[c]))
 
                     teacher_dataset = ConcatDataset(memory_datasets)
@@ -361,13 +363,15 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 new_classes = list(range(classes_per_task)) if scenario == "domain" else list(
                     range(classes_per_task * (task - 1),
                           classes_per_task * task))
+                print(new_classes)
                 for class_id in new_classes:
                     # create new dataset containing only all examples of this class
                     class_dataset = SubDataset(original_dataset=train_dataset, sub_labels=[class_id])
                     # based on this dataset, construct new exemplar-set for this class
                     model.construct_exemplar_set(dataset=class_dataset, n=exemplars_per_class)
                 model.compute_means = True
-
+            else:
+                model.compute_means = True
         # Calculate statistics required for metrics
         for metric_cb in metric_cbs:
             if metric_cb is not None:

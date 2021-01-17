@@ -426,9 +426,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     self.select_triplets(embeds, y_score, x, y,
                                          params_dict['triplet_selection'], task, scenario,
                                          params_dict['use_embeddings'], params_dict['multi_negative'])
-                # if params_dict['otr_exemplars']:
-                #     # Update class mean
-                #     self.compute_class_means(x, y)
             else:
                 # -multiclass prediction loss
                 y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
@@ -438,7 +435,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     self.select_triplets(embeds, y_score, x, y,
                                          params_dict['triplet_selection'], task, scenario,
                                          params_dict['use_embeddings'], params_dict['multi_negative'])
-
             # Weigh losses
             if loss_KD is not None:
                 loss_cur = rnt * predL + (1 - rnt) * loss_KD

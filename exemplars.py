@@ -30,8 +30,6 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         self.online_exemplar_sets = {}  # --> exemplar_set is a dictionary contains an <np.array> of N images
                                         # with shape (N, Ch, H, W) and its corresponding true label
         self.online_classes_so_far = []
-        self.online_exemplar_means = {}
-        # self.online_exemplar_features = {}
 
     def _device(self):
         return next(self.parameters()).device
@@ -131,36 +129,6 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
                 xm = x[i].unsqueeze(dim=0)
                 ym = y[i].unsqueeze(dim=0)
                 self.add_single_instance_to_exempalr(xm, ym, m[i])
-
-    def compute_class_means(self, x, y):
-        # compute features for each class
-        for i in self.online_exemplar_sets:
-            mask = y == i
-            dataset = OnlineExemplarDataset(self.online_exemplar_sets[i])
-            first_entry = True
-            dataloader = utils.get_data_loader(dataset, 128, cuda=self._is_on_cuda())
-            for (image_batch, _) in dataloader:
-                image_batch = image_batch.to(self._device())
-                image_batch = torch.cat((image_batch, x[mask]), dim=0)
-                with torch.no_grad():
-                    feature_batch = self.feature_extractor(image_batch).cpu()
-                if first_entry:
-                    features = feature_batch
-                    first_entry = False
-                else:
-                    features = torch.cat([features, feature_batch], dim=0)
-
-            if self.norm_exemplars:
-                features = F.normalize(features, p=2, dim=1)
-
-            class_mean = torch.mean(features, dim=0, keepdim=True)
-            if self.norm_exemplars:
-                class_mean = F.normalize(class_mean, p=2, dim=1)
-
-            if i not in self.online_exemplar_means:
-                self.online_exemplar_means[i] = class_mean.squeeze()
-            else:
-                self.online_exemplar_means[i] = 0.5 * (self.online_exemplar_means[i] + class_mean.squeeze())
 
     ####----MANAGING EXEMPLAR SETS----####
 
@@ -309,13 +277,28 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
 
         batch_size = x.size(0)
 
-        ex_means = []
-        for k in range(len(self.online_exemplar_means)):
-            ex_means.append(self.online_exemplar_means[k])
+        # Do the exemplar-means need to be recomputed?
+        if self.compute_means:
+            ex_means = []  # --> list of 1D-tensors (of size [feature_size]), list is of length [n_classes]
+            for k in sorted(self.online_exemplar_sets):
+                # Collect all exemplars in P_y into a <tensor> and extract their features
+                exemplars = torch.from_numpy(self.online_exemplar_sets[k][0]).to(self._device())
+                with torch.no_grad():
+                    features = self.feature_extractor(exemplars)
+                if self.norm_exemplars:
+                    features = F.normalize(features, p=2, dim=1)
+                # Calculate their mean and add to list
+                mu_y = features.mean(dim=0, keepdim=True)
+                if self.norm_exemplars:
+                    mu_y = F.normalize(mu_y, p=2, dim=1)
+                ex_means.append(mu_y.squeeze())  # -> squeeze removes all dimensions of size 1
+            # Update model's attributes
+            self.exemplar_means = ex_means
+            self.compute_means = False
 
         # Reorganize the [exemplar_means]-<tensor>
-        exemplar_means = ex_means if allowed_classes is None else [
-            ex_means[i] for i in allowed_classes
+        exemplar_means = self.exemplar_means if allowed_classes is None else [
+            self.exemplar_means[i] for i in allowed_classes
         ]
         means = torch.stack(exemplar_means)  # (n_classes, feature_size)
         means = torch.stack([means] * batch_size)  # (batch_size, n_classes, feature_size)
