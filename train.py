@@ -70,7 +70,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
             target_transform = (lambda y, x=classes_per_task: y % x) if scenario == "domain" else None
             if params_dict['use_otr']:
                 exemplar_sets = []
-                for c in range(len(model.online_exemplar_sets)):
+                for c in sorted(model.online_exemplar_sets):
                     exemplar_sets.append(model.online_exemplar_sets[c][0])
 
                 exemplar_dataset = ExemplarDataset(exemplar_sets, target_transform=target_transform)
@@ -157,8 +157,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 x = y = scores = None
             else:
                 x, y = next(data_loader)  # --> sample training data of current task
-                y = y - classes_per_task * (
-                        task - 1) if scenario == "task" else y  # --> ITL: adjust y-targets to 'active range'
+                y = y - classes_per_task * (task - 1) if scenario == "task" else y  # --> ITL: adjust y-targets to 'active range'
                 y = y.long()
                 x, y = x.to(device), y.to(device)  # --> transfer them to correct device
                 x.requires_grad_(requires_grad=True)
@@ -363,7 +362,6 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 new_classes = list(range(classes_per_task)) if scenario == "domain" else list(
                     range(classes_per_task * (task - 1),
                           classes_per_task * task))
-                print(new_classes)
                 for class_id in new_classes:
                     # create new dataset containing only all examples of this class
                     class_dataset = SubDataset(original_dataset=train_dataset, sub_labels=[class_id])
@@ -400,7 +398,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                                 )
                     else:
                         previous_datasets = []
-                        for c in range(len(model.online_exemplar_sets)):
+                        for c in sorted(model.online_exemplar_sets):
                             previous_datasets.append(OnlineExemplarDataset(model.online_exemplar_sets[c]))
                 else:
                     Exact = False
