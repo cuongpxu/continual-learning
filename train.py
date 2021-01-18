@@ -451,7 +451,6 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
     tk = tqdm.tqdm(range(1, params_dict['teacher_epochs']))
     tk.set_description('<Teacher> ')
     for epoch in tk:
-        print(teacher.device)
         teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer, active_classes, params_dict)
         vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion, active_classes, params_dict)
         if params_dict['use_scheduler']:

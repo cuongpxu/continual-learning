@@ -46,6 +46,7 @@ model_params.add_argument('--teacher_loss', type=str, default='CE', help='teache
 model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
 model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
+model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='T', choices=['T', 'TS', 'E', 'ET', 'ETS'])
 model_params.add_argument('--multi_negative', type=bool, default=False)
 # training hyperparameters / initialization
@@ -299,12 +300,14 @@ if __name__ == '__main__':
     args.use_scheduler = False
     args.distill_type = 'E'
     args.multi_negative = False
+    args.use_augment = False
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
     args.replay = 'none'
     args.use_teacher = False
     args.use_embeddings = False
     args.multi_negative = False
+    args.use_augment = False
 
     ## Online Replay + embed
     # args.replay = 'online'

@@ -1,5 +1,5 @@
 import data
-
+import utils
 
 def get_param_stamp_from_args(args):
     '''To get param-stamp a bit quicker.'''
@@ -112,7 +112,8 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
         if args.replay == 'online':
             distill = ''
             if hasattr(args, 'use_teacher') and args.use_teacher:
-                distill = '-distill-{}'.format(args.distill_type)
+                distill = '-distill-{}{}'.format(args.distill_type,
+                                                 '-A' if utils.checkattr(args, 'use_augment') else '')
             teacher_stamp = '{}{}{}{}{}'.format('' if args.teacher_epochs == 100 else f'-e{args.teacher_epochs}',
                                                 '' if args.teacher_split == 0.8 else f'-s{args.teacher_split}',
                                                 '' if args.teacher_loss == 'CE' else f'-{args.teacher_loss}',

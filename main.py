@@ -57,6 +57,7 @@ model_params.add_argument('--teacher_loss', type=str, default='CE', help='teache
 model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
 model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
+model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
 model_params.add_argument('--multi_negative', type=bool, default=False)
 # training hyperparameters / initialization
@@ -513,7 +514,7 @@ def run(args, verbose=False):
     start = time.time()
 
     # Get params dict
-    if teacher is not None:
+    if teacher is not None and utils.checkattr(args, 'use_augment'):
         teacher_augment = get_augmentation(name=args.experiment,
                                        augment=True if utils.checkattr(args, "augment") else False)
     else:
