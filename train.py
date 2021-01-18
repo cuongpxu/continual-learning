@@ -306,7 +306,6 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     teacher.is_offline_training = True
                     teacher.is_ready_distill = False
 
-                    # TODO: Adding augmentation for memory dataset
                     # Get dataset from online memory
                     if scenario in ['task', 'domain']:
                         memory_datasets = []
@@ -424,7 +423,7 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
     mem_train_set, mem_val_set = random_split(teacher_dataset, [mem_train_size,
                                                                 len(teacher_dataset) - mem_train_size])
     if params_dict['teacher_augment'] is not None:
-        mem_train_set = TransformedDataset(mem_train_set, transform=params_dict['teacher_augment'], kornia_augment=False)
+        mem_train_set = TransformedDataset(mem_train_set, transform=params_dict['teacher_augment'])
     mem_train_loader = utils.get_data_loader(mem_train_set, batch_size=params_dict['batch_size'],
                                              shuffle=True, drop_last=False, cuda=params_dict['cuda'])
     mem_val_loader = utils.get_data_loader(mem_val_set, batch_size=params_dict['batch_size'],
@@ -452,6 +451,7 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
     tk = tqdm.tqdm(range(1, params_dict['teacher_epochs']))
     tk.set_description('<Teacher> ')
     for epoch in tk:
+        print(teacher.device)
         teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer, active_classes, params_dict)
         vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion, active_classes, params_dict)
         if params_dict['use_scheduler']:

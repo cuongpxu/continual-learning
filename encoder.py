@@ -518,7 +518,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         for batch_idx, batch in enumerate(train_loader):
             x, y = batch
             x, y = x.to(self._device()), y.to(self._device())
-
             optimizer.zero_grad()
             y_hat = self(x)
 
