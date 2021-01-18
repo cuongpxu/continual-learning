@@ -367,7 +367,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 embeds = self.fcE(self.flatten(x))
             y_hat = self.classifier(embeds)
 
-            if teacher is not None:
+            if teacher is not None and task > 1:
                 if teacher.is_ready_distill:
                     y_hat_teacher = teacher(x)
                 else:

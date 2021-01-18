@@ -260,7 +260,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                                                 active_classes=active_classes, task=task, rnt=1. / task,
                                                 scenario=scenario, teacher=teacher,
                                                 params_dict=params_dict)
-                if teacher is not None and teacher.is_ready_distill:
+                if teacher is not None and teacher.is_ready_distill and task > 1:
                     teacher.train_via_KD(loss_dict['y_hat_teacher'], loss_dict['y_hat'], params_dict['distill_type'])
 
                 # Update running parameter importance estimates in W
