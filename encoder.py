@@ -386,7 +386,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             if y_hat_teacher is not None:
                 if params_dict['distill_type'] in ['E', 'ET', 'ES', 'ETS']:
                     with torch.no_grad():
-                        y_hat_ensemble = 0.5 * (y_hat + y_hat_teacher.detach())
+                        y_hat_ensemble = 0.5 * (y_hat + y_hat_teacher)
 
                     if params_dict['distill_type'] in ['ET', 'ETS']:
                         loss_KD = 0.5 * (F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),

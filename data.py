@@ -53,10 +53,17 @@ def _permutate_image_pixels(image, permutation):
 def get_augmentation(name, augment=False):
     dataset_transform = None
     if name in ['CIFAR10', 'CIFAR100'] and augment:
-        dataset_transform = torch.nn.Sequential(
-            kornia.augmentation.RandomHorizontalFlip(p=0.5),
-            kornia.augmentation.RandomCrop((32, 32), padding=4)
-        )
+        # dataset_transform = torch.nn.Sequential(
+        #     kornia.augmentation.RandomHorizontalFlip(p=0.5),
+        #     kornia.augmentation.RandomCrop((32, 32), padding=4)
+        # )
+
+        dataset_transform = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(32, padding=4),
+            transforms.ToTensor()
+        ])
 
     return dataset_transform
 
