@@ -10,7 +10,7 @@ import utils
 import pandas as pd
 from param_stamp import get_param_stamp, get_param_stamp_from_args
 import evaluate
-from data import get_multitask_experiment
+from data import get_multitask_experiment, get_augmentation
 from encoder import Classifier
 from vae_models import AutoEncoder
 import callbacks as cb
@@ -155,19 +155,18 @@ def run(args, verbose=False):
             args.norm_exemplars = True
 
     # -if [OTR] is selected, select all accompanying options
-    if hasattr(args, "otr") and args.otr:
+    if utils.checkattr(args, 'otr'):
         if args.experiment in ['splitMNIST', 'CIFAR10']:
             args.bce = True
             if args.scenario == 'class':
                 args.bce_distill = True
         args.replay = 'online'
 
-        if (hasattr(args, "add_exemplars") and args.add_exemplars) \
-                or (hasattr(args, "use_exemplars") and args.use_exemplars):
+        if utils.checkattr(args, 'add_exemplars') or utils.checkattr(args, 'use_exemplars'):
             args.otr_exemplars = True
             args.norm_exemplars = True
 
-    if hasattr(args, "otr_distill") and args.otr_distill:
+    if utils.checkattr(args, 'otr_distill'):
         if args.experiment in ['splitMNIST', 'CIFAR10']:
             args.bce = True
             if args.scenario == 'class':
@@ -175,8 +174,7 @@ def run(args, verbose=False):
         args.replay = 'online'
         args.use_teacher = True
 
-        if (hasattr(args, "add_exemplars") and args.add_exemplars) \
-                or (hasattr(args, "use_exemplars") and args.use_exemplars):
+        if utils.checkattr(args, 'add_exemplars') or utils.checkattr(args, 'use_exemplars'):
             args.otr_exemplars = True
             args.norm_exemplars = True
 
@@ -515,10 +513,16 @@ def run(args, verbose=False):
     start = time.time()
 
     # Get params dict
+    if teacher is not None:
+        teacher_augment = get_augmentation(name=args.experiment,
+                                       augment=True if utils.checkattr(args, "augment") else False)
+    else:
+        teacher_augment = None
+
     params_dict = {
         # OTR
-        'use_otr': True if ((hasattr(args, 'otr') and args.otr) or (hasattr(args, 'otr_distill') and args.otr_distill)
-                            or args.replay == 'online') else False,
+        'use_otr': True if utils.checkattr(args, 'otr') or utils.checkattr(args, 'otr_distill')
+                           or args.replay == 'online' else False,
         'otr_exemplars': args.otr_exemplars,
         'triplet_selection': args.triplet_selection,
         'use_embeddings': args.use_embeddings,
@@ -526,7 +530,7 @@ def run(args, verbose=False):
         'teacher_split': args.teacher_split, 'teacher_loss':args.teacher_loss,
         'teacher_opt': args.teacher_opt, 'use_scheduler': args.use_scheduler,
         'teacher_epochs': args.teacher_epochs, 'distill_type': args.distill_type,
-        'multi_negative': args.multi_negative
+        'teacher_augment': teacher_augment, 'multi_negative': args.multi_negative
     }
     # Train model
     train_cl(

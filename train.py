@@ -5,7 +5,7 @@ import utils
 import os
 import numpy as np
 import threading
-from data import SubDataset, ExemplarDataset, OnlineExemplarDataset
+from data import SubDataset, ExemplarDataset, OnlineExemplarDataset, TransformedDataset
 from continual_learner import ContinualLearner
 from es import EarlyStopping
 from torch import optim
@@ -18,7 +18,6 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
              batch_size=32, generator=None, gen_iters=0,
              gen_loss_cbs=list(), loss_cbs=list(), eval_cbs=list(), sample_cbs=list(),
              use_exemplars=True, add_exemplars=False, metric_cbs=list(),
-             # otr_exemplars=False, triplet_selection='HP-HN-1', use_embeddings=False,
              params_dict=None):
     '''Train a model (with a "train_a_batch" method) on multiple tasks, with replay-strategy specified by [replay_mode].
 
@@ -424,6 +423,8 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
     mem_train_size = int(teacher_split * len(teacher_dataset))
     mem_train_set, mem_val_set = random_split(teacher_dataset, [mem_train_size,
                                                                 len(teacher_dataset) - mem_train_size])
+    if params_dict['teacher_augment'] is not None:
+        mem_train_set = TransformedDataset(mem_train_set, transform=params_dict['teacher_augment'],kornia_augment=True)
     mem_train_loader = utils.get_data_loader(mem_train_set, batch_size=params_dict['batch_size'],
                                              shuffle=True, drop_last=False, cuda=params_dict['cuda'])
     mem_val_loader = utils.get_data_loader(mem_val_set, batch_size=params_dict['batch_size'],

@@ -4,6 +4,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import ConcatDataset, Dataset
 import torch
 import matplotlib.pyplot as plt
+import kornia
 
 
 class UnNormalize(object):
@@ -47,6 +48,17 @@ def _permutate_image_pixels(image, permutation):
         image = image[:, permutation]  #--> same permutation for each channel
         image = image.view(c, h, w)
         return image
+
+
+def get_augmentation(name, augment=False):
+    dataset_transform = None
+    if name in ['CIFAR10', 'CIFAR100'] and augment:
+        dataset_transform = torch.nn.Sequential(
+            kornia.augmentation.RandomHorizontalFlip(p=0.5),
+            kornia.augmentation.RandomCrop((32, 32), padding=4)
+        )
+
+    return dataset_transform
 
 
 def get_dataset(name, type='train', download=True, capacity=None, dir='./datasets',
@@ -174,11 +186,12 @@ class ExemplarDataset(Dataset):
 class TransformedDataset(Dataset):
     '''Modify existing dataset with transform; for creating multiple MNIST-permutations w/o loading data every time.'''
 
-    def __init__(self, original_dataset, transform=None, target_transform=None):
+    def __init__(self, original_dataset, transform=None, target_transform=None, kornia_augment=False):
         super().__init__()
         self.dataset = original_dataset
         self.transform = transform
         self.target_transform = target_transform
+        self.kornia_augment = kornia_augment
 
     def __len__(self):
         return len(self.dataset)
@@ -187,6 +200,8 @@ class TransformedDataset(Dataset):
         (input, target) = self.dataset[index]
         if self.transform:
             input = self.transform(input)
+            if self.kornia_augment:
+                input = input[0]
         if self.target_transform:
             target = self.target_transform(target)
         return (input, target)

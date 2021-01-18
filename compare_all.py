@@ -272,10 +272,11 @@ if __name__ == '__main__':
     args.budget = 2000
     args.triplet_selection = 'HP-HN-1'
     args.bce = True
-    args.multi_negative = False
     if args.scenario == 'class':
         args.bce_distill = True
     args.use_embeddings = False
+    args.multi_negative = False
+    args.add_exemplars = False
     OTR = {}
     OTR = collect_all(OTR, seed_list, args, name='OTR (ours)')
     args.replay = 'none'
@@ -283,6 +284,7 @@ if __name__ == '__main__':
     args.bce_distill = False
     args.use_embeddings = False
     args.multi_negative = False
+    args.add_exemplars = False
 
     ## OTR + distill
     args.replay = 'online'
