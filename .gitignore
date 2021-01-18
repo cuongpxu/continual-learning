@@ -15,6 +15,7 @@ benchmark_OTR_BCE/
 benchmark_icarl_resnet20/
 benchmark_OTR_distill/
 benchmark_OTR_distillE/
+benchmark_OTR/
 test_grad.py
 *.sh
 

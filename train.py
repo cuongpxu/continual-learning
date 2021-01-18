@@ -418,6 +418,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
 
 def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
     # Split dataset into train and val sets
+    torch.autograd.set_detect_anomaly(True)
     teacher_split = params_dict['teacher_split']
     mem_train_size = int(teacher_split * len(teacher_dataset))
     mem_train_set, mem_val_set = random_split(teacher_dataset, [mem_train_size,
