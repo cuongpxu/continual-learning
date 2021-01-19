@@ -60,7 +60,6 @@ class LinearExcitability(nn.Module):
             self.register_parameter('bias', None)
         if excit_buffer:
             buffer = torch.ones(out_features)
-            # buffer = torch.Tensor(out_features).uniform_(1, 1)
             self.register_buffer("excit_buffer", buffer)
         else:
             self.register_buffer("excit_buffer", None)
@@ -68,14 +67,12 @@ class LinearExcitability(nn.Module):
 
     def reset_parameters(self):
         '''Modifies the parameters to initialize / reset them at appropriate values.'''
+        '''Avoid using in-place init methods'''
         stdv = 1. / math.sqrt(self.weight.size(1))
-        # nn.init.uniform_(self.weight, -stdv, stdv)
         self.weight = Parameter(torch.distributions.Uniform(-stdv, stdv).sample(self.weight.size()))
         if self.excitability is not None:
             self.excitability = Parameter(torch.ones_like(self.excitability))
-            # nn.init.uniform_(self.excitability, 1, 1)
         if self.bias is not None:
-            # nn.init.uniform_(self.bias, -stdv, stdv)
             self.bias = Parameter(torch.distributions.Uniform(-stdv, stdv).sample(self.bias.size()))
 
     def forward(self, input):
