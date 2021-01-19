@@ -16,9 +16,12 @@ def linearExcitability(input, weight, excitability=None, bias=None):
     (NOTE: `*` means any number of additional dimensions)'''
 
     if excitability is not None:
-        output = input.matmul(weight.t()) * excitability
+        # output = input.matmul(weight.t()) * excitability
+        output = torch.matmul(input, weight.t()) * excitability
     else:
-        output = input.matmul(weight.t())
+        # output = input.matmul(weight.t())
+        output = torch.matmul(input, weight.t())
+
     if bias is not None:
         output = output + bias
     return output
@@ -65,13 +68,16 @@ class LinearExcitability(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        '''Modifies the parameters "in-place" to initialize / reset them at appropriate values.'''
+        '''Modifies the parameters to initialize / reset them at appropriate values.'''
         stdv = 1. / math.sqrt(self.weight.size(1))
-        self.weight.data.uniform_(-stdv, stdv)
+        nn.init.uniform_(self.weight, -stdv, stdv)
+        # self.weight.data.uniform_(-stdv, stdv)
         if self.excitability is not None:
-            self.excitability.data.uniform_(1, 1)
+            nn.init.uniform_(self.excitability, 1, 1)
+            # self.excitability.data.uniform_(1, 1)
         if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)
+            nn.init.uniform_(self.bias, -stdv, stdv)
+            # self.bias.data.uniform_(-stdv, stdv)
 
     def forward(self, input):
         '''Running this model's forward step requires/returns:
