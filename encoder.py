@@ -565,13 +565,13 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         self.optimizer.zero_grad()
         if distill_type in ['E', 'ET', 'ES', 'ETS']:
             with torch.no_grad():
-                y_hat_ensemble = 0.5 * (y_hat_teacher.clone() + y_hat)
+                y_hat_ensemble = 0.5 * (y_hat_teacher.clone() + y_hat.clone())
             if distill_type in ['ES', 'ETS']: # distill from ensemble and student to teacher
                 loss = 0.5 * (F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
                                        F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
                               * (self.KD_temp * self.KD_temp) +
                               F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                       F.softmax(y_hat / self.KD_temp, dim=1))
+                                       F.softmax(y_hat.clone() / self.KD_temp, dim=1))
                               * (self.KD_temp * self.KD_temp))
             else: # distill from ensemble to teacher
                 loss = F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
@@ -579,7 +579,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                        * (self.KD_temp * self.KD_temp)
         else:
             loss = F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                            F.softmax(y_hat / self.KD_temp, dim=1)) \
+                            F.softmax(y_hat.clone() / self.KD_temp, dim=1)) \
                    * (self.KD_temp * self.KD_temp)
         loss.backward()
         self.optimizer.step()

@@ -16,10 +16,8 @@ def linearExcitability(input, weight, excitability=None, bias=None):
     (NOTE: `*` means any number of additional dimensions)'''
 
     if excitability is not None:
-        # output = input.matmul(weight.t()) * excitability
         output = torch.matmul(input, weight.t()) * excitability
     else:
-        # output = input.matmul(weight.t())
         output = torch.matmul(input, weight.t())
 
     if bias is not None:
@@ -61,7 +59,8 @@ class LinearExcitability(nn.Module):
         else:
             self.register_parameter('bias', None)
         if excit_buffer:
-            buffer = torch.Tensor(out_features).uniform_(1,1)
+            buffer = torch.ones(out_features)
+            # buffer = torch.Tensor(out_features).uniform_(1, 1)
             self.register_buffer("excit_buffer", buffer)
         else:
             self.register_buffer("excit_buffer", None)
@@ -70,14 +69,14 @@ class LinearExcitability(nn.Module):
     def reset_parameters(self):
         '''Modifies the parameters to initialize / reset them at appropriate values.'''
         stdv = 1. / math.sqrt(self.weight.size(1))
-        nn.init.uniform_(self.weight, -stdv, stdv)
-        # self.weight.data.uniform_(-stdv, stdv)
+        # nn.init.uniform_(self.weight, -stdv, stdv)
+        self.weight = Parameter(torch.distributions.Uniform(-stdv, stdv).sample(self.weight.size()))
         if self.excitability is not None:
-            nn.init.uniform_(self.excitability, 1, 1)
-            # self.excitability.data.uniform_(1, 1)
+            self.excitability = Parameter(torch.ones_like(self.excitability))
+            # nn.init.uniform_(self.excitability, 1, 1)
         if self.bias is not None:
-            nn.init.uniform_(self.bias, -stdv, stdv)
-            # self.bias.data.uniform_(-stdv, stdv)
+            # nn.init.uniform_(self.bias, -stdv, stdv)
+            self.bias = Parameter(torch.distributions.Uniform(-stdv, stdv).sample(self.bias.size()))
 
     def forward(self, input):
         '''Running this model's forward step requires/returns:
@@ -88,7 +87,7 @@ class LinearExcitability(nn.Module):
         elif self.excitability is None:
             excitability = self.excit_buffer
         else:
-            excitability = self.excitability*self.excit_buffer
+            excitability = self.excitability * self.excit_buffer
         return linearExcitability(input, self.weight, excitability, self.bias)
 
     def __repr__(self):
