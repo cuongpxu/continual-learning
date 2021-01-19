@@ -20,7 +20,7 @@ def linearExcitability(input, weight, excitability=None, bias=None):
     else:
         output = input.matmul(weight.t())
     if bias is not None:
-        output += bias
+        output = output + bias
     return output
 
 

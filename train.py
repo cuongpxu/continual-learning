@@ -456,7 +456,6 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
         vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion, active_classes, params_dict)
         tk.set_description('<Teacher> | training_loss : {:.5f} | validation_loss: {:.5f}'
                            .format(np.average(tlosses), np.average(vlosses)), refresh=True)
-        # tk.update(1)
         if params_dict['use_scheduler']:
             scheduler.step(np.average(vlosses))
         early_stopping(np.average(vlosses), teacher, epoch)
