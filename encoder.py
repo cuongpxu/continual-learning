@@ -369,7 +369,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
             if teacher is not None and task > 1:
                 if teacher.is_ready_distill:
-                    y_hat_teacher = teacher(x)
+                    # y_hat_teacher = teacher(x)
+                    teacher.eval()
+                    with torch.no_grad():
+                        y_hat_teacher = teacher(x)
                 else:
                     y_hat_teacher = None
             else:
@@ -386,14 +389,14 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             if y_hat_teacher is not None:
                 if params_dict['distill_type'] in ['E', 'ET', 'ES', 'ETS']:
                     with torch.no_grad():
-                        y_hat_ensemble = 0.5 * (y_hat.clone() + y_hat_teacher.clone())
+                        y_hat_ensemble = 0.5 * (y_hat.clone() + y_hat_teacher)
 
                     if params_dict['distill_type'] in ['ET', 'ETS']:
                         loss_KD = 0.5 * (F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                                   F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
                                          * (self.KD_temp * self.KD_temp) +
                                          F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat_teacher.clone() / self.KD_temp, dim=1))
+                                                  F.softmax(y_hat_teacher / self.KD_temp, dim=1))
                                          * (self.KD_temp * self.KD_temp))
 
                     else: # distill: E, ES
@@ -403,7 +406,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                 else: # distill: T, TS
                     loss_KD = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                       F.softmax(y_hat_teacher.clone() / self.KD_temp, dim=1)) \
+                                       F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
                                    * (self.alpha_t * self.KD_temp * self.KD_temp)
                 loss_KD = self.alpha_t * loss_KD + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
             else:
@@ -501,8 +504,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
         # Return the dictionary with different training-loss split in categories
         return {
-            'y_hat': y_hat.detach().clone(),
-            'y_hat_teacher': y_hat_teacher,
             'loss_total': loss_total.item(),
             'loss_current': loss_cur.item() if x is not None else 0,
             'loss_replay': loss_replay.item() if (x_ is not None and loss_replay is not None) else 0,
@@ -522,10 +523,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             optimizer.zero_grad()
             y_hat = self(x)
 
-            # if active_classes is not None:
-            #     class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
-            #     y_hat = y_hat[:, class_entries]
-
             if params_dict['teacher_loss'] == 'BCE':
                 y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
 
@@ -544,10 +541,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 x, y = x.to(self._device()), y.to(self._device())
                 y_hat = self(x)
 
-                # if active_classes is not None:
-                #     class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
-                #     y_hat = y_hat[:, class_entries]
-
                 if params_dict['teacher_loss'] == 'BCE':
                     y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
 
@@ -556,22 +549,32 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         self.train()
         return valid_losses
 
-    def train_via_KD(self, y_hat_teacher, y_hat, distill_type):
-        if y_hat_teacher is None:
-            return
+    def train_via_KD(self, model, x, distill_type, active_classes):
         if distill_type == 'T':
             return
+
+        model.eval()
+        with torch.no_grad():
+            y_hat = model(x)
+        model.train()
+
         self.train()
         self.optimizer.zero_grad()
+        y_hat_teacher = self(x)
+        if active_classes is not None:
+            class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
+            y_hat = y_hat[:, class_entries]
+            y_hat_teacher = y_hat_teacher[:, class_entries]
+
         if distill_type in ['E', 'ET', 'ES', 'ETS']:
             with torch.no_grad():
-                y_hat_ensemble = 0.5 * (y_hat_teacher.clone() + y_hat.clone())
+                y_hat_ensemble = 0.5 * (y_hat_teacher.clone() + y_hat)
             if distill_type in ['ES', 'ETS']: # distill from ensemble and student to teacher
                 loss = 0.5 * (F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
                                        F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
                               * (self.KD_temp * self.KD_temp) +
                               F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                       F.softmax(y_hat.clone() / self.KD_temp, dim=1))
+                                       F.softmax(y_hat / self.KD_temp, dim=1))
                               * (self.KD_temp * self.KD_temp))
             else: # distill from ensemble to teacher
                 loss = F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
@@ -579,7 +582,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                        * (self.KD_temp * self.KD_temp)
         else:
             loss = F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
-                            F.softmax(y_hat.clone() / self.KD_temp, dim=1)) \
+                            F.softmax(y_hat / self.KD_temp, dim=1)) \
                    * (self.KD_temp * self.KD_temp)
         loss.backward()
         self.optimizer.step()
