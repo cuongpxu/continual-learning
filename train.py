@@ -159,7 +159,6 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 y = y - classes_per_task * (task - 1) if scenario == "task" else y  # --> ITL: adjust y-targets to 'active range'
                 y = y.long()
                 x, y = x.to(device), y.to(device)  # --> transfer them to correct device
-                # x.requires_grad_(requires_grad=True)
                 # If --bce, --bce-distill & scenario=="class", calculate scores of current batch with previous model
                 binary_distillation = hasattr(model, "binaryCE") and model.binaryCE and model.binaryCE_distill
                 if binary_distillation and scenario == "class" and (previous_model is not None):
@@ -179,7 +178,6 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     # Sample replayed training data, move to correct device
                     x_, y_ = next(data_loader_previous)
                     x_ = x_.to(device)
-                    x.requires_grad_(requires_grad=True)
                     y_ = y_.to(device) if (model.replay_targets == "hard") else None
                     # If required, get target scores (i.e, [scores_]         -- using previous model, with no_grad()
                     if (model.replay_targets == "soft"):
@@ -194,7 +192,6 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     up_to_task = task if replay_mode == "offline" else task - 1
                     for task_id in range(up_to_task):
                         x_temp, y_temp = next(data_loader_previous[task_id])
-                        x_temp.requires_grad_(requires_grad=True)
                         x_.append(x_temp.to(device))
                         # -only keep [y_] if required (as otherwise unnecessary computations will be done)
                         if model.replay_targets == "hard":
