@@ -301,9 +301,9 @@ def run(args, verbose=False):
         teacher.optim_list = [{'params': filter(lambda p: p.requires_grad, teacher.parameters()), 'lr': args.lr}]
         teacher.optim_type = args.optimizer
         if teacher.optim_type in ("adam", "adam_reset"):
-            teacher.optimizer = optim.Adam(model.optim_list, betas=(0.9, 0.999))
+            teacher.optimizer = optim.Adam(teacher.optim_list, betas=(0.9, 0.999))
         elif teacher.optim_type == "sgd":
-            teacher.optimizer = optim.SGD(model.optim_list, momentum=0.9)
+            teacher.optimizer = optim.SGD(teacher.optim_list, momentum=0.9)
         else:
             raise ValueError("Unrecognized optimizer, '{}' is not currently a valid option".format(args.optimizer))
 
