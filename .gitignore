@@ -6,6 +6,7 @@ plots/
 results/
 final_result/
 benchmark/
+benchmark_new/
 benchmark_memory/
 benchmark_selection/
 benchmark_distill/

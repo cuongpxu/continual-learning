@@ -324,6 +324,8 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     teacherThread = TeacherThread(1, teacher_dataset, teacher, active_classes, params_dict)
                     teacherThread.start()
 
+                    teacherThread.join()
+
         ##----------> UPON FINISHING EACH TASK...
 
         # Close progres-bar(s)

@@ -78,10 +78,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         return "{}_c{}".format(self.fcE.name, self.classes)
 
     def forward(self, x):
-        if self.experiment not in ['splitMNIST', 'permMNIST', 'rotMNIST']:
-            final_features = self.fcE(x)
-        else:
-            final_features = self.fcE(self.flatten(x))
+        final_features = self.feature_extractor(x)
         return self.classifier(final_features)
 
     def feature_extractor(self, images):
@@ -306,9 +303,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                 # Calculate losses
                 if (y_ is not None) and (y_[replay_id] is not None):
-                    # if self.loss == 'otfl':
-                    #     predL_r[replay_id], _ = loss_fn(x_[replay_id] if type(x_) == list else x_, y_hat, y_[replay_id])
-                    # else:
                     if self.binaryCE:
                         binary_targets_ = utils.to_one_hot(y_[replay_id].cpu(), y_hat.size(1)).to(y_[replay_id].device)
                         predL_r[replay_id] = F.binary_cross_entropy_with_logits(
@@ -359,17 +353,11 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 self.apply_XdGmask(task=task)
 
             # Run model
-            # y_hat = self(x)
-
-            if self.experiment not in ['splitMNIST', 'permMNIST', 'rotMNIST']:
-                embeds = self.fcE(x)
-            else:
-                embeds = self.fcE(self.flatten(x))
+            embeds = self.feature_extractor(x)
             y_hat = self.classifier(embeds)
 
             if teacher is not None and task > 1:
                 if teacher.is_ready_distill:
-                    # y_hat_teacher = teacher(x)
                     teacher.eval()
                     with torch.no_grad():
                         y_hat_teacher = teacher(x)
@@ -389,7 +377,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             if y_hat_teacher is not None:
                 if params_dict['distill_type'] in ['E', 'ET', 'ES', 'ETS']:
                     with torch.no_grad():
-                        y_hat_ensemble = 0.5 * (y_hat.clone() + y_hat_teacher)
+                        y_hat_ensemble = 0.5 * (y_hat.clone() + y_hat_teacher.clone())
 
                     if params_dict['distill_type'] in ['ET', 'ETS']:
                         loss_KD = 0.5 * (F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),

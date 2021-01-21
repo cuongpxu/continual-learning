@@ -26,8 +26,6 @@ task_params.add_argument('--tasks', type=int, help='number of tasks')
 
 # specify loss functions to be used
 loss_params = parser.add_argument_group('Loss Parameters')
-loss_params.add_argument('--loss', type=str, default='none',
-                         choices=['otfl', 'fgfl', 'focal', 'ce', 'gbfg', 'none'])
 loss_params.add_argument('--bce', action='store_true', help="use binary (instead of multi-class) classication loss")
 
 # model architecture parameters
@@ -39,7 +37,15 @@ model_params.add_argument('--fc-bn', type=str, default="no", help="use batch-nor
 model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", "leakyrelu"])
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                    " (instead of a 'multi-headed' one)")
-model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
+model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
+model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
+model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
+model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
+model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
+model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
+model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
+model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
+model_params.add_argument('--multi_negative', type=bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -172,7 +178,7 @@ if __name__ == '__main__':
         args.experiment = ex
         reset_default_params(args)
 
-        args.r_dir = '../benchmark'
+        args.r_dir = '../benchmark_new'
         args.r_dir = '{}/{}/{}'.format(args.r_dir, args.experiment, args.scenario)
         print(args.r_dir)
 
@@ -253,20 +259,45 @@ if __name__ == '__main__':
         writer = open('./wilcoxon_data/{}_{}_{}.dat'.format('OTR', args.experiment, args.scenario), 'w+')
         writer.write('{},{},{}\n'.format('OTR', args.experiment, args.scenario))
         args.replay = 'online'
-        args.online_memory_budget = 2000
+        args.budget = 2000
+        args.triplet_selection = 'HP-HN-1'
+        args.bce = True
+        if args.scenario == 'class':
+            args.bce_distill = True
+        args.use_embeddings = False
+        args.multi_negative = False
+        args.add_exemplars = False
         collect_all(writer, seed_list, args, name='OTR (ours)')
         args.replay = 'none'
+        args.bce = False
+        args.bce_distill = False
+        args.use_embeddings = False
+        args.multi_negative = False
+        args.add_exemplars = False
         writer.close()
 
         ## OTR + distill
         writer = open('./wilcoxon_data/{}_{}_{}.dat'.format('OTR+distill', args.experiment, args.scenario), 'w+')
         writer.write('{},{},{}\n'.format('OTR+distill', args.experiment, args.scenario))
         args.replay = 'online'
-        args.online_memory_budget = 2000
+        args.budget = 2000
         args.use_teacher = True
+        args.use_embeddings = False
+        args.triplet_selection = 'HP-HN-1'
+        args.teacher_epochs = 100
+        args.teacher_loss = 'CE'
+        args.teacher_split = 0.8
+        args.teacher_opt = 'Adam'
+        args.use_scheduler = False
+        args.distill_type = 'E'
+        args.multi_negative = False
+        args.use_augment = False
         collect_all(writer, seed_list, args, name='OTR+distill (ours)')
         args.replay = 'none'
         args.use_teacher = False
+        args.use_embeddings = False
+        args.multi_negative = False
+        args.use_augment = False
         writer.close()
 
         # iCaRL
