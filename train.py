@@ -10,6 +10,7 @@ from continual_learner import ContinualLearner
 from es import EarlyStopping
 from torch import optim
 from torch.utils.data import ConcatDataset, random_split
+from torch.nn import functional as F
 from optim import optimizer
 import uuid
 
@@ -413,6 +414,22 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     target_transform = (lambda y, x=classes_per_task: y % x) if scenario == "domain" else None
                     previous_datasets = [
                         ExemplarDataset(model.exemplar_sets, target_transform=target_transform)]
+
+    # Replay the last task
+    if replay_mode == 'online':
+        mem_loader = utils.get_data_loader(ConcatDataset(previous_datasets),
+                                           batch_size_to_use, cuda=cuda, drop_last=True)
+        tk = tqdm.tqdm(mem_loader, total=len(mem_loader))
+        for batch_index, batch in enumerate(tk):
+            x, y = batch[0], batch[1]
+            x = x.to(device)
+            y = y.to(device)
+
+            model.optimizer.zero_grad()
+            output = model(x)
+            loss = F.cross_entropy(output, y)
+            loss.backward()
+            model.optimizer.step()
 
 
 def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
