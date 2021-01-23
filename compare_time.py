@@ -10,17 +10,18 @@ from param_values import set_default_values
 
 description = 'Compare performance & training time of various continual learning methods.'
 parser = argparse.ArgumentParser('./compare_time.py', description=description)
-parser.add_argument('--seed', type=int, default=1111, help='[first] random seed (for each random-module used)')
+parser.add_argument('--seed', type=int, default=1, help='[first] random seed (for each random-module used)')
 parser.add_argument('--n-seeds', type=int, default=1, help='how often to repeat?')
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
-parser.add_argument('--results-dir', type=str, default='./results', dest='r_dir', help="default: %(default)s")
+parser.add_argument('--results-dir', type=str, default='./results_time', dest='r_dir', help="default: %(default)s")
 
 # expirimental task parameters.
 task_params = parser.add_argument_group('Task Parameters')
-task_params.add_argument('--experiment', type=str, default='splitMNIST', choices=['permMNIST', 'splitMNIST'])
-task_params.add_argument('--scenario', type=str, default='class', choices=['task', 'domain', 'class'])
+task_params.add_argument('--experiment', type=str, default='splitMNIST',
+                         choices=['rotMNIST', 'permMNIST', 'splitMNIST', 'CIFAR10', 'CIFAR100'])
+task_params.add_argument('--scenario', type=str, default='task', choices=['task', 'domain', 'class'])
 task_params.add_argument('--tasks', type=int, help='number of tasks')
 
 # model architecture parameters
@@ -33,6 +34,15 @@ model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", 
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                    " (instead of a 'multi-headed' one)")
 
+model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
+model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
+model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
+model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
+model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
+model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
+model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
+model_params.add_argument('--distill_type', type=str, default='T', choices=['T', 'TS', 'E', 'ET', 'ETS'])
+model_params.add_argument('--multi_negative', type=bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -44,6 +54,11 @@ train_params.add_argument('--optimizer', type=str, choices=['adam', 'adam_reset'
 replay_params = parser.add_argument_group('Replay Parameters')
 replay_params.add_argument('--z-dim', type=int, default=100, help='size of latent representation (default: 100)')
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
+
+replay_params.add_argument('--otr_exemplars', action='store_true', help="use otr exemplars instead of random")
+replay_params.add_argument('--triplet_selection', type=str, default='HP-HN-1', help="Triplet selection strategy")
+replay_params.add_argument('--use_embeddings', action='store_true',
+                          help="use embeddings space for otr exemplars instead of features space")
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
@@ -71,6 +86,11 @@ eval_params.add_argument('--visdom', action='store_true', help="use visdom for o
 eval_params.add_argument('--prec-n', type=int, default=1024, help="# samples for evaluating solver's precision")
 eval_params.add_argument('--sample-n', type=int, default=64, help="# images to show")
 
+# shortcut parameters
+shortcut_params = parser.add_argument_group('Shortcut parameters')
+shortcut_params.add_argument('--otr', action='store_true', help='online triplet replay')
+shortcut_params.add_argument('--otr_distill', action='store_true', help='online triplet replay with distillation')
+shortcut_params.add_argument('--icarl', action='store_true', help="bce-distill, use-exemplars & add-exemplars")
 
 def get_results(args):
     # -get param-stamp
@@ -177,16 +197,6 @@ if __name__ == '__main__':
     SN = collect_all(SN, seed_list, args, name="None")
 
 
-    ###----"XdG"----####
-
-    ## XdG
-    if args.scenario=="task":
-        args.xdg = True
-        SXDG = {}
-        SXDG = collect_all(SXDG, seed_list, args, name="XdG")
-        args.xdg = False
-
-
     ###----"EWC / SI"----####
 
     ## EWC
@@ -221,21 +231,80 @@ if __name__ == '__main__':
     ## DGR
     args.replay = "generative"
     SRP = {}
-    SRP = collect_all(SRP, seed_list, args, name="DGR")
+    SRP = collect_all(SRP, seed_list, args, name="GR")
 
     ## DGR+distill
     args.replay = "generative"
     args.distill = True
     SRKD = {}
-    SRKD = collect_all(SRKD, seed_list, args, name="DGR+distill")
+    SRKD = collect_all(SRKD, seed_list, args, name="GR+distill")
 
-    ## RtF
-    args.replay = "generative"
-    args.distill = True
-    args.feedback = True
-    ORKD = {}
-    ORKD = collect_all(ORKD, seed_list, args, name="RtF")
+    ## A-GEM
+    args.replay = "exemplars"
+    args.distill = False
+    args.agem = True
+    AGEM = {}
+    AGEM = collect_all(AGEM, seed_list, args, name="AGEM".format(args.budget))
+    args.replay = "none"
+    args.agem = False
 
+    ## Experience Replay
+    args.replay = "exemplars"
+    ER = {}
+    ER = collect_all(ER, seed_list, args, name="ER".format(args.budget))
+    args.replay = "none"
+
+    ## Online Replay
+    args.replay = 'online'
+    args.budget = 2000
+    args.triplet_selection = 'HP-HN-1'
+    args.bce = True
+    if args.scenario == 'class':
+        args.bce_distill = True
+    args.use_embeddings = False
+    args.multi_negative = False
+    args.add_exemplars = False
+    OTR = {}
+    OTR = collect_all(OTR, seed_list, args, name='OTR (ours)')
+    args.replay = 'none'
+    args.bce = False
+    args.bce_distill = False
+    args.use_embeddings = False
+    args.multi_negative = False
+    args.add_exemplars = False
+
+    ## OTR + distill
+    args.replay = 'online'
+    args.budget = 2000
+    args.use_teacher = True
+    args.use_embeddings = False
+    args.triplet_selection = 'HP-HN-1'
+    args.teacher_epochs = 100
+    args.teacher_loss = 'CE'
+    args.teacher_split = 0.8
+    args.teacher_opt = 'Adam'
+    args.use_scheduler = False
+    args.distill_type = 'E'
+    args.multi_negative = False
+    args.use_augment = False
+    OTRDistill = {}
+    OTRDistill = collect_all(OTRDistill, seed_list, args, name='OTR+distill (ours)')
+    args.replay = 'none'
+    args.use_teacher = False
+    args.use_embeddings = False
+    args.multi_negative = False
+    args.use_augment = False
+
+    ## iCaRL
+    if args.scenario == "class":
+        args.bce = True
+        args.bce_distill = True
+        args.use_exemplars = True
+        args.add_exemplars = True
+        args.herding = True
+        args.norm_exemplars = True
+        ICARL = {}
+        ICARL = collect_all(ICARL, seed_list, args, name="iCaRL".format(args.budget))
 
     #-------------------------------------------------------------------------------------------------#
 
@@ -251,22 +320,24 @@ if __name__ == '__main__':
         i = 0
         ave_prec[seed] = [
             SO[seed][i], SN[seed][i],
-            SRKD[seed][i], SRP[seed][i], ORKD[seed][i], SLWF[seed][i],
             SEWC[seed][i], SOEWC[seed][i], SSI[seed][i],
+            SLWF[seed][i], SRP[seed][i], SRKD[seed][i],
+            AGEM[seed][i], ER[seed][i],
+            OTR[seed][i], OTRDistill[seed][i]
         ]
+        if args.scenario == "class":
+            ave_prec[seed].append(ICARL[seed][0])
 
         i = 1
         train_time[seed] = [
             SO[seed][i], SN[seed][i],
-            SRKD[seed][i], SRP[seed][i], ORKD[seed][i], SLWF[seed][i],
             SEWC[seed][i], SOEWC[seed][i], SSI[seed][i],
+            SLWF[seed][i], SRP[seed][i], SRKD[seed][i],
+            AGEM[seed][i], ER[seed][i],
+            OTR[seed][i], OTRDistill[seed][i]
         ]
-
-        if args.scenario=="task":
-            ave_prec[seed].append(SXDG[seed][1])
-            train_time[seed].append(SXDG[seed][2])
-
-
+        if args.scenario == "class":
+            train_time[seed].append(ICARL[seed][1])
     #-------------------------------------------------------------------------------------------------#
 
     #--------------------#
@@ -280,16 +351,18 @@ if __name__ == '__main__':
     x_axes = SRKD[args.seed][0]["x_task"]
 
     # select names / colors / ids
-    names = ["None"]
-    colors = ["grey"]
-    ids = [1]
-    if args.scenario=="task":
-        names.append("XdG")
-        colors.append("purple")
-        ids.append(9)
-    names += ["EWC", "o-EWC", "SI", "LwF", "DGR", "DGR+distil", "RtF", "Offline"]
-    colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "indianred", "red", "maroon", "black"]
-    ids += [6,7,8,5,3,2,4,0]
+    names = ["None", "Offline"]
+    colors = ["grey", "black"]
+    ids = [0, 1]
+    names += ["EWC", "o-EWC", "SI", "LwF", "GR", "GR+distil", "A-GEM",
+              "ER", "OTR (ours)", "OTR+distill (ours)"]
+    colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "indianred", "red", "darkblue", "brown",
+               "teal", "coral"]
+    ids += [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    if args.scenario == "class":
+        names.append("iCaRL")
+        colors.append("violet")
+        ids.append(12)
 
     # open pdf
     pp = visual_plt.open_pdf("{}/{}.pdf".format(args.p_dir, plot_name))

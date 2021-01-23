@@ -9,6 +9,9 @@ from param_values import set_default_values
 
 description = 'Compare CL strategies using various metrics on each scenario of permuted or split MNIST.'
 parser = argparse.ArgumentParser('./create_result.py', description=description)
+parser.add_argument('--form', type=str, default='NIPS', help='Table form')
+parser.add_argument('--test', type=str, default='MNIST')
+
 parser.add_argument('--seed', type=int, default=1, help='[first] random seed (for each random-module used)')
 parser.add_argument('--n-seeds', type=int, default=10, help='how often to repeat?')
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
@@ -37,9 +40,15 @@ model_params.add_argument('--fc-bn', type=str, default="no", help="use batch-nor
 model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", "leakyrelu"])
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                     " (instead of a 'multi-headed' one)")
-model_params.add_argument('--use-teacher', type=bool, default=False,
-                          help='Using an offline teacher for distill from memory')
-model_params.add_argument('--teacher-split', type=float, default=0.8, help='split ratio for teacher training')
+model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
+model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
+model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
+model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
+model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
+model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
+model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
+model_params.add_argument('--distill_type', type=str, default='T', choices=['T', 'TS', 'E', 'ET', 'ETS'])
+model_params.add_argument('--multi_negative', type=bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -131,9 +140,14 @@ def set_params(args, a):
         args.otr_exemplars = False
     elif a == 'OTR':
         args.replay = 'online'
-        args.online_memory_budget = 2000
-        args.triplet_selection = 'HP-HN'
-        args.otr_exemplars = False
+        args.budget = 2000
+        args.triplet_selection = 'HP-HN-1'
+        args.bce = True
+        if args.scenario == 'class':
+            args.bce_distill = True
+        args.use_embeddings = False
+        args.multi_negative = False
+        args.add_exemplars = False
     elif a == 'iCaRL':
         args.replay = 'none'
         args.bce = True
@@ -145,10 +159,18 @@ def set_params(args, a):
         args.otr_exemplars = False
     else:
         args.replay = 'online'
-        args.online_memory_budget = 2000
+        args.budget = 2000
         args.use_teacher = True
-        args.triplet_selection = 'HP-HN'
-        args.otr_exemplars = False
+        args.use_embeddings = False
+        args.triplet_selection = 'HP-HN-1'
+        args.teacher_epochs = 100
+        args.teacher_loss = 'CE'
+        args.teacher_split = 0.8
+        args.teacher_opt = 'Adam'
+        args.use_scheduler = False
+        args.distill_type = 'E'
+        args.multi_negative = False
+        args.use_augment = False
 
 
 def get_results(args):
@@ -186,8 +208,9 @@ def collect_all(method_dict, seed_list, args, name=None):
 
 
 if __name__ == '__main__':
-    form = 'NIPS'
-    test = 'MNIST'
+    args = parser.parse_args()
+    form = args.form
+    test = args.test
     if test == 'MNIST':
         experiments = ['splitMNIST', 'permMNIST', 'rotMNIST']
     else:
@@ -200,8 +223,8 @@ if __name__ == '__main__':
     table_writer.write('\\begin{table*}[!t]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
     if test == 'MNIST':
-        # table_writer.write('\\caption{Average test accuracy (\%) of all tasks (over 10 run with difference random seeds) on the MNIST variant datasets. None and Offline methods are lower bound and upper bound for continual learning, while ER is a method using random sampling for selecting instances to build exemplar sets.}\n')
-        table_writer.write('\\caption{OTR+distill, eAdLR, split 0.8}\n')
+        table_writer.write('\\caption{Average test accuracy (\%) of all tasks (over 10 run with difference random seeds) on the MNIST variant datasets. None and Offline methods are lower bound and upper bound for continual learning, while ER is a method using random sampling for selecting instances to build exemplar sets.}\n')
+        # table_writer.write('\\caption{OTR+distill, eAdLR, split 0.8}\n')
     else:
         table_writer.write('\\caption{Similar to table \\ref{tab:mnist_table} but for CIFAR-10 and CIFAR-100 datasets.}\n')
     table_writer.write('\\label{tab:' + test.lower() + '_table}\n')

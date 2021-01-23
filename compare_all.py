@@ -38,8 +38,6 @@ model_params.add_argument('--fc-bn', type=str, default="no", help="use batch-nor
 model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", "leakyrelu"])
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                    " (instead of a 'multi-headed' one)")
-# model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
-
 model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
 model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
 model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
