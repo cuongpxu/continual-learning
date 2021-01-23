@@ -348,7 +348,6 @@ if __name__ == '__main__':
     plot_name = "summary-{}{}-{}".format(args.experiment, args.tasks, args.scenario)
     scheme = "incremental {} learning".format(args.scenario)
     title = "{}  -  {}".format(args.experiment, scheme)
-    x_axes = SRKD[args.seed][0]["x_task"]
 
     # select names / colors / ids
     names = ["None", "Offline"]
