@@ -388,13 +388,13 @@ if __name__ == '__main__':
     # scatter-plot (accuracy vs training-time)
     accuracies = []
     times = []
-    for id in ids[:-1]:
+    for id in ids:
         accuracies.append([ave_prec[seed][id] for seed in seed_list])
         times.append([train_time[seed][id]/60 for seed in seed_list])
     xmax = np.max(times)
     ylim = (0,1.025)
-    figure = visual_plt.plot_scatter_groups(x=times, y=accuracies, colors=colors[:-1], figsize=(12, 15), ylim=ylim,
-                                            ylabel="average precision (after all tasks)", names=names[:-1],
+    figure = visual_plt.plot_scatter_groups(x=times, y=accuracies, colors=colors, figsize=(12, 15), ylim=ylim,
+                                            ylabel="average precision (after all tasks)", names=names,
                                             xlabel="training time (in min)", title=title, xlim=[0, xmax + 0.05 * xmax])
     figure_list.append(figure)
 
@@ -406,5 +406,19 @@ if __name__ == '__main__':
     # close the pdf
     pp.close()
 
+    # write time summary to file
+    time_means = [np.mean([train_time[seed][id] for seed in seed_list])/60 for id in ids]
+    if len(seed_list)>1:
+        sems = [np.sqrt(np.var([train_time[seed][id] for seed in seed_list])/(len(seed_list)-1)) for id in ids]
+        cis = [1.96*np.sqrt(np.var([train_time[seed][id] for seed in seed_list])/(len(seed_list)-1)) for id in ids]
+    result_writer = open('{}/{}_{}_time_summary.txt'.format(args.p_dir, args.experiment, args.scenario), 'w+')
+    result_writer.write("\n\n" + "#" * 60 + "\nSUMMARY TIME RESULTS (in min): {}\n".format(title) + "-" * 60 + '\n')
+    for i, name in enumerate(names):
+        if len(seed_list) > 1:
+            result_writer.write("{:12s} {:.2f}  (+/- {:.2f}),  n={}\n".format(name, time_means[i], sems[i], len(seed_list)))
+        else:
+            result_writer.write("{:12s} {:.2f}\n".format(name, time_means[i]))
+    result_writer.write("#" * 60 + '\n')
+    result_writer.close()
     # Print name of generated plot on screen
     print("\nGenerated plot: {}/{}.pdf\n".format(args.p_dir, plot_name))

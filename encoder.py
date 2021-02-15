@@ -179,7 +179,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                 shn_batch = negative_batch_n[valid_shn_idx]
                                 shn_y = negative_batch_y_n[valid_shn_idx]
                                 # negative_idx = torch.argmin(negative_dist[valid_shn_idx])
-                                _, negative_idx = torch.topk(negative_dist_n, int(selection_strategies[2]), largest=False)
+                                _, negative_idx = torch.topk(negative_dist_n, int(selection_strategies[2]),
+                                                             largest=False)
                                 negative_x = shn_batch[negative_idx]
                                 negative_y = shn_y[negative_idx]
                             else:
@@ -196,7 +197,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                             if scenario in ['task', 'domain']:
                                 self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
                                                                            (negative_y + len(uq) * (
-                                                                                       task - 1)).detach().cpu().numpy())
+                                                                                   task - 1)).detach().cpu().numpy())
                             else:
                                 self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
                                                                            negative_y.detach().cpu().numpy())
@@ -233,14 +234,14 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         negative_x = negative_batch[negative_idx]
                         negative_y = negative_batch_y[negative_idx]
 
-                    if negative_x is not None and negative_y is not None:
-                        if scenario in ['task', 'domain']:
-                            self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
-                                                                       (negative_y + len(uq) * (
-                                                                               task - 1)).detach().cpu().numpy())
-                        else:
-                            self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
-                                                                       negative_y.detach().cpu().numpy())
+                if negative_x is not None and negative_y is not None:
+                    if scenario in ['task', 'domain']:
+                        self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
+                                                                   (negative_y + len(uq) * (
+                                                                           task - 1)).detach().cpu().numpy())
+                    else:
+                        self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
+                                                                   negative_y.detach().cpu().numpy())
 
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
                       active_classes=None, task=1, scenario='class', teacher=None,
@@ -388,15 +389,15 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                                   F.softmax(y_hat_teacher / self.KD_temp, dim=1))
                                          * (self.KD_temp * self.KD_temp))
 
-                    else: # distill: E, ES
+                    else:  # distill: E, ES
                         loss_KD = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                            F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
-                                   * (self.KD_temp * self.KD_temp)
+                                  * (self.KD_temp * self.KD_temp)
 
-                else: # distill: T, TS
+                else:  # distill: T, TS
                     loss_KD = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                        F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
-                                   * (self.KD_temp * self.KD_temp)
+                              * (self.KD_temp * self.KD_temp)
                 loss_KD = self.alpha_t * loss_KD + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
             else:
                 loss_KD = None
@@ -558,14 +559,14 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         if distill_type in ['E', 'ET', 'ES', 'ETS']:
             with torch.no_grad():
                 y_hat_ensemble = 0.5 * (y_hat_teacher.clone() + y_hat)
-            if distill_type in ['ES', 'ETS']: # distill from ensemble and student to teacher
+            if distill_type in ['ES', 'ETS']:  # distill from ensemble and student to teacher
                 loss = 0.5 * (F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
                                        F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
                               * (self.KD_temp * self.KD_temp) +
                               F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
                                        F.softmax(y_hat / self.KD_temp, dim=1))
                               * (self.KD_temp * self.KD_temp))
-            else: # distill from ensemble to teacher
+            else:  # distill from ensemble to teacher
                 loss = F.kl_div(F.log_softmax(y_hat_teacher / self.KD_temp, dim=1),
                                 F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
                        * (self.KD_temp * self.KD_temp)

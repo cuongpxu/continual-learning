@@ -125,10 +125,13 @@ class ExemplarHandler(nn.Module, metaclass=abc.ABCMeta):
         if m.shape[0] == 1:
             self.add_single_instance_to_exempalr(x, y, m[0])
         else:
-            for i in range(m.shape[0]):
-                xm = x[i].unsqueeze(dim=0)
-                ym = y[i].unsqueeze(dim=0)
-                self.add_single_instance_to_exempalr(xm, ym, m[i])
+            uq = np.unique(m)
+            for u in uq:
+                idx = m == u
+                xm = x[idx]
+                ym = y[idx]
+                self.add_single_instance_to_exempalr(xm, ym, u)
+
 
     ####----MANAGING EXEMPLAR SETS----####
 
