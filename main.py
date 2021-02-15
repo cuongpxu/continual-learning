@@ -60,6 +60,7 @@ model_params.add_argument('--use_scheduler', action='store_true', help='Using le
 model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
 model_params.add_argument('--multi_negative', type=bool, default=False)
+model_params.add_argument('--update_teacher_kd', type=bool, default=True)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -531,7 +532,8 @@ def run(args, verbose=False):
         'teacher_split': args.teacher_split, 'teacher_loss':args.teacher_loss,
         'teacher_opt': args.teacher_opt, 'use_scheduler': args.use_scheduler,
         'teacher_epochs': args.teacher_epochs, 'distill_type': args.distill_type,
-        'teacher_augment': teacher_augment, 'multi_negative': args.multi_negative
+        'teacher_augment': teacher_augment, 'multi_negative': args.multi_negative,
+        'update_teacher_kd': args.update_teacher_kd
     }
     # Train model
     train_cl(
