@@ -180,6 +180,9 @@ class ExemplarDataset(Dataset):
                 break
             else:
                 total += exemplars_in_this_class
+                exemplar_id = index % total
+                class_id_to_return = class_id if self.target_transform is None else self.target_transform(class_id)
+                break
         image = torch.from_numpy(self.exemplar_sets[class_id][exemplar_id])
         return (image, class_id_to_return)
 

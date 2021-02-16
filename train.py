@@ -68,7 +68,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
         # Add exemplars (if available) to current dataset (if requested)
         if add_exemplars and task > 1:
             target_transform = (lambda y, x=classes_per_task: y % x) if scenario == "domain" else None
-            if params_dict['use_otr']:
+            if params_dict['use_otr'] or not params_dict['mem_online']:
                 exemplar_sets = []
                 for c in sorted(model.online_exemplar_sets):
                     exemplar_sets.append(model.online_exemplar_sets[c][0])
@@ -260,7 +260,6 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                                                 params_dict=params_dict)
                 if params_dict['online_kd']:
                     # Incremental training teacher model
-                    print("Training teacher")
                     teacher_loss_dict = teacher.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
                                                 active_classes=active_classes, task=task, rnt=1. / task,
                                                 scenario=scenario, teacher=model,
@@ -365,7 +364,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
 
         # EXEMPLARS: update exemplar sets
         if (add_exemplars or use_exemplars) or replay_mode == "exemplars":
-            if not params_dict['use_otr']:
+            if not params_dict['use_otr'] and not params_dict['mem_online']:
                 exemplars_per_class = int(np.floor(model.memory_budget / (classes_per_task * task)))
                 # reduce examplar-sets
                 model.reduce_exemplar_sets(exemplars_per_class)

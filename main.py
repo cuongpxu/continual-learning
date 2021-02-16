@@ -114,6 +114,7 @@ store_params.add_argument('--otr_exemplars', action='store_true', help="use otr 
 store_params.add_argument('--triplet_selection', type=str, default='HP-HN-1', help="Triplet selection strategy")
 store_params.add_argument('--use_embeddings', action='store_true',
                           help="use embeddings space for otr exemplars instead of features space")
+store_params.add_argument('--mem_online', type=utils.str_to_bool, default=False, help='icarl using online exemplar mamagement')
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
 eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
@@ -132,7 +133,7 @@ shortcut_params = parser.add_argument_group('Shortcut parameters')
 shortcut_params.add_argument('--otr', action='store_true', help='online triplet replay')
 shortcut_params.add_argument('--otr_distill', action='store_true', help='online triplet replay with distillation')
 shortcut_params.add_argument('--otr_distill_kd', action='store_true', help='online triplet replay with distillation')
-shortcut_params.add_argument('--icarl', action='store_true', help="bce-distill, use-exemplars & add-exemplars")
+shortcut_params.add_argument('--icarl', action='store_true', help="icarl shortcut param")
 
 
 def run(args, verbose=False):
@@ -147,9 +148,9 @@ def run(args, verbose=False):
         args.loss_log = args.iters
         args.sample_log = args.iters
     # -if [iCaRL] is selected, select all accompanying options
-    if hasattr(args, "icarl") and args.icarl:
+    if utils.checkattr(args, 'icarl'):
         args.use_exemplars = True
-        args.add_exemplars = True
+        args.add_exemplars = False
         args.bce = True
         args.bce_distill = True
         if args.otr_exemplars:
@@ -549,7 +550,10 @@ def run(args, verbose=False):
         'teacher_opt': args.teacher_opt, 'use_scheduler': args.use_scheduler,
         'teacher_epochs': args.teacher_epochs, 'distill_type': args.distill_type,
         'teacher_augment': teacher_augment, 'multi_negative': args.multi_negative,
-        'update_teacher_kd': args.update_teacher_kd, 'online_kd': args.online_kd
+        'update_teacher_kd': args.update_teacher_kd, 'online_kd': args.online_kd,
+        'mem_online': args.mem_online,
+        'herding': True if utils.checkattr(args, 'herding') else False,
+        'normalize': True if utils.checkattr(args, 'normalize') else False
     }
     # Train model
     train_cl(

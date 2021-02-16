@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import models.resnet as rn
 import utils
+import copy
 from torch.nn import functional as F
 from linear_nets import MLP, fc_layer
 from exemplars import ExemplarHandler
@@ -243,6 +244,88 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
                                                                    negative_y.detach().cpu().numpy())
 
+    def select_instances(self, embeds, x, y, scenario, task):
+        uq, _ = torch.sort(torch.unique(y))
+        uq = uq.cpu().numpy()
+        print(uq)
+        exemplars_per_class = int(np.floor(self.memory_budget / (len(uq) * task)))
+        exemplar_set = []
+        if self.herding:
+            # Accumulate class means
+            for m in uq:
+                mask = y == m
+                xm = x[mask]
+                embedsm = embeds[mask]
+
+                if self.norm_exemplars:
+                    features = F.normalize(embedsm, p=2, dim=1)
+
+                # calculate mean of all features
+                class_mean = torch.mean(features, dim=0, keepdim=True)
+                # if self.norm_exemplars:
+                #     class_mean = F.normalize(class_mean, p=2, dim=1)
+
+                # one by one, select exemplar that makes mean of all exemplars as close to [class_mean] as possible
+                exemplar_features = torch.zeros_like(features[:min(exemplars_per_class, embedsm.size(0))])
+                list_of_selected = []
+                for k in range(min(exemplars_per_class, embedsm.size(0))):
+                    if k > 0:
+                        exemplar_sum = torch.sum(exemplar_features[:k], dim=0).unsqueeze(0)
+                        features_means = (features + exemplar_sum) / (k + 1)
+                        features_dists = features_means - class_mean
+                    else:
+                        features_dists = features - class_mean
+                        index_selected = np.argmin(torch.norm(features_dists, p=2, dim=1).detach().cpu().numpy())
+                        if index_selected in list_of_selected:
+                            raise ValueError("Exemplars should not be repeated!!!!")
+                        list_of_selected.append(index_selected)
+
+                        exemplar_set.append(xm[index_selected].detach().cpu().numpy())
+                        exemplar_features[k] = features[index_selected].clone()
+
+                        # make sure this example won't be selected again
+                        features[index_selected] = features[index_selected] + 10000
+
+                if scenario in ['task', 'domain']:
+                    if len(self.exemplar_sets) == ((task - 1) * len(uq) + m % len(uq)):
+                        self.exemplar_means.append(class_mean)
+                        self.exemplar_sets.append(np.array(exemplar_set))
+                    elif len(self.exemplar_sets) < ((task - 1) * len(uq) + m % len(uq)):
+                        self.exemplar_means[m + len(uq) * (task - 1)] = (self.exemplar_means[m + len(uq) * (task - 1)]+ class_mean)/2
+                        self.exemplar_sets[m] = np.concatenate(
+                            (self.exemplar_sets[m + len(uq) * (task - 1)], exemplar_set), axis=0)
+                else:
+                    if len(self.exemplar_sets) == ((task - 1) * len(uq) + m % len(uq)):
+                        self.exemplar_means.append(class_mean)
+                        self.exemplar_sets.append(np.array(exemplar_set))
+                    elif len(self.exemplar_sets) < ((task - 1) * len(uq) + m % len(uq)):
+                        self.exemplar_means[m] = (self.exemplar_means[m] + class_mean) / 2
+                        self.exemplar_sets[m] = np.concatenate(
+                            (self.exemplar_sets[m], exemplar_set), axis=0)
+        else:
+            for m in uq:
+                mask = y == m
+                xm = x[mask]
+                indeces_selected = np.random.choice(xm.size(0), size=min(xm.size(0),exemplars_per_class), replace=False)
+                if scenario in ['task', 'domain']:
+                    if len(self.exemplar_sets) < task * len(uq):
+                        self.exemplar_sets.append(xm[indeces_selected].detach().cpu().numpy())
+                    else:
+                        # Concate to exsisting
+                        self.exemplar_sets[m + len(uq) * (task - 1)] = np.concatenate(
+                            (self.exemplar_sets[m + len(uq) * (task - 1)], xm[indeces_selected].detach().cpu().numpy()), axis=0)
+                else:
+                    if len(self.exemplar_sets) < task * len(uq):
+                        self.exemplar_sets.append(xm[indeces_selected].detach().cpu().numpy())
+                    else:
+                        # Concate to exsisting
+                        self.exemplar_sets[m] = np.concatenate(
+                            (self.exemplar_sets[m], xm[indeces_selected].detach().cpu().numpy()), axis=0)
+
+        self.reduce_exemplar_sets(exemplars_per_class)
+        # for i in range(len(self.exemplar_sets)):
+        #     print("Task %d Class %d" % (task, i), self.exemplar_sets[i].shape)
+
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
                       active_classes=None, task=1, scenario='class', teacher=None,
                       params_dict=None):
@@ -414,20 +497,26 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     input=y_hat, target=binary_targets, reduction='none'
                 ).sum(dim=1)  # --> sum over classes,
                 predL = None if y is None else y_score.mean()  # average over batch
+                if params_dict['mem_online']:
+                    self.select_instances(embeds, x, y, scenario, task)
 
-                if params_dict['use_otr']:
-                    self.select_triplets(embeds, y_score, x, y,
-                                         params_dict['triplet_selection'], task, scenario,
-                                         params_dict['use_embeddings'], params_dict['multi_negative'])
+                else:
+                    if params_dict['use_otr']:
+                        self.select_triplets(embeds, y_score, x, y,
+                                             params_dict['triplet_selection'], task, scenario,
+                                             params_dict['use_embeddings'], params_dict['multi_negative'])
             else:
                 # -multiclass prediction loss
                 y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
                 predL = None if y is None else y_score.mean()
 
-                if params_dict['use_otr']:
-                    self.select_triplets(embeds, y_score, x, y,
-                                         params_dict['triplet_selection'], task, scenario,
-                                         params_dict['use_embeddings'], params_dict['multi_negative'])
+                if params_dict['mem_online']:
+                    self.select_instances(embeds, x, y, scenario, task)
+                else:
+                    if params_dict['use_otr']:
+                        self.select_triplets(embeds, y_score, x, y,
+                                             params_dict['triplet_selection'], task, scenario,
+                                             params_dict['use_embeddings'], params_dict['multi_negative'])
             # Weigh losses
             if loss_KD is not None:
                 loss_cur = rnt * predL + (1 - rnt) * loss_KD
