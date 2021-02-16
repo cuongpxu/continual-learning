@@ -59,8 +59,9 @@ model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teach
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
 model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
-model_params.add_argument('--multi_negative', type=bool, default=False)
-model_params.add_argument('--update_teacher_kd', type=bool, default=True)
+model_params.add_argument('--multi_negative', type=utils.str_to_bool, default=False)
+model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=True)
+model_params.add_argument('--online_kd', type=utils.str_to_bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -130,6 +131,7 @@ eval_params.add_argument('--sample-n', type=int, default=64, help="# images to s
 shortcut_params = parser.add_argument_group('Shortcut parameters')
 shortcut_params.add_argument('--otr', action='store_true', help='online triplet replay')
 shortcut_params.add_argument('--otr_distill', action='store_true', help='online triplet replay with distillation')
+shortcut_params.add_argument('--otr_distill_kd', action='store_true', help='online triplet replay with distillation')
 shortcut_params.add_argument('--icarl', action='store_true', help="bce-distill, use-exemplars & add-exemplars")
 
 
@@ -179,6 +181,20 @@ def run(args, verbose=False):
         if utils.checkattr(args, 'add_exemplars') or utils.checkattr(args, 'use_exemplars'):
             args.otr_exemplars = True
             args.norm_exemplars = True
+
+    if utils.checkattr(args, 'otr_distill_kd'):
+        if args.experiment in ['splitMNIST', 'CIFAR10']:
+            args.bce = True
+            if args.scenario == 'class':
+                args.bce_distill = True
+        args.replay = 'online'
+        args.use_teacher = True
+        if utils.checkattr(args, 'add_exemplars') or utils.checkattr(args, 'use_exemplars'):
+            args.otr_exemplars = True
+            args.norm_exemplars = True
+
+        args.online_kd = True
+        args.update_teacher_kd = False
 
     # -if XdG is selected but not the Task-IL scenario, give error
     if (not args.scenario=="task") and args.xdg:
@@ -533,7 +549,7 @@ def run(args, verbose=False):
         'teacher_opt': args.teacher_opt, 'use_scheduler': args.use_scheduler,
         'teacher_epochs': args.teacher_epochs, 'distill_type': args.distill_type,
         'teacher_augment': teacher_augment, 'multi_negative': args.multi_negative,
-        'update_teacher_kd': args.update_teacher_kd
+        'update_teacher_kd': args.update_teacher_kd, 'online_kd': args.online_kd
     }
     # Train model
     train_cl(

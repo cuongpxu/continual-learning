@@ -47,6 +47,9 @@ model_params.add_argument('--use_scheduler', action='store_true', help='Using le
 model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='T', choices=['T', 'TS', 'E', 'ET', 'ETS'])
 model_params.add_argument('--multi_negative', type=bool, default=False)
+
+model_params.add_argument('--update_teacher_kd', type=bool, default=False)
+model_params.add_argument('--online_kd', type=bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -103,6 +106,7 @@ eval_params.add_argument('--sample-n', type=int, default=64, help="# images to s
 shortcut_params = parser.add_argument_group('Shortcut parameters')
 shortcut_params.add_argument('--otr', action='store_true', help='online triplet replay')
 shortcut_params.add_argument('--otr_distill', action='store_true', help='online triplet replay with distillation')
+shortcut_params.add_argument('--otr_distill_kd', action='store_true', help='online triplet replay with distillation')
 
 
 def get_results(args):

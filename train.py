@@ -53,7 +53,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
     # Loop over all tasks.
     for task, train_dataset in enumerate(train_datasets, 1):
         # Re-train teacher in every task
-        if teacher is not None:
+        if teacher is not None and not params_dict['online_kd']:
             teacher.is_offline_training = False
             teacher.is_ready_distill = False
 
@@ -258,9 +258,20 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                                                 active_classes=active_classes, task=task, rnt=1. / task,
                                                 scenario=scenario, teacher=teacher,
                                                 params_dict=params_dict)
+                if params_dict['online_kd']:
+                    # Incremental training teacher model
+                    print("Training teacher")
+                    teacher_loss_dict = teacher.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
+                                                active_classes=active_classes, task=task, rnt=1. / task,
+                                                scenario=scenario, teacher=model,
+                                                params_dict=params_dict)
+
                 if params_dict['update_teacher_kd']:
                     if teacher is not None and teacher.is_ready_distill and task > 1:
                         teacher.train_via_KD(model, x,  params_dict['distill_type'], active_classes)
+
+
+
 
                 # Update running parameter importance estimates in W
                 if isinstance(model, ContinualLearner) and (model.si_c > 0):
@@ -278,6 +289,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 for eval_cb in eval_cbs:
                     if eval_cb is not None:
                         eval_cb(model, batch_index, task=task)
+
                 if model.label == "VAE":
                     for sample_cb in sample_cbs:
                         if sample_cb is not None:
@@ -299,7 +311,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                         sample_cb(generator, batch_index, task=task)
 
             # ---> Train Teacher in offline mode
-            if teacher is not None and (replay_mode == 'online' and model.check_full_memory()):
+            if teacher is not None and (replay_mode == 'online' and model.check_full_memory()) and not params_dict['online_kd']:
                 if not teacher.is_offline_training:
                     # Start training a teacher in offline mode from memory
                     teacher.is_offline_training = True
