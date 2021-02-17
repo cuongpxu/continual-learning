@@ -46,10 +46,11 @@ model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teach
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
 model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='T', choices=['T', 'TS', 'E', 'ET', 'ETS'])
-model_params.add_argument('--multi_negative', type=bool, default=False)
+model_params.add_argument('--multi_negative', type=utils.str_to_bool, default=False)
+model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=True)
+model_params.add_argument('--online_kd', type=utils.str_to_bool, default=False)
+model_params.add_argument('--mem_online', type=utils.str_to_bool, default=False, help='icarl using online exemplar mamagement')
 
-model_params.add_argument('--update_teacher_kd', type=bool, default=False)
-model_params.add_argument('--online_kd', type=bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -107,7 +108,7 @@ shortcut_params = parser.add_argument_group('Shortcut parameters')
 shortcut_params.add_argument('--otr', action='store_true', help='online triplet replay')
 shortcut_params.add_argument('--otr_distill', action='store_true', help='online triplet replay with distillation')
 shortcut_params.add_argument('--otr_distill_kd', action='store_true', help='online triplet replay with distillation')
-
+shortcut_params.add_argument('--icarl', action='store_true', help="icarl shortcut param")
 
 def get_results(args):
     # -get param-stamp
@@ -266,6 +267,7 @@ if __name__ == '__main__':
 
     ## Experience Replay
     args.replay = "exemplars"
+    args.mem_online = True
     ER = {}
     ER = collect_all(ER, seed_list, args, name="Experience Replay (budget = {})".format(args.budget))
     args.replay = "none"
@@ -327,9 +329,10 @@ if __name__ == '__main__':
         args.bce = True
         args.bce_distill = True
         args.use_exemplars = True
-        args.add_exemplars = True
+        args.add_exemplars = False
         args.herding = True
         args.norm_exemplars = True
+        args.mem_online = True
         ICARL = {}
         ICARL = collect_all(ICARL, seed_list, args, name="iCaRL (budget = {})".format(args.budget))
 

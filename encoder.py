@@ -247,7 +247,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def select_instances(self, embeds, x, y, scenario, task):
         uq, _ = torch.sort(torch.unique(y))
         uq = uq.cpu().numpy()
-        print(uq)
         exemplars_per_class = int(np.floor(self.memory_budget / (len(uq) * task)))
         exemplar_set = []
         if self.herding:

@@ -19,6 +19,7 @@ benchmark_OTR_distill/
 benchmark_OTR_distillE/
 benchmark_OTR/
 benchmark_training/
+benchmark_icarl_online/
 test_grad.py
 *.sh
 

@@ -131,10 +131,11 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
 
     # -for exemplars / iCaRL
     exemplar_stamp = ""
-    if args.replay == "exemplars" or (args.add_exemplars and args.use_exemplars):
-        exemplar_opts = "b{}{}{}".format(args.budget,
-                                         "H" if args.herding else "",
-                                         "N" if args.norm_exemplars else "")
+    if args.replay == "exemplars" or (args.add_exemplars or args.use_exemplars) or utils.checkattr(args, 'icarl'):
+        exemplar_opts = "b{}{}{}{}".format(args.budget,
+                                            "H" if args.herding else "",
+                                            "N" if args.norm_exemplars else "",
+                                            "-online" if args.mem_online else "")
         use = "{}{}{}".format("addEx-" if args.add_exemplars else "",
                               "useEx-" if args.use_exemplars else "",
                               "OTR-" if args.otr_exemplars else "")
