@@ -197,8 +197,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         if negative_x is not None and negative_y is not None:
                             if scenario in ['task', 'domain']:
                                 self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
-                                                                           (negative_y.detach().cpu().numpy() + len(uq) * (
-                                                                                   task - 1)))
+                                                                           (negative_y + len(uq) * (
+                                                                                   task - 1)).detach().cpu().numpy())
                             else:
                                 self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
                                                                            negative_y.detach().cpu().numpy())
@@ -222,7 +222,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                             shn_batch = negative_batch[valid_shn_idx]
                             shn_y = negative_batch_y[valid_shn_idx]
                             # negative_idx = torch.argmin(negative_dist[valid_shn_idx])
-                            _, negative_idx = torch.topk(negative_dist, int(selection_strategies[2]), largest=False)
+                            _, negative_idx = torch.topk(negative_dist[valid_shn_idx], int(selection_strategies[2]), largest=False)
                             negative_x = shn_batch[negative_idx]
                             negative_y = shn_y[negative_idx]
                         else:
@@ -238,8 +238,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 if negative_x is not None and negative_y is not None:
                     if scenario in ['task', 'domain']:
                         self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
-                                                                   (negative_y.detach().numpy().cpu() + len(uq) * (
-                                                                           task - 1)))
+                                                                   (negative_y + len(uq) * (
+                                                                           task - 1)).detach().numpy().cpu())
                     else:
                         self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
                                                                    negative_y.detach().cpu().numpy())

@@ -314,19 +314,19 @@ if __name__ == '__main__':
 
     df = pd.DataFrame({'mem': mem_list,
                        'A-GEM': aGEM_mean, 'A-GEM-std': aGEM_std,
-                       'ER*': ER_mean, 'ER*-std': ER_std,
+                       'ER': ER_mean, 'ER-std': ER_std,
                        'OTR': OTR_mean, 'OTR-std': OTR_std,
                        'OTR+distill': OTRDistill_mean, 'OTR+distill-std': OTRDistill_std})
 
-    plt.errorbar('mem', 'ER*', 'ER*-std', data=df, marker='s', color='darkblue', ecolor='darkblue')
+    plt.errorbar('mem', 'ER', 'ER-std', data=df, marker='s', color='darkblue', ecolor='darkblue')
     plt.errorbar('mem', 'A-GEM', 'A-GEM-std', data=df, marker='o', markerfacecolor='brown', color='brown', ecolor='brown')
     plt.errorbar('mem', 'OTR', 'OTR-std', data=df, marker='*', color='teal', ecolor='teal')
     plt.errorbar('mem', 'OTR+distill', 'OTR+distill-std', data=df, marker='', color='coral', ecolor='coral')
     if args.scenario == 'class':
         df_iCaRL = pd.DataFrame({'mem': mem_list,
-                                 'iCaRL*': iCaRL_mean, 'iCaRL*-std': iCaRL_std,
+                                 'iCaRL': iCaRL_mean, 'iCaRL-std': iCaRL_std,
                                  })
-        plt.errorbar('mem', 'iCaRL*', 'iCaRL*-std', data=df_iCaRL, marker='h', color='violet', ecolor='violet')
+        plt.errorbar('mem', 'iCaRL', 'iCaRL-std', data=df_iCaRL, marker='h', color='violet', ecolor='violet')
 
     if args.scenario == 'class':
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3)
