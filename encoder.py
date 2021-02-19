@@ -197,8 +197,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         if negative_x is not None and negative_y is not None:
                             if scenario in ['task', 'domain']:
                                 self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
-                                                                           (negative_y + len(uq) * (
-                                                                                   task - 1)).detach().cpu().numpy())
+                                                                           (negative_y.detach().cpu().numpy() + len(uq) * (
+                                                                                   task - 1)))
                             else:
                                 self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
                                                                            negative_y.detach().cpu().numpy())
@@ -238,8 +238,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 if negative_x is not None and negative_y is not None:
                     if scenario in ['task', 'domain']:
                         self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
-                                                                   (negative_y + len(uq) * (
-                                                                           task - 1)).detach().cpu().numpy())
+                                                                   (negative_y.detach().numpy().cpu() + len(uq) * (
+                                                                           task - 1)))
                     else:
                         self.add_instances_to_online_exemplar_sets(negative_x, negative_y,
                                                                    negative_y.detach().cpu().numpy())

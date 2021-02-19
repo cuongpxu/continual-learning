@@ -15,7 +15,7 @@ parser.add_argument('--n-seeds', type=int, default=10, help='how often to repeat
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
-parser.add_argument('--results-dir', type=str, default='../benchmark_selection', dest='r_dir', help="default: %(default)s")
+parser.add_argument('--results-dir', type=str, default='../benchmark_new', dest='r_dir', help="default: %(default)s")
 
 # expirimental task parameters.
 task_params = parser.add_argument_group('Task Parameters')
@@ -38,7 +38,17 @@ model_params.add_argument('--fc-bn', type=str, default="no", help="use batch-nor
 model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", "leakyrelu"])
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                    " (instead of a 'multi-headed' one)")
-model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
+model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
+model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
+model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
+model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
+model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
+model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
+model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
+model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
+model_params.add_argument('--multi_negative', type=utils.str_to_bool, default=False)
+model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=True)
+model_params.add_argument('--online_kd', type=utils.str_to_bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -49,8 +59,8 @@ train_params.add_argument('--optimizer', type=str, choices=['adam', 'adam_reset'
 # "memory replay" parameters
 replay_params = parser.add_argument_group('Replay Parameters')
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
-replay_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
-replay_params.add_argument('--triplet-selection', type=str, default='HP-HN', help="Triplet selection strategy")
+replay_params.add_argument('--triplet-selection', type=str, default='HP-HN-1', help="Triplet selection strategy")
+replay_params.add_argument('--mem_online', type=utils.str_to_bool, default=False, help='icarl using online exemplar mamagement')
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
@@ -179,6 +189,8 @@ if __name__ == '__main__':
         # Experience Replay + Herding
         args.replay = "exemplars"
         args.herding = True
+        args.normalize = True
+        args.mem_online = True
         args.budget = 2000
         ERH = {}
         ERH = collect_all(ERH, seed_list, args, name="ER+herding")
@@ -187,41 +199,100 @@ if __name__ == '__main__':
 
         # Experience Replay
         args.replay = "exemplars"
+        args.herding = False
+        args.mem_online = True
         ER = {}
         ER = collect_all(ER, seed_list, args, name="ER")
         args.replay = "none"
+        args.mem_online = False
 
         # Online Replay
         args.replay = 'online'
-        args.triplet_selection = 'HP-HN'
-        args.online_memory_budget = 2000
+        args.budget = 2000
+        args.use_teacher = True
+        args.use_embeddings = False
+        args.triplet_selection = 'EP-SHN-1'
+        args.teacher_epochs = 100
+        args.teacher_loss = 'CE'
+        args.teacher_split = 0.8
+        args.teacher_opt = 'Adam'
+        args.use_scheduler = False
+        args.distill_type = 'E'
+        args.multi_negative = False
+        args.use_augment = False
         OTR = {}
         OTR = collect_all(OTR, seed_list, args, name='OTR (HP-HN)')
         args.replay = 'none'
+        args.use_teacher = False
+        args.use_embeddings = False
+        args.multi_negative = False
+        args.use_augment = False
 
         # Online Replay
         args.replay = 'online'
-        args.triplet_selection = 'HP-SHN'
-        args.online_memory_budget = 2000
+        args.budget = 2000
+        args.use_teacher = True
+        args.use_embeddings = False
+        args.triplet_selection = 'HP-SHN-1'
+        args.teacher_epochs = 100
+        args.teacher_loss = 'CE'
+        args.teacher_split = 0.8
+        args.teacher_opt = 'Adam'
+        args.use_scheduler = False
+        args.distill_type = 'E'
+        args.multi_negative = False
+        args.use_augment = False
         OTR_HPSHN = {}
         OTR_HPSHN = collect_all(OTR_HPSHN, seed_list, args, name='OTR (HP-SHN)')
         args.replay = 'none'
+        args.use_teacher = False
+        args.use_embeddings = False
+        args.multi_negative = False
+        args.use_augment = False
 
         # Online Replay
         args.replay = 'online'
-        args.triplet_selection = 'EP-HN'
-        args.online_memory_budget = 2000
+        args.budget = 2000
+        args.use_teacher = True
+        args.use_embeddings = False
+        args.triplet_selection = 'EP-HN-1'
+        args.teacher_epochs = 100
+        args.teacher_loss = 'CE'
+        args.teacher_split = 0.8
+        args.teacher_opt = 'Adam'
+        args.use_scheduler = False
+        args.distill_type = 'E'
+        args.multi_negative = False
+        args.use_augment = False
         OTR_EPHN = {}
         OTR_EPHN = collect_all(OTR_EPHN, seed_list, args, name='OTR (EP-HN)')
         args.replay = 'none'
+        args.use_teacher = False
+        args.use_embeddings = False
+        args.multi_negative = False
+        args.use_augment = False
 
         # Online Replay
         args.replay = 'online'
-        args.triplet_selection = 'EP-SHN'
-        args.online_memory_budget = 2000
+        args.budget = 2000
+        args.use_teacher = True
+        args.use_embeddings = False
+        args.triplet_selection = 'EP-SHN-1'
+        args.teacher_epochs = 100
+        args.teacher_loss = 'CE'
+        args.teacher_split = 0.8
+        args.teacher_opt = 'Adam'
+        args.use_scheduler = False
+        args.distill_type = 'E'
+        args.multi_negative = False
+        args.use_augment = False
         OTR_EPSHN = {}
         OTR_EPSHN = collect_all(OTR_EPSHN, seed_list, args, name='OTR (EP-SHN)')
         args.replay = 'none'
+        args.use_teacher = False
+        args.use_embeddings = False
+        args.multi_negative = False
+        args.use_augment = False
 
         # Drawing line graph between replay using memory methods
         acc_ER = []

@@ -15,7 +15,7 @@ parser.add_argument('--n-seeds', type=int, default=10, help='how often to repeat
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
-parser.add_argument('--results-dir', type=str, default='../benchmark', dest='r_dir', help="default: %(default)s")
+parser.add_argument('--results-dir', type=str, default='../benchmark_new', dest='r_dir', help="default: %(default)s")
 
 # expirimental task parameters.
 task_params = parser.add_argument_group('Task Parameters')
@@ -39,7 +39,18 @@ model_params.add_argument('--fc-bn', type=str, default="no", help="use batch-nor
 model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", "leakyrelu"])
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                    " (instead of a 'multi-headed' one)")
-model_params.add_argument('--use-teacher', type=bool, default=False, help='Using an offline teacher for distill from memory')
+model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
+model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
+model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
+model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
+model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
+model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
+model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
+model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
+model_params.add_argument('--multi_negative', type=utils.str_to_bool, default=False)
+model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=True)
+model_params.add_argument('--online_kd', type=utils.str_to_bool, default=False)
+model_params.add_argument('--mem_online', type=utils.str_to_bool, default=False, help='icarl using online exemplar mamagement')
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -50,7 +61,6 @@ train_params.add_argument('--optimizer', type=str, choices=['adam', 'adam_reset'
 # "memory replay" parameters
 replay_params = parser.add_argument_group('Replay Parameters')
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
-replay_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
 
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
@@ -183,49 +193,75 @@ if __name__ == '__main__':
     # Experience Replay
     args.replay = "exemplars"
     args.otr_exemplars = False
+    args.mem_online = True
     ER = {}
     ER = collect_all(ER, mem_list, seed_list, args, name="ER")
     args.replay = "none"
+    args.mem_online = False
 
     # Online Replay
     args.replay = 'online'
-    args.otr_exemplars = False
-    args.triplet_selection = 'HP-HN'
+    args.budget = 2000
+    args.triplet_selection = 'HP-HN-1'
+    args.bce = True
+    if args.scenario == 'class':
+        args.bce_distill = True
+    args.use_embeddings = False
+    args.multi_negative = False
+    args.add_exemplars = False
     OTR = {}
     OTR = collect_all(OTR, mem_list, seed_list, args, name='OTR (ours)')
     args.replay = 'none'
+    args.bce = False
+    args.bce_distill = False
+    args.use_embeddings = False
+    args.multi_negative = False
+    args.add_exemplars = False
 
     # OTR + distill
     args.replay = 'online'
+    args.budget = 2000
     args.use_teacher = True
-    args.otr_exemplars = False
-    args.triplet_selection = 'HP-HN'
+    args.use_embeddings = False
+    args.triplet_selection = 'HP-HN-1'
+    args.teacher_epochs = 100
+    args.teacher_loss = 'CE'
+    args.teacher_split = 0.8
+    args.teacher_opt = 'Adam'
+    args.use_scheduler = False
+    args.distill_type = 'E'
+    args.multi_negative = False
+    args.use_augment = False
     OTRDistill = {}
     OTRDistill = collect_all(OTRDistill, mem_list, seed_list, args, name='OTR+distill (ours)')
     args.replay = 'none'
     args.use_teacher = False
+    args.use_embeddings = False
+    args.multi_negative = False
+    args.use_augment = False
 
     # iCaRL
     if args.scenario == "class":
         args.bce = True
         args.bce_distill = True
         args.use_exemplars = True
-        args.add_exemplars = True
+        args.add_exemplars = False
         args.herding = True
         args.norm_exemplars = True
-        args.otr_exemplars = False
+        args.mem_online = True
         ICARL = {}
         ICARL = collect_all(ICARL, mem_list, seed_list, args, name="iCaRL")
 
-        args.bce = True
-        args.bce_distill = True
-        args.use_exemplars = True
-        args.add_exemplars = True
-        args.herding = False
-        args.norm_exemplars = True
-        args.otr_exemplars = True
-        ICARLOTR = {}
-        ICARLOTR = collect_all(ICARLOTR, mem_list, seed_list, args, name="iCaRL+OTR")
+
+        # args.bce = True
+        # args.bce_distill = True
+        # args.use_exemplars = True
+        # args.add_exemplars = True
+        # args.herding = False
+        # args.norm_exemplars = True
+        # args.otr_exemplars = True
+        # ICARLOTR = {}
+        # ICARLOTR = collect_all(ICARLOTR, mem_list, seed_list, args, name="iCaRL+OTR")
 
     # Drawing line graph between replay using memory methods
     aGEM_mean = []
@@ -248,7 +284,7 @@ if __name__ == '__main__':
         acc_OTR = []
         acc_OTRDistill = []
         acc_iCaRL = []
-        acc_iCaRL_OTR = []
+        # acc_iCaRL_OTR = []
 
         ## AVERAGE TEST ACCURACY
         for s in seed_list:
@@ -258,7 +294,7 @@ if __name__ == '__main__':
             acc_OTRDistill.append(OTRDistill[m][s][1])
             if args.scenario == "class":
                 acc_iCaRL.append(ICARL[m][s][1])
-                acc_iCaRL_OTR.append(ICARLOTR[m][s][1])
+                # acc_iCaRL_OTR.append(ICARLOTR[m][s][1])
 
         aGEM_mean.append(np.mean(acc_aGEM) * 100)
         ER_mean.append(np.mean(acc_ER) * 100)
@@ -266,7 +302,7 @@ if __name__ == '__main__':
         OTRDistill_mean.append(np.mean(acc_OTRDistill) * 100)
         if args.scenario == "class":
             iCaRL_mean.append(np.mean(acc_iCaRL) * 100)
-            iCaRL_OTR_mean.append(np.mean(acc_iCaRL_OTR) * 100)
+            # iCaRL_OTR_mean.append(np.mean(acc_iCaRL_OTR) * 100)
 
         aGEM_std.append(np.std(acc_aGEM) * 100)
         ER_std.append(np.std(acc_ER) * 100)
@@ -274,24 +310,23 @@ if __name__ == '__main__':
         OTRDistill_std.append(np.std(acc_OTRDistill) * 100)
         if args.scenario == "class":
             iCaRL_std.append(np.std(acc_iCaRL) * 100)
-            iCaRL_OTR_std.append(np.std(acc_iCaRL_OTR) * 100)
+            # iCaRL_OTR_std.append(np.std(acc_iCaRL_OTR) * 100)
 
     df = pd.DataFrame({'mem': mem_list,
                        'A-GEM': aGEM_mean, 'A-GEM-std': aGEM_std,
-                       'ER': ER_mean, 'ER-std': ER_std,
+                       'ER*': ER_mean, 'ER*-std': ER_std,
                        'OTR': OTR_mean, 'OTR-std': OTR_std,
                        'OTR+distill': OTRDistill_mean, 'OTR+distill-std': OTRDistill_std})
 
-    plt.errorbar('mem', 'ER', 'ER-std', data=df, marker='s', color='darkblue', ecolor='darkblue')
+    plt.errorbar('mem', 'ER*', 'ER*-std', data=df, marker='s', color='darkblue', ecolor='darkblue')
     plt.errorbar('mem', 'A-GEM', 'A-GEM-std', data=df, marker='o', markerfacecolor='brown', color='brown', ecolor='brown')
     plt.errorbar('mem', 'OTR', 'OTR-std', data=df, marker='*', color='teal', ecolor='teal')
     plt.errorbar('mem', 'OTR+distill', 'OTR+distill-std', data=df, marker='', color='coral', ecolor='coral')
     if args.scenario == 'class':
         df_iCaRL = pd.DataFrame({'mem': mem_list,
-                                 'iCaRL': iCaRL_mean, 'iCaRL-std': iCaRL_std,
-                                 'iCaRL+OTR': iCaRL_OTR_mean, 'iCaRL+OTR-std': iCaRL_OTR_std})
-        plt.errorbar('mem', 'iCaRL', 'iCaRL-std', data=df_iCaRL, marker='h', color='violet', ecolor='violet')
-        plt.errorbar('mem', 'iCaRL+OTR', 'iCaRL+OTR-std', data=df_iCaRL, marker='d', color='peru')
+                                 'iCaRL*': iCaRL_mean, 'iCaRL*-std': iCaRL_std,
+                                 })
+        plt.errorbar('mem', 'iCaRL*', 'iCaRL*-std', data=df_iCaRL, marker='h', color='violet', ecolor='violet')
 
     if args.scenario == 'class':
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3)
