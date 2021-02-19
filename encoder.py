@@ -418,6 +418,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         if self.AGEM and x_ is not None:
             # Perform backward pass to calculate gradient of replayed batch (if not yet done)
             if not gradient_per_task:
+                loss_replay = loss_replay.clamp(min=1e-6)
                 loss_replay.backward()
             # Reorganize the gradient of the replayed batch as a single vector
             grad_rep = []

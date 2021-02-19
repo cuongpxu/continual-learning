@@ -14,7 +14,7 @@ parser.add_argument('--n-seeds', type=int, default=10, help='how often to repeat
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
-parser.add_argument('--results-dir', type=str, default='../benchmark', dest='r_dir', help="default: %(default)s")
+parser.add_argument('--results-dir', type=str, default='../benchmark_new', dest='r_dir', help="default: %(default)s")
 parser.add_argument('--list-experiments', nargs="+", default=['splitMNIST', 'permMNIST', 'rotMNIST', 'CIFAR10', 'CIFAR100'])
 
 # expirimental task parameters.
@@ -45,7 +45,9 @@ model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teach
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
 model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
-model_params.add_argument('--multi_negative', type=bool, default=False)
+model_params.add_argument('--multi_negative', type=utils.str_to_bool, default=False)
+model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=True)
+model_params.add_argument('--online_kd', type=utils.str_to_bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -60,6 +62,7 @@ replay_params.add_argument('--replay', type=str, default='none', choices=replay_
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
 replay_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
 replay_params.add_argument('--triplet-selection', type=str, default='HP-HN', help="Triplet selection strategy")
+replay_params.add_argument('--mem_online', type=utils.str_to_bool, default=False, help='icarl using online exemplar mamagement')
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
@@ -251,8 +254,10 @@ if __name__ == '__main__':
         writer = open('./wilcoxon_data/{}_{}_{}.dat'.format('ER', args.experiment, args.scenario), 'w+')
         writer.write('{},{},{}\n'.format('ER', args.experiment, args.scenario))
         args.replay = "exemplars"
+        args.mem_online = True
         collect_all(writer, seed_list, args, name="ER")
         args.replay = "none"
+        args.mem_online = False
         writer.close()
 
         ## Online Replay
@@ -307,8 +312,10 @@ if __name__ == '__main__':
             args.bce = True
             args.bce_distill = True
             args.use_exemplars = True
-            args.add_exemplars = True
+            args.add_exemplars = False
             args.herding = True
             args.norm_exemplars = True
+            args.mem_online = True
             collect_all(writer, seed_list, args, name="iCaRL")
+            args.mem_online = False
             writer.close()

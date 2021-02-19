@@ -46,7 +46,9 @@ model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teach
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
 model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
-model_params.add_argument('--multi_negative', type=bool, default=False)
+model_params.add_argument('--multi_negative', type=utils.str_to_bool, default=False)
+model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=True)
+model_params.add_argument('--online_kd', type=utils.str_to_bool, default=False)
 
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
@@ -63,6 +65,7 @@ replay_params.add_argument('--otr_exemplars', action='store_true', help="use otr
 replay_params.add_argument('--triplet_selection', type=str, default='HP-HN-1', help="Triplet selection strategy")
 replay_params.add_argument('--use_embeddings', action='store_true',
                           help="use embeddings space for otr exemplars instead of features space")
+replay_params.add_argument('--mem_online', type=utils.str_to_bool, default=False, help='icarl using online exemplar mamagement')
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
@@ -138,6 +141,7 @@ def set_params(args, a):
         args.replay = "exemplars"
         args.budget = 2000
         args.otr_exemplars = False
+        args.mem_online = True
     elif a == 'OTR':
         args.replay = 'online'
         args.online_memory_budget = 2000
@@ -153,10 +157,11 @@ def set_params(args, a):
         args.bce = True
         args.bce_distill = True
         args.use_exemplars = True
-        args.add_exemplars = True
+        args.add_exemplars = False
         args.herding = True
         args.norm_exemplars = True
         args.otr_exemplars = False
+        args.mem_online = True
     else:
         args.replay = 'online'
         args.online_memory_budget = 2000
@@ -207,9 +212,32 @@ def collect_all(method_dict, seed_list, args, name=None):
     return method_dict
 
 
+def get_citation(a):
+    if a == 'EWC':
+        return '\\cite{EWC} '
+    elif a == 'o-EWC':
+        return '\\cite{o-EWC} '
+    elif a == 'SI':
+        return '\\cite{SI} '
+    elif a == 'LwF':
+        return '\\cite{LwF} '
+    elif a == 'GR':
+        return '\\cite{GR} '
+    elif a == 'GR+distill':
+        return '\\cite{DGR} '
+    elif a == 'A-GEM':
+        return '\\cite{A-GEM} '
+    elif a == 'ER':
+        return '\\cite{hayes2019memory} '
+    elif a == 'iCaRL':
+        return '\\cite{iCaRL} '
+    else:
+        return ''
+
+
 if __name__ == '__main__':
     form = 'NIPS'
-    test = 'MNIST'
+    test = 'CIFAR'
     metrics = 'F'
     if test == 'MNIST':
         experiments = ['splitMNIST', 'permMNIST', 'rotMNIST']
@@ -223,12 +251,12 @@ if __name__ == '__main__':
     table_writer.write('\\begin{table*}[!ht]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
     if test == 'MNIST':
-        table_writer.write('\\caption{Average %s of all tasks on the MNIST variant datasets.}\n' % metrics)
+        table_writer.write('\\caption{Average %s of all tasks on the MNIST variant datasets.}\n' % "forgeting rate" if metrics == 'F' else metrics)
     else:
-        table_writer.write('\\caption{Average %s of all tasks on the CIFAR datasets.}\n' % metrics)
+        table_writer.write('\\caption{Average %s of all tasks on the CIFAR datasets.}\n' % "forgeting rate" if metrics == 'F' else metrics)
     table_writer.write('\\label{tab:' + test.lower() + '_' + metrics + '_table}\n')
     table_writer.write('\\centering\n')
-    table_writer.write('\\begin{tabular}{l')
+    table_writer.write('\\hspace*{-1cm}\\begin{tabular}{l')
     for i in range(len(experiments)):
         table_writer.write('c@{\hskip 0.2cm}c@{\hskip 0.2cm}c@{\hskip 0.2cm}')
 
@@ -261,7 +289,12 @@ if __name__ == '__main__':
     table_writer.write('\\hline\n')
 
     for a in algorithms:
-        table_writer.write(a + ' & ')
+        if a == 'ER' or a == 'iCaRL':
+            table_writer.write(a + "*" + get_citation(a) + ' & ')
+        elif a == 'OTR' or a == 'OTR+distill':
+            table_writer.write(a + " (ours) & ")
+        else:
+            table_writer.write(a + get_citation(a) + ' & ')
         for ei, e in enumerate(experiments):
             for si, s in enumerate(scenarios):
                 args = parser.parse_args()
@@ -341,6 +374,9 @@ if __name__ == '__main__':
                         else:
                             table_writer.write('{:.2f} ($\pm${:.3f}) & '.format(mean, std))
                 # reset_params(args, a)
+
+        if a == 'Offline':
+            table_writer.write('\\hline\n')
     table_writer.write('\\hline\n')
     table_writer.write('\\end{tabular}\n')
     table_writer.write('\\end{table*}\n')

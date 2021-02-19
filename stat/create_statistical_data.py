@@ -46,7 +46,9 @@ model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teach
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
 model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
-model_params.add_argument('--multi_negative', type=bool, default=False)
+model_params.add_argument('--multi_negative', type=utils.str_to_bool, default=False)
+model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=True)
+model_params.add_argument('--online_kd', type=utils.str_to_bool, default=False)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -61,6 +63,7 @@ replay_params.add_argument('--otr_exemplars', action='store_true', help="use otr
 replay_params.add_argument('--triplet_selection', type=str, default='HP-HN-1', help="Triplet selection strategy")
 replay_params.add_argument('--use_embeddings', action='store_true',
                           help="use embeddings space for otr exemplars instead of features space")
+replay_params.add_argument('--mem_online', type=utils.str_to_bool, default=False, help='icarl using online exemplar mamagement')
 # -generative model parameters (if separate model)
 genmodel_params = parser.add_argument_group('Generative Model Parameters')
 genmodel_params.add_argument('--g-z-dim', type=int, default=100, help='size of latent representation (default: 100)')
@@ -164,6 +167,7 @@ def reset_default_params(args):
     args.add_exemplars = False
     args.bce_distill = False
     args.icarl = False
+    args.mem_online = False
 
 
 if __name__ == '__main__':
@@ -239,8 +243,10 @@ if __name__ == '__main__':
 
         ## Experience Replay
         args.replay = "exemplars"
+        args.mem_online = True
         collect_all(OFF, result_writer, seed_list, args, name="ER")
         args.replay = "none"
+        args.mem_online = False
 
         ## Online Replay
         args.replay = 'online'
@@ -281,15 +287,16 @@ if __name__ == '__main__':
         args.multi_negative = False
         args.use_augment = False
 
-
         # iCaRL
         if args.scenario == "class":
             args.bce = True
             args.bce_distill = True
             args.use_exemplars = True
-            args.add_exemplars = True
+            args.add_exemplars = False
             args.herding = True
             args.norm_exemplars = True
+            args.mem_online = True
             collect_all(OFF, result_writer, seed_list, args, name="iCaRL")
+            args.mem_online = False
 
     result_writer.close()
