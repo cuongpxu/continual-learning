@@ -132,7 +132,6 @@ eval_params.add_argument('--sample-n', type=int, default=64, help="# images to s
 shortcut_params = parser.add_argument_group('Shortcut parameters')
 shortcut_params.add_argument('--otr', action='store_true', help='online triplet replay')
 shortcut_params.add_argument('--otr_distill', action='store_true', help='online triplet replay with distillation')
-shortcut_params.add_argument('--otr_distill_kd', action='store_true', help='online triplet replay with distillation')
 shortcut_params.add_argument('--icarl', action='store_true', help="icarl shortcut param")
 
 
@@ -182,20 +181,6 @@ def run(args, verbose=False):
         if utils.checkattr(args, 'add_exemplars') or utils.checkattr(args, 'use_exemplars'):
             args.otr_exemplars = True
             args.norm_exemplars = True
-
-    if utils.checkattr(args, 'otr_distill_kd'):
-        if args.experiment in ['splitMNIST', 'CIFAR10']:
-            args.bce = True
-            if args.scenario == 'class':
-                args.bce_distill = True
-        args.replay = 'online'
-        args.use_teacher = True
-        if utils.checkattr(args, 'add_exemplars') or utils.checkattr(args, 'use_exemplars'):
-            args.otr_exemplars = True
-            args.norm_exemplars = True
-
-        args.online_kd = True
-        args.update_teacher_kd = False
 
     # -if XdG is selected but not the Task-IL scenario, give error
     if (not args.scenario=="task") and args.xdg:

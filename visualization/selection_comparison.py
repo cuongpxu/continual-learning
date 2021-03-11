@@ -189,13 +189,15 @@ if __name__ == '__main__':
         # Experience Replay + Herding
         args.replay = "exemplars"
         args.herding = True
-        args.normalize = True
+        args.norm_exemplars = True
         args.mem_online = True
         args.budget = 2000
         ERH = {}
         ERH = collect_all(ERH, seed_list, args, name="ER+herding")
         args.replay = "none"
         args.herding = False
+        args.norm_exemplars = False
+        args.mem_online = False
 
         # Experience Replay
         args.replay = "exemplars"
@@ -209,90 +211,78 @@ if __name__ == '__main__':
         # Online Replay
         args.replay = 'online'
         args.budget = 2000
-        args.use_teacher = True
+        args.triplet_selection = 'HP-HN-1'
+        args.bce = True
+        if args.scenario == 'class':
+            args.bce_distill = True
         args.use_embeddings = False
-        args.triplet_selection = 'EP-SHN-1'
-        args.teacher_epochs = 100
-        args.teacher_loss = 'CE'
-        args.teacher_split = 0.8
-        args.teacher_opt = 'Adam'
-        args.use_scheduler = False
-        args.distill_type = 'E'
         args.multi_negative = False
-        args.use_augment = False
+        args.add_exemplars = False
         OTR = {}
         OTR = collect_all(OTR, seed_list, args, name='OTR (HP-HN)')
         args.replay = 'none'
-        args.use_teacher = False
+        args.bce = False
+        args.bce_distill = False
         args.use_embeddings = False
         args.multi_negative = False
-        args.use_augment = False
+        args.add_exemplars = False
 
         # Online Replay
         args.replay = 'online'
         args.budget = 2000
-        args.use_teacher = True
-        args.use_embeddings = False
         args.triplet_selection = 'HP-SHN-1'
-        args.teacher_epochs = 100
-        args.teacher_loss = 'CE'
-        args.teacher_split = 0.8
-        args.teacher_opt = 'Adam'
-        args.use_scheduler = False
-        args.distill_type = 'E'
+        args.bce = True
+        if args.scenario == 'class':
+            args.bce_distill = True
+        args.use_embeddings = False
         args.multi_negative = False
-        args.use_augment = False
+        args.add_exemplars = False
         OTR_HPSHN = {}
         OTR_HPSHN = collect_all(OTR_HPSHN, seed_list, args, name='OTR (HP-SHN)')
         args.replay = 'none'
-        args.use_teacher = False
+        args.bce = False
+        args.bce_distill = False
         args.use_embeddings = False
         args.multi_negative = False
-        args.use_augment = False
+        args.add_exemplars = False
 
         # Online Replay
         args.replay = 'online'
         args.budget = 2000
-        args.use_teacher = True
-        args.use_embeddings = False
         args.triplet_selection = 'EP-HN-1'
-        args.teacher_epochs = 100
-        args.teacher_loss = 'CE'
-        args.teacher_split = 0.8
-        args.teacher_opt = 'Adam'
-        args.use_scheduler = False
-        args.distill_type = 'E'
+        args.bce = True
+        if args.scenario == 'class':
+            args.bce_distill = True
+        args.use_embeddings = False
         args.multi_negative = False
-        args.use_augment = False
+        args.add_exemplars = False
         OTR_EPHN = {}
         OTR_EPHN = collect_all(OTR_EPHN, seed_list, args, name='OTR (EP-HN)')
         args.replay = 'none'
-        args.use_teacher = False
+        args.bce = False
+        args.bce_distill = False
         args.use_embeddings = False
         args.multi_negative = False
-        args.use_augment = False
+        args.add_exemplars = False
 
         # Online Replay
         args.replay = 'online'
         args.budget = 2000
-        args.use_teacher = True
-        args.use_embeddings = False
         args.triplet_selection = 'EP-SHN-1'
-        args.teacher_epochs = 100
-        args.teacher_loss = 'CE'
-        args.teacher_split = 0.8
-        args.teacher_opt = 'Adam'
-        args.use_scheduler = False
-        args.distill_type = 'E'
+        args.bce = True
+        if args.scenario == 'class':
+            args.bce_distill = True
+        args.use_embeddings = False
         args.multi_negative = False
-        args.use_augment = False
+        args.add_exemplars = False
         OTR_EPSHN = {}
         OTR_EPSHN = collect_all(OTR_EPSHN, seed_list, args, name='OTR (EP-SHN)')
         args.replay = 'none'
-        args.use_teacher = False
+        args.bce = False
+        args.bce_distill = False
         args.use_embeddings = False
         args.multi_negative = False
-        args.use_augment = False
+        args.add_exemplars = False
 
         # Drawing line graph between replay using memory methods
         acc_ER = []

@@ -386,7 +386,14 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 metric_cb(model, iters, task=task, otr_exemplars=params_dict['otr_exemplars'])
 
         # REPLAY: update source for replay
-        previous_model = copy.deepcopy(model).eval()
+        if previous_model is not None:
+            previous_model.load_state_dict(model.state_dict())
+            previous_model.eval()
+        else:
+            previous_model = copy.copy(model)
+            previous_model.load_state_dict(model.state_dict())
+            previous_model.eval()
+
         if replay_mode == 'generative':
             Generative = True
             previous_generator = copy.deepcopy(generator).eval() if generator is not None else previous_model

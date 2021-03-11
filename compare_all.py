@@ -87,8 +87,6 @@ cl_params.add_argument('--c', type=float, dest="si_c", help="--> SI: regularisat
 cl_params.add_argument('--epsilon', type=float, default=0.1, dest="epsilon", help="--> SI: dampening parameter")
 cl_params.add_argument('--gating-prop', type=float, metavar="PROP", help="--> XdG: prop neurons per layer to gate")
 
-
-
 # iCaRL parameters
 icarl_params = parser.add_argument_group('iCaRL Parameters')
 icarl_params.add_argument('--budget', type=int, default=2000, dest="budget", help="how many exemplars can be stored?")
@@ -109,6 +107,7 @@ shortcut_params.add_argument('--otr', action='store_true', help='online triplet 
 shortcut_params.add_argument('--otr_distill', action='store_true', help='online triplet replay with distillation')
 shortcut_params.add_argument('--otr_distill_kd', action='store_true', help='online triplet replay with distillation')
 shortcut_params.add_argument('--icarl', action='store_true', help="icarl shortcut param")
+
 
 def get_results(args):
     # -get param-stamp
@@ -145,7 +144,6 @@ def collect_all(method_dict, seed_list, args, name=None):
 
 
 if __name__ == '__main__':
-
     ## Load input-arguments
     args = parser.parse_args()
     # -set default-values for certain arguments based on chosen scenario & experiment
