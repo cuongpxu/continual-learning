@@ -488,7 +488,7 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
             break
 
     # teacher.is_offline_training = False
-    teacher.is_ready_distill = True
+    teacher.is_ready_distill = False
     if os.path.exists(early_stopping.model_name):
         os.remove(early_stopping.model_name)
 
