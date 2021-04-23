@@ -254,23 +254,21 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
             if batch_index <= iters:
                 # print('Training batch: {}'.format(batch_index))
                 # Train the main model with this batch
-                loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
-                                                active_classes=active_classes, task=task, rnt=1. / task,
-                                                scenario=scenario, teacher=teacher,
-                                                params_dict=params_dict)
-                if params_dict['online_kd']:
-                    # Incremental training teacher model
-                    teacher_loss_dict = teacher.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
-                                                active_classes=active_classes, task=task, rnt=1. / task,
-                                                scenario=scenario, teacher=model,
-                                                params_dict=params_dict)
+                for e in range(params_dict['epochs']):
+                    loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
+                                                    active_classes=active_classes, task=task, rnt=1. / task,
+                                                    scenario=scenario, teacher=teacher,
+                                                    params_dict=params_dict)
+                    if params_dict['online_kd']:
+                        # Incremental training teacher model
+                        teacher_loss_dict = teacher.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
+                                                    active_classes=active_classes, task=task, rnt=1. / task,
+                                                    scenario=scenario, teacher=model,
+                                                    params_dict=params_dict)
 
-                if params_dict['update_teacher_kd']:
-                    if teacher is not None and teacher.is_ready_distill and task > 1:
-                        teacher.train_via_KD(model, x,  params_dict['distill_type'], active_classes)
-
-
-
+                    if params_dict['update_teacher_kd']:
+                        if teacher is not None and teacher.is_ready_distill and task > 1:
+                            teacher.train_via_KD(model, x,  params_dict['distill_type'], active_classes)
 
                 # Update running parameter importance estimates in W
                 if isinstance(model, ContinualLearner) and (model.si_c > 0):
@@ -482,7 +480,7 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
             # print("Teacher early stopping detected")
             # Notify solver to distill from teacher
             # teacher.is_offline_training = False
-            teacher.is_ready_distill = True
+            # teacher.is_ready_distill = True
             # Using best model from last check point
             teacher.load_state_dict(torch.load(early_stopping.model_name))
             break

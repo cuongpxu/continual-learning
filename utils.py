@@ -2,6 +2,7 @@ import numpy as np
 import pickle
 import torch
 import os, errno
+import matplotlib.pyplot as plt
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
@@ -10,6 +11,7 @@ from torch.nn import functional as F
 ###################
 ## Loss function ##
 ###################
+
 
 def loss_fn_kd(scores, target_scores, T=2.):
     """Compute knowledge-distillation (KD) loss given [scores] and [target_scores].
@@ -254,3 +256,13 @@ def str_to_bool(value):
     elif value.lower() in {'true', 't', '1', 'yes', 'y'}:
         return True
     raise ValueError(f'{value} is not a valid boolean value')
+
+
+def show_image(im_tensor, name):
+    print(im_tensor.size())
+    plt.clf()
+    if im_tensor.size(0) == 1:
+        plt.imshow(im_tensor.permute(1, 2, 0).squeeze().numpy(), cmap='gray')
+    else:
+        plt.imshow(im_tensor.permute(1, 2, 0).numpy())
+    plt.savefig(name)

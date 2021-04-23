@@ -363,6 +363,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             n_replays = len(y_) if (y_ is not None) else len(scores_)
 
             # Prepare lists to store losses for each replay
+            loss_KD = [None] * n_replays
             loss_replay = [None] * n_replays
             predL_r = [None] * n_replays
             distilL_r = [None] * n_replays
@@ -381,9 +382,21 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         self.apply_XdGmask(task=replay_id + 1)
                     y_hat_all = self(x_temp_)
 
+                    if teacher is not None and task > 1:
+                        if teacher.is_ready_distill:
+                            teacher.eval()
+                            with torch.no_grad():
+                                embeds_teacher = teacher.feature_extractor(x_temp_)
+                                y_hat_teacher = teacher.classifier(embeds_teacher)
+                        else:
+                            y_hat_teacher = None
+                    else:
+                        y_hat_teacher = None
+
                 # -if needed (e.g., Task-IL or Class-IL scenario), remove predictions for classes not in replayed task
                 y_hat = y_hat_all if (active_classes is None) else y_hat_all[:, active_classes[replay_id]]
-
+                if y_hat_teacher is not None:
+                    y_hat_teacher = y_hat_teacher if (active_classes is None) else y_hat_teacher[:, active_classes[replay_id]]
                 # Calculate losses
                 if (y_ is not None) and (y_[replay_id] is not None):
                     if self.binaryCE:
@@ -393,6 +406,32 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         ).sum(dim=1).mean()  # --> sum over classes, then average over batch
                     else:
                         predL_r[replay_id] = F.cross_entropy(y_hat, y_[replay_id], reduction='mean')
+
+                # Compute distillation loss from teacher outputs
+                if y_hat_teacher is not None:
+                    if params_dict['distill_type'] in ['E', 'ET', 'ES', 'ETS']:
+                        with torch.no_grad():
+                            y_hat_ensemble = 0.5 * (y_hat.clone() + y_hat_teacher.clone())
+
+                        if params_dict['distill_type'] in ['ET', 'ETS']:
+                            loss_KD[replay_id] = 0.5 * (F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                                      F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
+                                             * (self.KD_temp * self.KD_temp) +
+                                             F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                                      F.softmax(y_hat_teacher / self.KD_temp, dim=1))
+                                             * (self.KD_temp * self.KD_temp))
+
+                        else:  # distill: E, ES
+                            loss_KD[replay_id] = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                               F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
+                                      * (self.KD_temp * self.KD_temp)
+
+                    else:  # distill: T, TS
+                        loss_KD[replay_id] = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
+                                           F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
+                                  * (self.KD_temp * self.KD_temp)
+                    # loss_KD = self.alpha_t * loss_KD + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
+
                 if (scores_ is not None) and (scores_[replay_id] is not None):
                     # n_classes_to_consider = scores.size(1) #--> with this version, no zeroes are added to [scores]!
                     n_classes_to_consider = y_hat.size(1)  # --> zeros will be added to [scores] to make it this size!
@@ -414,6 +453,11 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             # Calculate total replay loss
             loss_replay = None if (x_ is None) else sum(loss_replay) / n_replays
 
+            # Calculate total kd loss
+            loss_KD = None if any(lkd is None for lkd in loss_KD) else sum(loss_KD) / n_replays
+        else:
+            loss_KD = None
+
         # If using A-GEM, calculate and store averaged gradient of replayed data
         if self.AGEM and x_ is not None:
             # Perform backward pass to calculate gradient of replayed batch (if not yet done)
@@ -430,7 +474,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             self.optimizer.zero_grad()
 
         ##--(2)-- CURRENT DATA --##
-
         if x is not None:
             # If requested, apply correct task-specific mask
             if self.mask_dict is not None:
@@ -440,50 +483,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             embeds = self.feature_extractor(x)
             y_hat = self.classifier(embeds)
 
-            if teacher is not None and task > 1:
-                if teacher.is_ready_distill:
-                    teacher.eval()
-                    with torch.no_grad():
-                        embeds_teacher = teacher.feature_extractor(x)
-                        y_hat_teacher = teacher.classifier(embeds_teacher)
-                else:
-                    y_hat_teacher = None
-            else:
-                y_hat_teacher = None
-
             # -if needed, remove predictions for classes not in current task
             if active_classes is not None:
                 class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
                 y_hat = y_hat[:, class_entries]
-                if y_hat_teacher is not None:
-                    y_hat_teacher = y_hat_teacher[:, class_entries]
-
-            # Compute distillation loss from teacher outputs
-            if y_hat_teacher is not None:
-                if params_dict['distill_type'] in ['E', 'ET', 'ES', 'ETS']:
-                    with torch.no_grad():
-                        y_hat_ensemble = 0.5 * (y_hat.clone() + y_hat_teacher.clone())
-
-                    if params_dict['distill_type'] in ['ET', 'ETS']:
-                        loss_KD = 0.5 * (F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
-                                         * (self.KD_temp * self.KD_temp) +
-                                         F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                  F.softmax(y_hat_teacher / self.KD_temp, dim=1))
-                                         * (self.KD_temp * self.KD_temp))
-
-                    else:  # distill: E, ES
-                        loss_KD = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                           F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
-                                  * (self.KD_temp * self.KD_temp)
-
-                else:  # distill: T, TS
-                    loss_KD = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                       F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
-                              * (self.KD_temp * self.KD_temp)
-                loss_KD = self.alpha_t * loss_KD + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
-            else:
-                loss_KD = None
 
             # Calculate prediction loss
             if self.binaryCE:
@@ -517,12 +520,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         self.select_triplets(embeds, y_score, x, y,
                                              params_dict['triplet_selection'], task, scenario,
                                              params_dict['use_embeddings'], params_dict['multi_negative'])
-            # Weigh losses
-            if loss_KD is not None:
-                loss_cur = rnt * predL + (1 - rnt) * loss_KD
-            else:
-                loss_cur = predL
 
+            loss_cur = predL
             # Calculate training-precision
             precision = None if y is None else (y == y_hat.max(1)[1]).sum().item() / x.size(0)
 
@@ -539,6 +538,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             loss_total = loss_cur
         else:
             loss_total = loss_replay if (x is None) else rnt * loss_cur + (1 - rnt) * loss_replay
+        if loss_KD is not None:
+            loss_total = loss_total + loss_KD
 
         ##--(3)-- ALLOCATION LOSSES --##
 

@@ -60,8 +60,9 @@ model_params.add_argument('--use_scheduler', action='store_true', help='Using le
 model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
 model_params.add_argument('--multi_negative', type=utils.str_to_bool, default=False)
-model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=True)
+model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=False)
 model_params.add_argument('--online_kd', type=utils.str_to_bool, default=False)
+model_params.add_argument('--epochs', type=int, default=1)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
@@ -538,7 +539,8 @@ def run(args, verbose=False):
         'update_teacher_kd': args.update_teacher_kd, 'online_kd': args.online_kd,
         'mem_online': args.mem_online,
         'herding': True if utils.checkattr(args, 'herding') else False,
-        'normalize': True if utils.checkattr(args, 'normalize') else False
+        'normalize': True if utils.checkattr(args, 'normalize') else False,
+        'epochs': args.epochs
     }
     # Train model
     train_cl(
