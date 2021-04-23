@@ -595,6 +595,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         }
 
     def train_epoch(self, train_loader, criterion, optimizer, active_classes, params_dict):
+        class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
         self.train()
         tlosses = []
         for batch_idx, batch in enumerate(train_loader):
@@ -602,6 +603,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             x, y = x.to(self._device()), y.to(self._device())
             optimizer.zero_grad()
             y_hat = self(x)
+            y_hat = y_hat[:, class_entries]
 
             if params_dict['teacher_loss'] == 'BCE':
                 y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
@@ -613,6 +615,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         return tlosses
 
     def valid_epoch(self, val_loader, criterion, active_classes, params_dict):
+        class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
         valid_losses = []
         self.eval()
         with torch.no_grad():
@@ -620,7 +623,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 x, y = batch
                 x, y = x.to(self._device()), y.to(self._device())
                 y_hat = self(x)
-
+                y_hat = y_hat[:, class_entries]
+                
                 if params_dict['teacher_loss'] == 'BCE':
                     y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
 
