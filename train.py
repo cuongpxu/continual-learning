@@ -333,13 +333,13 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     params_dict['batch_size'] = batch_size
                     params_dict['cuda'] = cuda
 
-                    with Pool(processes=1) as pool:
-                        result = pool.apply(training_teacher, (teacher_dataset, teacher, active_classes, params_dict))
+                    # with Pool(processes=1) as pool:
+                    #     result = pool.apply(training_teacher, (teacher_dataset, teacher, active_classes, params_dict))
 
-                    # teacherThread = TeacherThread(1, teacher_dataset, teacher, active_classes, params_dict)
-                    # teacherThread.start()
-                    #
-                    # teacherThread.join()
+                    teacherThread = TeacherThread(1, teacher_dataset, teacher, active_classes, params_dict)
+                    teacherThread.start()
+
+                    teacherThread.join()
 
         ##----------> UPON FINISHING EACH TASK...
 
