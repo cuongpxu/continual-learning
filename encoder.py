@@ -371,6 +371,16 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             # Run model (if [x_] is not a list with separate replay per task and there is no task-specific mask)
             if (not type(x_) == list) and (self.mask_dict is None):
                 y_hat_all = self(x_)
+                if teacher is not None and task > 1:
+                    if teacher.is_ready_distill:
+                        teacher.eval()
+                        with torch.no_grad():
+                            embeds_teacher = teacher.feature_extractor(x_)
+                            y_hat_teacher = teacher.classifier(embeds_teacher)
+                    else:
+                        y_hat_teacher = None
+                else:
+                    y_hat_teacher = None
 
             # Loop to evalute predictions on replay according to each previous task
             for replay_id in range(n_replays):
@@ -624,7 +634,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 x, y = x.to(self._device()), y.to(self._device())
                 y_hat = self(x)
                 y_hat = y_hat[:, class_entries]
-                
+
                 if params_dict['teacher_loss'] == 'BCE':
                     y = utils.to_one_hot(y.cpu(), y_hat.size(1)).to(y.device)
 
