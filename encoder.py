@@ -440,7 +440,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         loss_KD[replay_id] = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
                                            F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
                                   * (self.KD_temp * self.KD_temp)
-                    # loss_KD = self.alpha_t * loss_KD + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
+                    loss_KD[replay_id] = self.alpha_t * loss_KD[replay_id] + \
+                                             F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
 
                 if (scores_ is not None) and (scores_[replay_id] is not None):
                     # n_classes_to_consider = scores.size(1) #--> with this version, no zeroes are added to [scores]!
@@ -549,7 +550,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         else:
             loss_total = loss_replay if (x is None) else rnt * loss_cur + (1 - rnt) * loss_replay
         if loss_KD is not None:
-            loss_total = loss_total + loss_KD
+            loss_total = rnt * loss_cur + (1 - rnt) * loss_KD
 
         ##--(3)-- ALLOCATION LOSSES --##
 
