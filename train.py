@@ -5,14 +5,14 @@ import utils
 import os
 import numpy as np
 import threading
+import uuid
 from data import SubDataset, ExemplarDataset, OnlineExemplarDataset, TransformedDataset
 from continual_learner import ContinualLearner
 from es import EarlyStopping
 from torch import optim
 from torch.utils.data import ConcatDataset, random_split
-from torch.nn import functional as F
 from optim import optimizer
-import uuid
+from multiprocessing import Pool
 
 
 def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class", classes_per_task=None, iters=2000,
@@ -332,10 +332,14 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     params_dict['teacher_lr'] = model.optimizer.param_groups[0]['lr']
                     params_dict['batch_size'] = batch_size
                     params_dict['cuda'] = cuda
-                    teacherThread = TeacherThread(1, teacher_dataset, teacher, active_classes, params_dict)
-                    teacherThread.start()
 
-                    teacherThread.join()
+                    with Pool(processes=1) as pool:
+                        result = pool.apply(training_teacher, (teacher_dataset, teacher, active_classes, params_dict))
+
+                    # teacherThread = TeacherThread(1, teacher_dataset, teacher, active_classes, params_dict)
+                    # teacherThread.start()
+                    #
+                    # teacherThread.join()
 
         ##----------> UPON FINISHING EACH TASK...
 
