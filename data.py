@@ -234,14 +234,17 @@ AVAILABLE_TRANSFORMS = {
     'cifar100': [
         transforms.ToTensor(),
     ],
+    'mnist_norm': [
+        transforms.Normalize(mean=(0.1307,), std=(0.3081,))
+    ],
     'cifar10_norm': [
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
     ],
     'cifar100_norm': [
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
     ],
-    'cifar10_denorm': UnNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    'cifar100_denorm': UnNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    'cifar10_denorm': UnNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    'cifar100_denorm': UnNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     'augment': [
         transforms.RandomHorizontalFlip(),
         transforms.RandomCrop(32, padding=4),
@@ -250,9 +253,9 @@ AVAILABLE_TRANSFORMS = {
         transforms.ToTensor()
     ],
     'imagenet_norm': [
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
     ],
-    'imagenet_denorm': UnNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    'imagenet_denorm': UnNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     'imagenet_augment': [
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
