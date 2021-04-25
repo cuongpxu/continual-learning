@@ -333,7 +333,13 @@ if __name__ == '__main__':
         args.mem_online = True
         ICARL = {}
         ICARL = collect_all(ICARL, seed_list, args, name="iCaRL (budget = {})".format(args.budget))
-
+        args.bce = False
+        args.bce_distill = False
+        args.use_exemplars = False
+        args.add_exemplars = False
+        args.herding = False
+        args.norm_exemplars = False
+        args.mem_online = False
 
     #-------------------------------------------------------------------------------------------------#
 
