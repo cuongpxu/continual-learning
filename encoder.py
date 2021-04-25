@@ -426,23 +426,23 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                         if params_dict['distill_type'] in ['ET', 'ETS']:
                             loss_KD[replay_id] = 0.5 * (F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                      F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
+                                                                 F.softmax(y_hat_ensemble / self.KD_temp, dim=1),
+                                                                 reduction='batchmean')
                                              * (self.KD_temp * self.KD_temp) +
                                              F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                      F.softmax(y_hat_teacher / self.KD_temp, dim=1))
+                                                      F.softmax(y_hat_teacher / self.KD_temp, dim=1),
+                                                      reduction='batchmean')
                                              * (self.KD_temp * self.KD_temp))
-                            # loss_KD[replay_id] = 0.5 * (kd_fn(scores=y_hat, target_scores=y_hat_ensemble) +
-                            #                             kd_fn(scores=y_hat, target_scores=y_hat_teacher))
                         else:  # distill: E, ES
                             loss_KD[replay_id] = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                               F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
+                                                          F.softmax(y_hat_ensemble / self.KD_temp, dim=1),
+                                                          reduction='batchmean') \
                                       * (self.KD_temp * self.KD_temp)
-                            # loss_KD[replay_id] = kd_fn(scores=y_hat, target_scores=y_hat_ensemble)
                     else:  # distill: T, TS
                         loss_KD[replay_id] = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                           F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
+                                                      F.softmax(y_hat_teacher / self.KD_temp, dim=1),
+                                                      reduction='batchmean') \
                                   * (self.KD_temp * self.KD_temp)
-                        # loss_KD[replay_id] = kd_fn(scores=y_hat, target_scores=y_hat_teacher)
                         # loss_KD = self.alpha_t * loss_KD + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
 
                 if (scores_ is not None) and (scores_[replay_id] is not None):
