@@ -33,7 +33,7 @@ def loss_fn_kd(scores, target_scores, T=2.):
         targets_norm = torch.cat([targets_norm.detach(), zeros_to_add], dim=1)
 
     # Calculate distillation loss (see e.g., Li and Hoiem, 2017)
-    KD_loss_unnorm = -(targets_norm * log_scores_norm)
+    KD_loss_unnorm = -(targets_norm * log_scores_norm.clamp(min=1e-4))
     KD_loss_unnorm = KD_loss_unnorm.sum(dim=1)                      #--> sum over classes
     KD_loss_unnorm = KD_loss_unnorm.mean()                          #--> average over batch
 
@@ -56,14 +56,15 @@ def loss_fn_kd_binary(scores, target_scores, T=2.):
 
     # if [scores] and [target_scores] do not have equal size, append 0's to [targets_norm]
     n = scores.size(1)
-    if n>target_scores.size(1):
+    if n > target_scores.size(1):
         n_batch = scores.size(0)
         zeros_to_add = torch.zeros(n_batch, n-target_scores.size(1))
         zeros_to_add = zeros_to_add.to(device)
         targets_norm = torch.cat([targets_norm, zeros_to_add], dim=1)
 
     # Calculate distillation loss
-    KD_loss_unnorm = -( targets_norm * torch.log(scores_norm) + (1-targets_norm) * torch.log(1-scores_norm) )
+    KD_loss_unnorm = -(targets_norm * torch.log(scores_norm).clamp(min=1e-4)
+                       + (1-targets_norm) * torch.log(1-scores_norm).clamp(min=1e-4))
     KD_loss_unnorm = KD_loss_unnorm.sum(dim=1)      #--> sum over classes
     KD_loss_unnorm = KD_loss_unnorm.mean()          #--> average over batch
 
