@@ -96,7 +96,7 @@ icarl_params.add_argument('--norm-exemplars', action='store_true', help="normali
 
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
-eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
+eval_params.add_argument('--time', type=utils.str_to_bool, default=True, help="keep track of total training time")
 eval_params.add_argument('--pdf', action='store_true', help="generate pdfs for individual experiments")
 eval_params.add_argument('--visdom', action='store_true', help="use visdom for on-the-fly plots")
 eval_params.add_argument('--prec-n', type=int, default=1024, help="# samples for evaluating solver's precision")
