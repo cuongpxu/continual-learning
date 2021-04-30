@@ -118,7 +118,7 @@ store_params.add_argument('--use_embeddings', action='store_true',
 store_params.add_argument('--mem_online', type=utils.str_to_bool, default=False, help='icarl using online exemplar mamagement')
 # evaluation parameters
 eval_params = parser.add_argument_group('Evaluation Parameters')
-eval_params.add_argument('--time', action='store_true', help="keep track of total training time")
+eval_params.add_argument('--time', type=utils.str_to_bool, default=True, help="keep track of total training time")
 eval_params.add_argument('--metrics', action='store_true', help="calculate additional metrics (e.g., BWT, forgetting)")
 eval_params.add_argument('--pdf', action='store_true', help="generate pdf with results")
 eval_params.add_argument('--visdom', action='store_true', help="use visdom for on-the-fly plots")
