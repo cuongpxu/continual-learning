@@ -9,6 +9,10 @@ from param_values import set_default_values
 
 description = 'Compare CL strategies using various metrics on each scenario of permuted or split MNIST.'
 parser = argparse.ArgumentParser('./create_result.py', description=description)
+parser.add_argument('--form', type=str, default='NIPS', help='Table form')
+parser.add_argument('--test', type=str, default='MNIST')
+parser.add_argument('--metric', type=str, default='F')
+
 parser.add_argument('--seed', type=int, default=1, help='[first] random seed (for each random-module used)')
 parser.add_argument('--n-seeds', type=int, default=10, help='how often to repeat?')
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
@@ -236,10 +240,10 @@ def get_citation(a):
 
 
 if __name__ == '__main__':
-    form = 'NIPS'
-    test = 'CIFAR'
-    metrics = 'F'
-    if test == 'MNIST':
+    args = parser.parse_args()
+    form = args.form
+    # metrics = 'F'
+    if args.test == 'MNIST':
         experiments = ['splitMNIST', 'permMNIST', 'rotMNIST']
     else:
         experiments = ['CIFAR10', 'CIFAR100']
@@ -247,14 +251,14 @@ if __name__ == '__main__':
     algorithms = ['None', 'Offline', 'EWC', 'o-EWC', 'SI', 'LwF', 'GR', 'GR+distill', 'A-GEM',
                   'ER', 'iCaRL', 'OTR', 'OTR+distill']
 
-    table_writer = open('./{}_{}_table_{}.tex'.format(test, metrics, form), 'w+')
+    table_writer = open('./{}_{}_table_{}.tex'.format(args.test, args.metric, form), 'w+')
     table_writer.write('\\begin{table*}[!ht]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
-    if test == 'MNIST':
-        table_writer.write('\\caption{Average %s of all tasks on the MNIST variant datasets.}\n' % "forgeting rate" if metrics == 'F' else metrics)
+    if args.test == 'MNIST':
+        table_writer.write('\\caption{Average %s of all tasks on the MNIST variant datasets.}\n' % "forgeting rate" if args.metric == 'F' else args.metric)
     else:
-        table_writer.write('\\caption{Average %s of all tasks on the CIFAR datasets.}\n' % "forgeting rate" if metrics == 'F' else metrics)
-    table_writer.write('\\label{tab:' + test.lower() + '_' + metrics + '_table}\n')
+        table_writer.write('\\caption{Average %s of all tasks on the CIFAR datasets.}\n' % "forgeting rate" if args.metric == 'F' else args.metric)
+    table_writer.write('\\label{tab:' + args.test.lower() + '_' + args.metric + '_table}\n')
     table_writer.write('\\centering\n')
     table_writer.write('\\hspace*{-1cm}\\begin{tabular}{l')
     for i in range(len(experiments)):
@@ -289,9 +293,7 @@ if __name__ == '__main__':
     table_writer.write('\\hline\n')
 
     for a in algorithms:
-        if a == 'ER' or a == 'iCaRL':
-            table_writer.write(a + "*" + get_citation(a) + ' & ')
-        elif a == 'OTR' or a == 'OTR+distill':
+        if a == 'OTR' or a == 'OTR+distill':
             table_writer.write(a + " (ours) & ")
         else:
             table_writer.write(a + get_citation(a) + ' & ')
@@ -337,7 +339,7 @@ if __name__ == '__main__':
 
                         acc = []
                         for m in seed_list:
-                            acc.append(DATA[m][0][metrics])
+                            acc.append(DATA[m][0][args.metric])
 
                         mean = np.mean(acc)
                         std = np.std(acc)
@@ -358,7 +360,7 @@ if __name__ == '__main__':
                     DATA = collect_all(DATA, seed_list, args, name=a)
                     acc = []
                     for m in seed_list:
-                        acc.append(DATA[m][0][metrics])
+                        acc.append(DATA[m][0][args.metric])
 
                     mean = np.mean(acc)
                     std = np.std(acc)

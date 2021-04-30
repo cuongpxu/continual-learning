@@ -318,4 +318,9 @@ if __name__ == '__main__':
             args.mem_online = True
             collect_all(writer, seed_list, args, name="iCaRL")
             args.mem_online = False
+            args.bce = False
+            args.bce_distill = False
+            args.use_exemplars = False
+            args.herding = False
+            args.norm_exemplars = False
             writer.close()

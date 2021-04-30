@@ -251,7 +251,7 @@ if __name__ == '__main__':
     table_writer.write('\\begin{table*}[!t]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
     if test == 'MNIST':
-        table_writer.write('\\caption{Average test accuracy (\%) of all tasks (over 10 run with difference random seeds) on the MNIST variant datasets. None and Offline methods are lower bound and upper bound for continual learning, while ER* and iCaRL* are a methods using \\textbf{online} random sampling for selecting instances to build exemplar sets.}\n')
+        table_writer.write('\\caption{Average test accuracy (\%) of all tasks (over 10 run with difference random seeds) on the MNIST variant datasets. None and Offline methods are lower bound and upper bound for continual learning. Note that we use online random sub-sampling and online herding for ER and iCaRL to satisfy the hard constraint on memory where no method can have access to the full previous task datasets.}\n')
         # table_writer.write('\\caption{OTR+distill, eAdLR, split 0.8}\n')
     else:
         table_writer.write('\\caption{Similar to table \\ref{tab:mnist_table} but for CIFAR-10 and CIFAR-100 datasets.}\n')
@@ -290,9 +290,7 @@ if __name__ == '__main__':
     table_writer.write('\\hline\n')
 
     for a in algorithms:
-        if a == 'ER' or a == 'iCaRL':
-            table_writer.write(a + "*" + get_citation(a) + ' & ')
-        elif a == 'OTR' or a == 'OTR+distill':
+        if a == 'OTR' or a == 'OTR+distill':
             table_writer.write(a + " (ours) & ")
         else:
             table_writer.write(a + get_citation(a) + ' & ')

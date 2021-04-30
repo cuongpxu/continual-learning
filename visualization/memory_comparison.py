@@ -251,7 +251,13 @@ if __name__ == '__main__':
         args.mem_online = True
         ICARL = {}
         ICARL = collect_all(ICARL, mem_list, seed_list, args, name="iCaRL")
-
+        args.bce = False
+        args.bce_distill = False
+        args.use_exemplars = False
+        args.add_exemplars = False
+        args.herding = False
+        args.norm_exemplars = False
+        args.mem_online = False
 
         # args.bce = True
         # args.bce_distill = True
@@ -328,8 +334,8 @@ if __name__ == '__main__':
                                  })
         plt.errorbar('mem', 'iCaRL', 'iCaRL-std', data=df_iCaRL, marker='h', color='violet', ecolor='violet')
 
-    if args.scenario == 'class':
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3)
+    # if args.scenario == 'class':
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3)
     # plt.title('{} memory budget comparison ({}-IL)'.format(args.experiment, args.scenario.capitalize()))
     plt.xlabel('Memory budget')
     plt.ylabel('Test accuracy')
