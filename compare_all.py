@@ -201,11 +201,11 @@ if __name__ == '__main__':
     ###----"TASK-SPECIFIC"----####
 
     ## XdG
-    if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
-        args.xdg = True
-        XDG = {}
-        XDG = collect_all(XDG, seed_list, args, name="XdG")
-        args.xdg = False
+    # if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
+    #     args.xdg = True
+    #     XDG = {}
+    #     XDG = collect_all(XDG, seed_list, args, name="XdG")
+    #     args.xdg = False
 
 
     ###----"REGULARIZATION"----####
@@ -369,18 +369,14 @@ if __name__ == '__main__':
         ave_prec[seed] = [NONE[seed][1], OFF[seed][1], EWC[seed][1], OEWC[seed][1], SI[seed][1], LWF[seed][1],
                           RP[seed][1], RKD[seed][1], AGEM[seed][1], ER[seed][1],
                           OTR[seed][1], OTRDistill[seed][1]]
-        if args.scenario=="task" and args.experiment in ['splitMNIST', 'permMNIST', 'rotMNIST']:
-            ave_prec[seed].append(XDG[seed][1])
-        elif args.scenario=="class":
+        if args.scenario == "class":
             ave_prec[seed].append(ICARL[seed][1])
         # -for plot of average accuracy throughout training
         key = "average"
         prec[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                       LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
                       OTR[seed][0][key], OTRDistill[seed][0][key]]
-        if args.scenario=="task" and False: # ignore XDG
-            prec[seed].append(XDG[seed][0][key])
-        elif args.scenario=="class":
+        if args.scenario == "class":
             prec[seed].append(ICARL[seed][0][key])
 
         ## BACKWARD TRANSFER (BWT)
@@ -388,9 +384,7 @@ if __name__ == '__main__':
         ave_BWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                          LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
                          OTR[seed][0][key], OTRDistill[seed][0][key]]
-        if args.scenario=="task" and False: # ignore XDG
-            ave_BWT[seed].append(XDG[seed][0][key])
-        elif args.scenario=="class":
+        if args.scenario == "class":
             ave_BWT[seed].append(ICARL[seed][0][key])
 
         ## FORWARD TRANSFER (FWT)
@@ -398,9 +392,8 @@ if __name__ == '__main__':
         ave_FWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                          LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
                          OTR[seed][0][key], OTRDistill[seed][0][key]]
-        if args.scenario=="task" and False: # ignore XDG
-            ave_FWT[seed].append(XDG[seed][0][key])
-        elif args.scenario=="class":
+
+        if args.scenario == "class":
             ave_FWT[seed].append(ICARL[seed][0][key])
 
         ## FORGETTING (F)
@@ -408,9 +401,8 @@ if __name__ == '__main__':
         ave_F[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
                        LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key],
                        OTR[seed][0][key], OTRDistill[seed][0][key]]
-        if args.scenario=="task" and False: # ignore XDG
-            ave_F[seed].append(XDG[seed][0][key])
-        elif args.scenario=="class":
+
+        if args.scenario == "class":
             ave_F[seed].append(ICARL[seed][0][key])
 
         ## INTRANSIGENCE (I)
@@ -453,11 +445,8 @@ if __name__ == '__main__':
                     OFF[seed][0][key]['task {}'.format(i + 1)][i] - OTRDistill[seed][0][key]['task {}'.format(i + 1)][i]
             ) for i in range(1, args.tasks)]),
         ]
-        if args.scenario=="task" and False: # ignore XDG
-            ave_I[seed].append(np.mean([(
-                OFF[seed][0][key]['task {}'.format(i + 1)][i] - XDG[seed][0][key]['task {}'.format(i + 1)][i]
-            ) for i in range(1,args.tasks)]))
-        elif args.scenario=="class":
+
+        if args.scenario=="class":
             ave_I[seed].append(np.mean([(
                 OFF[seed][0][key]['task {}'.format(i + 1)][i] - ICARL[seed][0][key]['task {}'.format(i+1)][i]
             ) for i in range(1,args.tasks)]))
@@ -487,7 +476,7 @@ if __name__ == '__main__':
     colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "indianred", "red", "darkblue", "brown",
                "teal", "coral"] # "darkviolet", "coral", 'peru'
     ids += [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    if args.scenario=="class":
+    if args.scenario == "class":
         names.append("iCaRL (b={})".format(args.budget))
         colors.append("violet")
         ids.append(12)
