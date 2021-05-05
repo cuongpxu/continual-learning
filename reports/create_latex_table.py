@@ -51,6 +51,7 @@ model_params.add_argument('--distill_type', type=str, default='T', choices=['T',
 model_params.add_argument('--multi_negative', type=utils.str_to_bool, default=False)
 model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=True)
 model_params.add_argument('--online_kd', type=utils.str_to_bool, default=False)
+model_params.add_argument('--epochs', type=int, default=1)
 # training hyperparameters / initialization
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")

@@ -21,6 +21,7 @@ benchmark_OTR/
 benchmark_training/
 benchmark_icarl_online/
 benchmark_updated/
+benchmark_epochs/
 test_grad.py
 *.sh
 

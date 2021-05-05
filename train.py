@@ -329,7 +329,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                             memory_datasets.append(OnlineExemplarDataset(model.online_exemplar_sets[c]))
 
                     teacher_dataset = ConcatDataset(memory_datasets)
-                    params_dict['teacher_lr'] = model.optimizer.param_groups[0]['lr']
+                    # params_dict['teacher_lr'] = model.optimizer.param_groups[0]['lr']
                     params_dict['batch_size'] = batch_size
                     params_dict['cuda'] = cuda
 

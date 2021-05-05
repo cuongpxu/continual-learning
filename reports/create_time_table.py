@@ -11,14 +11,13 @@ description = 'Compare CL strategies using various metrics on each scenario of p
 parser = argparse.ArgumentParser('./create_result.py', description=description)
 parser.add_argument('--form', type=str, default='NIPS', help='Table form')
 parser.add_argument('--test', type=str, default='MNIST')
-parser.add_argument('--metric', type=str, default='F')
 
 parser.add_argument('--seed', type=int, default=1, help='[first] random seed (for each random-module used)')
-parser.add_argument('--n-seeds', type=int, default=10, help='how often to repeat?')
+parser.add_argument('--n-seeds', type=int, default=5, help='how often to repeat?')
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
-parser.add_argument('--results-dir', type=str, default='../benchmark_new', dest='r_dir', help="default: %(default)s")
+parser.add_argument('--results-dir', type=str, default='../benchmark_OTR_LR', dest='r_dir', help="default: %(default)s")
 
 # expirimental task parameters.
 task_params = parser.add_argument_group('Task Parameters')
@@ -41,7 +40,6 @@ model_params.add_argument('--fc-bn', type=str, default="no", help="use batch-nor
 model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", "leakyrelu"])
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                     " (instead of a 'multi-headed' one)")
-
 model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
 model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
 model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
@@ -49,7 +47,7 @@ model_params.add_argument('--teacher_split', type=float, default=0.8, help='spli
 model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
 model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
-model_params.add_argument('--distill_type', type=str, default='E', choices=['T', 'TS', 'E', 'ET', 'ES', 'ETS'])
+model_params.add_argument('--distill_type', type=str, default='T', choices=['T', 'TS', 'E', 'ET', 'ETS'])
 model_params.add_argument('--multi_negative', type=utils.str_to_bool, default=False)
 model_params.add_argument('--update_teacher_kd', type=utils.str_to_bool, default=True)
 model_params.add_argument('--online_kd', type=utils.str_to_bool, default=False)
@@ -63,11 +61,12 @@ train_params.add_argument('--optimizer', type=str, choices=['adam', 'adam_reset'
 
 # "memory replay" parameters
 replay_params = parser.add_argument_group('Replay Parameters')
+replay_choices = ['offline', 'exact', 'generative', 'none', 'current', 'exemplars', 'online']
+replay_params.add_argument('--replay', type=str, default='none', choices=replay_choices)
 replay_params.add_argument('--temp', type=float, default=2., dest='temp', help="temperature for distillation")
-replay_params.add_argument('--online-memory-budget', type=int, default=1000, help="how many sample can be stored?")
 replay_params.add_argument('--otr_exemplars', action='store_true', help="use otr exemplars instead of random")
-replay_params.add_argument('--triplet_selection', type=str, default='HP-HN-1', help="Triplet selection strategy")
-replay_params.add_argument('--use_embeddings', action='store_true',
+replay_params.add_argument('--triplet-selection', type=str, default='HP-HN-1', help="Triplet selection strategy")
+replay_params.add_argument('--use-embeddings', type=bool, default=False,
                           help="use embeddings space for otr exemplars instead of features space")
 replay_params.add_argument('--mem_online', type=utils.str_to_bool, default=False, help='icarl using online exemplar mamagement')
 # -generative model parameters (if separate model)
@@ -148,7 +147,7 @@ def set_params(args, a):
         args.mem_online = True
     elif a == 'OTR':
         args.replay = 'online'
-        args.online_memory_budget = 2000
+        args.budget = 2000
         args.triplet_selection = 'HP-HN-1'
         args.bce = True
         if args.scenario == 'class':
@@ -157,18 +156,16 @@ def set_params(args, a):
         args.multi_negative = False
         args.add_exemplars = False
     elif a == 'iCaRL':
-        args.replay = 'none'
         args.bce = True
         args.bce_distill = True
         args.use_exemplars = True
         args.add_exemplars = False
         args.herding = True
         args.norm_exemplars = True
-        args.otr_exemplars = False
         args.mem_online = True
     else:
         args.replay = 'online'
-        args.online_memory_budget = 2000
+        args.budget = 2000
         args.use_teacher = True
         args.use_embeddings = False
         args.triplet_selection = 'HP-HN-1'
@@ -193,15 +190,15 @@ def get_results(args):
         raise Exception('Missing results !!!!')
     # -get results-dict
     dict = utils.load_object("{}/dict-{}".format(args.r_dir, param_stamp))
-    # -get average precision
-    fileName = '{}/prec-{}.txt'.format(args.r_dir, param_stamp)
+    # -get training time
+    fileName = '{}/time-{}.txt'.format(args.r_dir, param_stamp)
     file = open(fileName)
-    ave = float(file.readline())
+    time = float(file.readline())
     file.close()
     # -print average precision on screen
-    print("--> average precision: {}".format(ave))
+    print("--> average training time: {}".format(time))
     # -return average precision
-    return (dict, ave)
+    return (dict, time)
 
 
 def collect_all(method_dict, seed_list, args, name=None):
@@ -212,6 +209,7 @@ def collect_all(method_dict, seed_list, args, name=None):
     for seed in seed_list:
         args.seed = seed
         method_dict[seed] = get_results(args)
+        print(method_dict[seed])
     # -return updated dictionary with results
     return method_dict
 
@@ -242,23 +240,24 @@ def get_citation(a):
 if __name__ == '__main__':
     args = parser.parse_args()
     form = args.form
-    # metrics = 'F'
-    if args.test == 'MNIST':
-        experiments = ['splitMNIST', 'permMNIST', 'rotMNIST']
+    test = args.test
+    if test == 'MNIST':
+        experiments = ['splitMNIST']
     else:
-        experiments = ['CIFAR10', 'CIFAR100']
+        experiments = ['CIFAR10']
     scenarios = ['task', 'domain', 'class']
-    algorithms = ['None', 'Offline', 'EWC', 'o-EWC', 'SI', 'LwF', 'GR', 'GR+distill', 'A-GEM',
+    algorithms = ['EWC', 'o-EWC', 'SI', 'LwF', 'GR', 'GR+distill', 'A-GEM',
                   'ER', 'iCaRL', 'OTR', 'OTR+distill']
 
-    table_writer = open('./{}_{}_table_{}.tex'.format(args.test, args.metric, form), 'w+')
-    table_writer.write('\\begin{table*}[!ht]\n')
+    table_writer = open('./{}_time_table_{}.tex'.format(test, form), 'w+')
+    table_writer.write('\\begin{table}[!t]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
-    if args.test == 'MNIST':
-        table_writer.write('\\caption{Average %s of all tasks on the MNIST variant datasets.}\n' % "forgeting rate" if args.metric == 'F' else args.metric)
+    if test == 'MNIST':
+        table_writer.write('\\caption{Average training time (in seconds) of all tasks over 5 different runs on the split MNIST dataset.}\n')
+        # table_writer.write('\\caption{OTR+distill, eAdLR, split 0.8}\n')
     else:
-        table_writer.write('\\caption{Average %s of all tasks on the CIFAR datasets.}\n' % "forgeting rate" if args.metric == 'F' else args.metric)
-    table_writer.write('\\label{tab:' + args.test.lower() + '_' + args.metric + '_table}\n')
+        table_writer.write('\\caption{Average training time (in seconds) of all tasks over 5 different runs on the split MNIST dataset.}\n')
+    table_writer.write('\\label{tab:' + test.lower() + '_time_table}\n')
     table_writer.write('\\centering\n')
     table_writer.write('\\hspace*{-1cm}\\begin{tabular}{l')
     for i in range(len(experiments)):
@@ -327,7 +326,7 @@ if __name__ == '__main__':
                 args.add_exemplars = False
                 args.bce_distill = False
                 args.icarl = False
-
+                args.mem_online = False
                 seed_list = list(range(args.seed, args.seed + args.n_seeds))
 
                 set_params(args, a)
@@ -339,7 +338,7 @@ if __name__ == '__main__':
 
                         acc = []
                         for m in seed_list:
-                            acc.append(DATA[m][0][args.metric])
+                            acc.append(DATA[m][1])
 
                         mean = np.mean(acc)
                         std = np.std(acc)
@@ -360,7 +359,7 @@ if __name__ == '__main__':
                     DATA = collect_all(DATA, seed_list, args, name=a)
                     acc = []
                     for m in seed_list:
-                        acc.append(DATA[m][0][args.metric])
+                        acc.append(DATA[m][1])
 
                     mean = np.mean(acc)
                     std = np.std(acc)
@@ -381,5 +380,5 @@ if __name__ == '__main__':
             table_writer.write('\\hline\n')
     table_writer.write('\\hline\n')
     table_writer.write('\\end{tabular}\n')
-    table_writer.write('\\end{table*}\n')
+    table_writer.write('\\end{table}\n')
     table_writer.close()

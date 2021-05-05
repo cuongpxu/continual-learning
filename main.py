@@ -54,6 +54,7 @@ model_params.add_argument('--singlehead', action='store_true', help="for Task-IL
 model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
 model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
 model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
+model_params.add_argument('--teacher_lr', type=float, help='teacher learning rate')
 model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
 model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
@@ -532,7 +533,8 @@ def run(args, verbose=False):
         'triplet_selection': args.triplet_selection,
         'use_embeddings': args.use_embeddings,
         # Teacher params
-        'teacher_split': args.teacher_split, 'teacher_loss':args.teacher_loss,
+        'teacher_lr': args.teacher_lr,
+        'teacher_split': args.teacher_split, 'teacher_loss': args.teacher_loss,
         'teacher_opt': args.teacher_opt, 'use_scheduler': args.use_scheduler,
         'teacher_epochs': args.teacher_epochs, 'distill_type': args.distill_type,
         'teacher_augment': teacher_augment, 'multi_negative': args.multi_negative,
