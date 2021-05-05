@@ -66,11 +66,13 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
         print(" --> model:         " + model_stamp)
 
     # -for hyper-parameters
-    hyper_stamp = "{i_e}{num}{epo}-lr{lr}{lrg}-b{bsz}-{optim}".format(
+    hyper_stamp = "{i_e}{num}{epo}-lr{lr}{lrg}{lrt}-b{bsz}-{optim}".format(
         i_e="e" if args.iters is None else "i", num=args.epochs if args.iters is None else args.iters, lr=args.lr,
         epo='' if args.epochs == 1 else f'-e{args.epochs}',
         lrg=("" if args.lr == args.lr_gen else "-lrG{}".format(args.lr_gen))
         if (hasattr(args, "lr_gen") and args.replay == 'generative') else "",
+        lrt=("" if args.teacher_lr == args.lr else "-lrT{}".format(args.teacher_lr))
+        if (hasattr(args, "use_teacher") and args.replay == 'online') else "",
         bsz=args.batch, optim=args.optimizer,
     )
     if verbose:
