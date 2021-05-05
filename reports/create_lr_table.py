@@ -193,33 +193,33 @@ def get_citation(a):
 if __name__ == '__main__':
     args = parser.parse_args()
     form = args.form
-    budgets = [2000, 3000, 4000, 5000]
+    lrs = [0.1, 0.03, 0.003, 0.0003]
     scenarios = ['class']
     algorithms = ['OTR+distill']
 
-    table_writer = open('./{}_budget_table_{}.tex'.format(args.experiment, form), 'w+')
+    table_writer = open('./{}_lr_table_{}.tex'.format(args.experiment, form), 'w+')
     table_writer.write('\\begin{table}[!t]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
     table_writer.write('\\caption{Memory budget comparison on CIFAR-10 dataset.}\n')
     table_writer.write('\\label{tab:' + args.experiment.lower() + '_budget_table}\n')
     table_writer.write('\\centering\n')
     table_writer.write('\\hspace*{-1cm}\\begin{tabular}{l')
-    for i in range(len(budgets)):
+    for i in range(len(lrs)):
         table_writer.write('c@{\hskip 0.2cm}c@{\hskip 0.2cm}c@{\hskip 0.2cm}')
 
     table_writer.write('}\n')
     table_writer.write('\\hline\\hline\n')
     table_writer.write('\\bfseries \celltwoline{Methods} {}	& ')
-    for i, b in enumerate(budgets):
+    for i, ex in enumerate(lrs):
 
-        if i != len(budgets) - 1:
-            table_writer.write('\\threecol{' + f'K={b}' + '} &')
+        if i != len(lrs) - 1:
+            table_writer.write('\\threecol{' + f'lr={ex}' + '} &')
         else:
-            table_writer.write('\\threecol{' + f'K={b}' + '}\\\\\n')
-    table_writer.write('\\cline{2-%d}\n' % (3 * len(budgets) + 1))
+            table_writer.write('\\threecol{' + f'lr={ex}' + '}\\\\\n')
+    table_writer.write('\\cline{2-%d}\n' % (3 * len(lrs) + 1))
 
-    for i in range(len(budgets)):
-        if i != len(budgets) - 1:
+    for i in range(len(lrs)):
+        if i != len(lrs) - 1:
             table_writer.write(' & Class-IL ')
         else:
             table_writer.write(' & Class-IL \\\\\n')
@@ -230,14 +230,14 @@ if __name__ == '__main__':
             table_writer.write(a + " (ours) & ")
         else:
             table_writer.write(a + get_citation(a) + ' & ')
-        for ib, b in enumerate(budgets):
+        for ib, lr in enumerate(lrs):
             for si, s in enumerate(scenarios):
                 args = parser.parse_args()
                 args.r_dir = '{}/{}/{}'.format(args.r_dir, args.experiment, s)
                 args.scenario = s
                 # -set default-values for certain arguments based on chosen scenario & experiment
                 args = set_default_values(args)
-                args.budget = b
+                args.teacher_lr = lr
 
                 # -set other default arguments
                 args.lr_gen = args.lr if args.lr_gen is None else args.lr_gen
@@ -277,7 +277,7 @@ if __name__ == '__main__':
                         mean = np.mean(acc)
                         std = np.std(acc)
 
-                        if ib == len(budgets) - 1 and si == len(scenarios) - 1:
+                        if ib == len(lrs) - 1 and si == len(scenarios) - 1:
                             if form == 'NIPS':
                                 table_writer.write('{:.2f} \\\\\n'.format(mean))
                             else:
@@ -298,7 +298,7 @@ if __name__ == '__main__':
                     mean = np.mean(acc) * 100
                     std = np.std(acc) * 100
 
-                    if ib == len(budgets) - 1 and si == len(scenarios) - 1:
+                    if ib == len(lrs) - 1 and si == len(scenarios) - 1:
                         if form == 'NIPS':
                             table_writer.write('{:.2f} \\\\\n'.format(mean))
                         else:
