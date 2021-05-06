@@ -12,7 +12,7 @@ from es import EarlyStopping
 from torch import optim
 from torch.utils.data import ConcatDataset, random_split
 from optim import optimizer
-from multiprocessing import Pool
+from torch.utils.tensorboard import SummaryWriter
 
 
 def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class", classes_per_task=None, iters=2000,
@@ -332,9 +332,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     # params_dict['teacher_lr'] = model.optimizer.param_groups[0]['lr']
                     params_dict['batch_size'] = batch_size
                     params_dict['cuda'] = cuda
-
-                    # with Pool(processes=1) as pool:
-                    #     result = pool.apply(training_teacher, (teacher_dataset, teacher, active_classes, params_dict))
+                    params_dict['task'] = task
 
                     teacherThread = TeacherThread(1, teacher_dataset, teacher, active_classes, params_dict)
                     teacherThread.start()
@@ -468,13 +466,18 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
         teacher_criterion = torch.nn.BCEWithLogitsLoss()
     id = uuid.uuid1()
     early_stopping = EarlyStopping(model_name=id.hex, verbose=False)
+    utils.make_dirs('%s/board' % params_dict['r_dir'])
+    writer = SummaryWriter('%s/board/%s_%s' % (params_dict['r_dir'], params_dict['stamp'], params_dict['task']))
 
     # Training teacher
     tk = tqdm.tqdm(range(1, params_dict['teacher_epochs']), leave=False)
     tk.set_description('<Teacher> ')
     for epoch in tk:
-        tlosses = teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer, active_classes, params_dict)
-        vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion, active_classes, params_dict)
+        params_dict['epoch'] = epoch
+        tlosses = teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer,
+                                      active_classes, params_dict, writer)
+        vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion,
+                                      active_classes, params_dict, writer)
         tk.set_description('<Teacher> | training_loss : {:.5f} | validation_loss: {:.5f}'
                            .format(np.average(tlosses), np.average(vlosses)), refresh=True)
         if params_dict['use_scheduler']:

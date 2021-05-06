@@ -526,6 +526,8 @@ def run(args, verbose=False):
         teacher_augment = None
 
     params_dict = {
+        'r_dir': args.r_dir,
+        'stamp': param_stamp,
         # OTR
         'use_otr': True if utils.checkattr(args, 'otr') or utils.checkattr(args, 'otr_distill')
                            or args.replay == 'online' else False,

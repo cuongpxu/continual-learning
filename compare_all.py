@@ -39,6 +39,7 @@ model_params.add_argument('--fc-nl', type=str, default="relu", choices=["relu", 
 model_params.add_argument('--singlehead', action='store_true', help="for Task-IL: use a 'single-headed' output layer   "
                                                                    " (instead of a 'multi-headed' one)")
 model_params.add_argument('--use_teacher', action='store_true', help='Using an offline teacher for distill from memory')
+model_params.add_argument('--teacher_lr', type=float, help='teacher learning rate')
 model_params.add_argument('--teacher_epochs', type=int, default=100, help='number of epochs to train teacher')
 model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
 model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
@@ -188,14 +189,14 @@ if __name__ == '__main__':
     ###----"BASELINES"----###
 
     ## Offline
-    args.replay = "offline"
-    OFF = {}
-    OFF = collect_all(OFF, seed_list, args, name="Offline")
+    # args.replay = "offline"
+    # OFF = {}
+    # OFF = collect_all(OFF, seed_list, args, name="Offline")
 
     ## None
-    args.replay = "none"
-    NONE = {}
-    NONE = collect_all(NONE, seed_list, args, name="None")
+    # args.replay = "none"
+    # NONE = {}
+    # NONE = collect_all(NONE, seed_list, args, name="None")
 
 
     ###----"TASK-SPECIFIC"----####

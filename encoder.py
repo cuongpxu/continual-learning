@@ -606,7 +606,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             'precision': precision if precision is not None else 0.,
         }
 
-    def train_epoch(self, train_loader, criterion, optimizer, active_classes, params_dict):
+    def train_epoch(self, train_loader, criterion, optimizer, active_classes, params_dict, writer):
         # class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
         self.train()
         tlosses = []
@@ -623,10 +623,11 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             loss = criterion(y_hat, y)
             loss.backward()
             tlosses.append(loss.item())
+            writer.add_scalar('Training loss', loss.item(), params_dict['epoch'] * len(train_loader) + batch_idx)
             optimizer.step()
         return tlosses
 
-    def valid_epoch(self, val_loader, criterion, active_classes, params_dict):
+    def valid_epoch(self, val_loader, criterion, active_classes, params_dict, writer):
         # class_entries = active_classes[-1] if type(active_classes[0]) == list else active_classes
         valid_losses = []
         self.eval()
@@ -642,6 +643,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                 valid_loss = criterion(y_hat, y)
                 valid_losses.append(valid_loss.item())
+                writer.add_scalar('Validation loss', valid_loss.item(), params_dict['epoch'] * len(val_loader) + batch_idx)
         self.train()
         return valid_losses
 
