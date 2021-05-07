@@ -189,14 +189,14 @@ if __name__ == '__main__':
     ###----"BASELINES"----###
 
     ## Offline
-    # args.replay = "offline"
-    # OFF = {}
-    # OFF = collect_all(OFF, seed_list, args, name="Offline")
+    args.replay = "offline"
+    OFF = {}
+    OFF = collect_all(OFF, seed_list, args, name="Offline")
 
     ## None
-    # args.replay = "none"
-    # NONE = {}
-    # NONE = collect_all(NONE, seed_list, args, name="None")
+    args.replay = "none"
+    NONE = {}
+    NONE = collect_all(NONE, seed_list, args, name="None")
 
 
     ###----"TASK-SPECIFIC"----####
