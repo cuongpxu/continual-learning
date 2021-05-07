@@ -43,7 +43,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
         ######------SPECIFY MODEL------######
         self.experiment = experiment
-        if self.experiment in ['CIFAR10', 'CIFAR100']:
+        if self.experiment in ['CIFAR10', 'CIFAR100', 'CUB2011']:
             self.fcE = rn.resnet32(classes, pretrained=False)
             self.fcE.linear = nn.Identity()
 

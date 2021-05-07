@@ -120,14 +120,16 @@ class ResNet(nn.Module):
 def resnet20(num_classes=10, pretrained=False):
     model = ResNet(BasicBlock, [3, 3, 3], num_classes=num_classes, label='ResNet-20')
     if pretrained:
-        model.load_state_dict(torch.load('./models/pretrained/resnet20-12fca82f.th'))
+        model.load_state_dict(torch.load('./models/pretrained/resnet20-12fca82f.th',
+                                         map_location=lambda storage, loc: storage))
     return model
 
 
 def resnet32(num_classes=10, pretrained=False):
     model = ResNet(BasicBlock, [5, 5, 5], num_classes=num_classes, label='ResNet-32')
     if pretrained:
-        model.load_state_dict(torch.load('./models/pretrained/resnet32-d509ac18.th'))
+        model.load_state_dict(torch.load('./models/pretrained/resnet32-d509ac18.th',
+                                         map_location=lambda storage, loc: storage))
     return model
 
 

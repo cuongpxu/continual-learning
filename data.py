@@ -1,9 +1,13 @@
 import copy
 import numpy as np
-from torchvision import datasets, transforms
-from torch.utils.data import ConcatDataset, Dataset
 import torch
 import matplotlib.pyplot as plt
+import os
+import pandas as pd
+from torchvision import datasets, transforms
+from torch.utils.data import ConcatDataset, Dataset
+from torchvision.datasets.folder import default_loader
+from torchvision.datasets.utils import download_url
 
 
 class UnNormalize(object):
@@ -81,7 +85,10 @@ def get_dataset(name, type='train', download=True, capacity=None, dir='./dataset
     dataset_transform = transforms.Compose(transforms_list)
 
     # load data-set
-    if name != 'imagenet':
+    if name == 'CUB2011':
+        dataset = Cub2011(dir, train=False if type == 'test' else True,
+                          transform=dataset_transform, target_transform=target_transform, download=download)
+    elif name != 'imagenet':
         dataset = dataset_class('{dir}/{name}'.format(dir=dir, name=data_name), train=False if type=='test' else True,
                                 download=download, transform=dataset_transform, target_transform=target_transform)
     else:
@@ -208,6 +215,82 @@ class TransformedDataset(Dataset):
         return (input, target)
 
 
+class Cub2011(Dataset):
+    base_folder = 'CUB_200_2011/images'
+    url = 'https://drive.google.com/u/0/open?id=1hbzc_P1FuxMkcabkgn9ZKinBwW683j45'
+    filename = 'CUB_200_2011.tgz'
+    tgz_md5 = '97eceeb196236b17998738112f37df78'
+
+    def __init__(self, root, train=True, transform=None, target_transform=None, download=True):
+        self.root = os.path.expanduser(root)
+        self.transform = transform
+        self.target_transform = target_transform
+        self.train = train
+
+        if download:
+            self._download()
+
+        if not self._check_integrity():
+            raise RuntimeError('Dataset not found or corrupted.' +
+                               ' You can use download=True to download it')
+
+    def _load_metadata(self):
+        images = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'images.txt'), sep=' ',
+                             names=['img_id', 'filepath'])
+        image_class_labels = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'image_class_labels.txt'),
+                                         sep=' ', names=['img_id', 'target'])
+        train_test_split = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'train_test_split.txt'),
+                                       sep=' ', names=['img_id', 'is_training_img'])
+
+        data = images.merge(image_class_labels, on='img_id')
+        self.data = data.merge(train_test_split, on='img_id')
+
+        if self.train:
+            self.data = self.data[self.data.is_training_img == 1]
+        else:
+            self.data = self.data[self.data.is_training_img == 0]
+
+    def _check_integrity(self):
+        try:
+            self._load_metadata()
+        except Exception:
+            return False
+
+        for index, row in self.data.iterrows():
+            filepath = os.path.join(self.root, self.base_folder, row.filepath)
+            if not os.path.isfile(filepath):
+                print(filepath)
+                return False
+        return True
+
+    def _download(self):
+        import tarfile
+
+        if self._check_integrity():
+            print('Files already downloaded and verified')
+            return
+
+        download_url(self.url, self.root, self.filename, self.tgz_md5)
+
+        with tarfile.open(os.path.join(self.root, self.filename), "r:gz") as tar:
+            tar.extractall(path=self.root)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        sample = self.data.iloc[idx]
+        path = os.path.join(self.root, self.base_folder, sample.filepath)
+        target = sample.target - 1  # Targets start at 1 by default, so shift to 0
+        img = default_loader(path)
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return img, target
 #----------------------------------------------------------------------------------------------------------#
 
 
@@ -216,6 +299,7 @@ AVAILABLE_DATASETS = {
     'mnist': datasets.MNIST,
     'cifar10': datasets.CIFAR10,
     'cifar100': datasets.CIFAR100,
+    'CUB2011': None,
     'imagenet': datasets.ImageFolder,
 }
 
@@ -245,6 +329,13 @@ AVAILABLE_TRANSFORMS = {
     ],
     'cifar10_denorm': UnNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     'cifar100_denorm': UnNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    'CUB2011': [
+        transforms.ToTensor(),
+    ],
+    'CUB2011_norm': [
+            transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+    ],
+    'CUB2011_denorm': UnNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     'augment': [
         transforms.RandomHorizontalFlip(),
         transforms.RandomCrop(32, padding=4),
@@ -271,6 +362,7 @@ DATASET_CONFIGS = {
     'mnist28': {'size': 28, 'channels': 1, 'classes': 10},
     'cifar10': {'size': 32, 'channels': 3, 'classes': 10},
     'cifar100': {'size': 32, 'channels': 3, 'classes': 100},
+    'CUB2011': {'size': 32, 'channels': 3, 'classes': 200},
     'imagenet': {'size': 224, 'channels': 3, 'classes': 1000}
 }
 
@@ -318,14 +410,15 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
                 ))
     elif name == 'splitMNIST':
         # check for number of tasks
-        if tasks>10:
+        if tasks > 10:
             raise ValueError("Experiment 'splitMNIST' cannot have more than 10 tasks!")
         # configurations
         config = DATASET_CONFIGS['mnist28']
-        classes_per_task = int(np.floor(10 / tasks))
+        classes_per_task = int(np.floor(config['classes'] / tasks))
         if not only_config:
             # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
-            permutation = np.array(list(range(10))) if exception else np.random.permutation(list(range(10)))
+            permutation = np.array(list(range(config['classes']))) if exception \
+                else np.random.permutation(list(range(config['classes'])))
             target_transform = transforms.Lambda(lambda y, p=permutation: int(p[y]))
             # prepare train and test datasets with all classes
             mnist_train = get_dataset('mnist28', type="train", dir=data_dir, target_transform=target_transform,
@@ -382,11 +475,11 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             raise ValueError("Experiment 'CIFAR10' cannot have more than 10 tasks!")
         # configurations
         config = DATASET_CONFIGS['cifar10']
-        classes_per_task = int(np.floor(10 / tasks))
+        classes_per_task = int(np.floor(config['classes'] / tasks))
 
         if not only_config:
             # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
-            permutation = np.random.permutation(list(range(10)))
+            permutation = np.random.permutation(list(range(config['classes'])))
             target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
             # prepare train and test datasets with all classes
             cifar10_train = get_dataset('cifar10', type="train", dir=data_dir, normalize=normalize,
@@ -411,10 +504,10 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             raise ValueError("Experiment 'CIFAR100' cannot have more than 100 tasks!")
         # configurations
         config = DATASET_CONFIGS['cifar100']
-        classes_per_task = int(np.floor(100 / tasks))
+        classes_per_task = int(np.floor(config['classes'] / tasks))
         if not only_config:
             # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
-            permutation = np.random.permutation(list(range(100)))
+            permutation = np.random.permutation(list(range(config['classes'])))
             target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
             # prepare train and test datasets with all classes
             cifar100_train = get_dataset('cifar100', type="train", dir=data_dir, normalize=normalize,
@@ -432,6 +525,37 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
                 target_transform = transforms.Lambda(lambda y, x=labels[0]: y-x) if scenario=='domain' else None
                 train_datasets.append(SubDataset(cifar100_train, labels, target_transform=target_transform))
                 test_datasets.append(SubDataset(cifar100_test, labels, target_transform=target_transform))
+
+    elif name == 'CUB2011':
+        print(tasks)
+        # check for number of tasks
+        if tasks > 10:
+            raise ValueError("Experiment 'CUB-200-2011' cannot have more than 10 tasks!")
+        # configurations
+        config = DATASET_CONFIGS['CUB2011']
+        classes_per_task = int(np.floor(config['classes'] / tasks))
+
+        if not only_config:
+            # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
+            permutation = np.random.permutation(list(range(config['classes'])))
+            target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
+            # prepare train and test datasets with all classes
+            cub2011_train = get_dataset('CUB2011', type="train", dir=data_dir, normalize=normalize,
+                                        augment=augment, target_transform=target_transform, verbose=verbose)
+            cub2011_test = get_dataset('CUB2011', type="test", dir=data_dir, normalize=normalize,
+                                       target_transform=target_transform, verbose=verbose)
+            # generate labels-per-task
+            labels_per_task = [
+                list(np.array(range(classes_per_task)) + classes_per_task * task_id) for task_id in range(tasks)
+            ]
+            # split them up into sub-tasks
+            train_datasets = []
+            test_datasets = []
+            for labels in labels_per_task:
+                target_transform = transforms.Lambda(lambda y, x=labels[0]: y-x) if scenario == 'domain' else None
+                train_datasets.append(SubDataset(cub2011_train, labels, target_transform=target_transform))
+                test_datasets.append(SubDataset(cub2011_test, labels, target_transform=target_transform))
+
     elif name == 'ImageNet':
         # check for number of tasks
         if tasks > 1000:

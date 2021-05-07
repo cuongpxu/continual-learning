@@ -23,6 +23,7 @@ benchmark_icarl_online/
 benchmark_updated/
 benchmark_epochs/
 test_grad.py
+time/
 *.sh
 
 stat/*.csv

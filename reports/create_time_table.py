@@ -183,13 +183,13 @@ def get_results(args):
     # -get param-stamp
     param_stamp = get_param_stamp_from_args(args)
     # -check whether already run; if not do so
-    if os.path.isfile("{}/dict-{}.pkl".format(args.r_dir, param_stamp)):
-        print("{}: already run".format(param_stamp))
-    else:
-        print("{}: ...missing...".format(param_stamp))
-        raise Exception('Missing results !!!!')
+    # if os.path.isfile("{}/dict-{}.pkl".format(args.r_dir, param_stamp)):
+    #     print("{}: already run".format(param_stamp))
+    # else:
+    #     print("{}: ...missing...".format(param_stamp))
+    #     raise Exception('Missing results !!!!')
     # -get results-dict
-    dict = utils.load_object("{}/dict-{}".format(args.r_dir, param_stamp))
+    result_dict = None
     # -get training time
     fileName = '{}/time-{}.txt'.format(args.r_dir, param_stamp)
     file = open(fileName)
@@ -198,7 +198,7 @@ def get_results(args):
     # -print average precision on screen
     print("--> average training time: {}".format(time))
     # -return average precision
-    return (dict, time)
+    return result_dict, time
 
 
 def collect_all(method_dict, seed_list, args, name=None):

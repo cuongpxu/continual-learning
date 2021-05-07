@@ -8,11 +8,11 @@ def set_default_values(args, also_hyper_params=True):
     args.augment = False
 
     args.tasks = (5 if args.experiment in ['splitMNIST', 'CIFAR10'] else 10) if args.tasks is None else args.tasks
-    args.iters = (2000 if args.experiment in ['splitMNIST', 'CIFAR10', 'CIFAR100'] else 5000) if args.iters is None else args.iters
+    args.iters = (2000 if args.experiment in ['splitMNIST', 'CIFAR10', 'CIFAR100', 'CUB2011'] else 5000) if args.iters is None else args.iters
     args.batch = 256 if args.experiment in ['ImageNet'] else 128
-    args.lr = (0.1 if args.experiment in ['CIFAR10', 'CIFAR100', 'ImageNet'] else
+    args.lr = (0.1 if args.experiment in ['CIFAR10', 'CIFAR100', 'CUB2011', 'ImageNet'] else
                0.001 if args.experiment in ['splitMNIST'] else 0.0001) if args.lr is None else args.lr
-    args.teacher_lr = (0.1 if args.experiment in ['CIFAR10', 'CIFAR100', 'ImageNet'] else
+    args.teacher_lr = (0.1 if args.experiment in ['CIFAR10', 'CIFAR100', 'CUB2011', 'ImageNet'] else
                        0.001 if args.experiment in ['splitMNIST'] else 0.0001) \
         if args.teacher_lr is None else args.teacher_lr
     args.fc_units = (400 if args.experiment == 'splitMNIST' else 1000) if args.fc_units is None else args.fc_units
