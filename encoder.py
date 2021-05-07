@@ -327,7 +327,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
     def train_a_batch(self, x, y, scores=None, x_=None, y_=None, scores_=None, rnt=0.5,
                       active_classes=None, task=1, scenario='class', teacher=None,
-                      params_dict=None):
+                      params_dict=None, epoch=0):
         '''Train model for one batch ([x],[y]), possibly supplemented with replayed data ([x_],[y_/scores_]).
 
         [x]               <tensor> batch of inputs (could be None, in which case only 'replayed' data is used)
@@ -512,11 +512,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     input=y_hat, target=binary_targets, reduction='none'
                 ).sum(dim=1)  # --> sum over classes,
                 predL = None if y is None else y_score.mean()  # average over batch
-                if params_dict['mem_online']:
+                if params_dict['mem_online'] and epoch == 0:
                     self.select_instances(embeds, x, y, scenario, task)
-
                 else:
-                    if params_dict['use_otr']:
+                    if params_dict['use_otr'] and epoch == 0:
                         self.select_triplets(embeds, y_score, x, y,
                                              params_dict['triplet_selection'], task, scenario,
                                              params_dict['use_embeddings'], params_dict['multi_negative'])
@@ -525,10 +524,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 y_score = F.cross_entropy(input=y_hat, target=y, reduction='none')
                 predL = None if y is None else y_score.mean()
 
-                if params_dict['mem_online']:
+                if params_dict['mem_online'] and epoch == 0:
                     self.select_instances(embeds, x, y, scenario, task)
                 else:
-                    if params_dict['use_otr']:
+                    if params_dict['use_otr'] and epoch == 0:
                         self.select_triplets(embeds, y_score, x, y,
                                              params_dict['triplet_selection'], task, scenario,
                                              params_dict['use_embeddings'], params_dict['multi_negative'])

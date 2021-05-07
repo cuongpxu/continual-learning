@@ -55,7 +55,8 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
         # Re-train teacher in every task
         if teacher is not None and not params_dict['online_kd']:
             teacher.is_offline_training = False
-            teacher.is_ready_distill = True
+            if task > 1:
+                teacher.is_ready_distill = True
 
         # If offline replay-setting, create large database of all tasks so far
         if replay_mode == "offline" and (not scenario == "task"):
@@ -181,7 +182,7 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                     x_ = x_.to(device)
                     y_ = y_.to(device) if (model.replay_targets == "hard") else None
                     # If required, get target scores (i.e, [scores_]         -- using previous model, with no_grad()
-                    if (model.replay_targets == "soft"):
+                    if model.replay_targets == "soft":
                         with torch.no_grad():
                             scores_ = previous_model(x_)
                         scores_ = scores_[:, :(classes_per_task * (task - 1))] if scenario == "class" else scores_
@@ -255,10 +256,11 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 # print('Training batch: {}'.format(batch_index))
                 # Train the main model with this batch
                 for e in range(params_dict['epochs']):
+                    # TODO: ignore select triplet in epoch > 1
                     loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
                                                     active_classes=active_classes, task=task, rnt=1. / task,
                                                     scenario=scenario, teacher=teacher,
-                                                    params_dict=params_dict)
+                                                    params_dict=params_dict, epoch=e)
                     if params_dict['online_kd']:
                         # Incremental training teacher model
                         teacher_loss_dict = teacher.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
@@ -308,7 +310,8 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                         sample_cb(generator, batch_index, task=task)
 
             # ---> Train Teacher in offline mode
-            if teacher is not None and (replay_mode == 'online' and model.check_full_memory()) and not params_dict['online_kd']:
+            if teacher is not None and (replay_mode == 'online' and model.check_full_memory())\
+                    and not params_dict['online_kd']:
                 if not teacher.is_offline_training:
                     # Start training a teacher in offline mode from memory
                     teacher.is_offline_training = True
