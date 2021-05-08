@@ -75,13 +75,19 @@ def get_dataset(name, type='train', download=True, capacity=None, dir='./dataset
 
     # specify image-transformations to be applied
     if type == 'train':
-        transforms_list = [*AVAILABLE_TRANSFORMS['imagenet_augment']] if (name == 'imagenet' and augment) else \
-            [*AVAILABLE_TRANSFORMS['augment']] if augment else []
+        if name.lower() in ['imagenet', 'cub2011'] and augment:
+            transforms_list = [*AVAILABLE_TRANSFORMS[f'{name.lower()}_augment']]
+        else:
+            transforms_list = [*AVAILABLE_TRANSFORMS['augment']] if augment else []
     else:
-        transforms_list = [*AVAILABLE_TRANSFORMS['imagenet_test_augment']] if name == 'imagenet' else []
-    transforms_list += [*AVAILABLE_TRANSFORMS[name]]
+        if name.lower() in ['imagenet', 'cub2011'] and augment:
+            transforms_list = [*AVAILABLE_TRANSFORMS[f'{name.lower()}_test_augment']]
+        else:
+            transforms_list = [*AVAILABLE_TRANSFORMS['augment']] if augment else []
+        # transforms_list = [*AVAILABLE_TRANSFORMS['imagenet_test_augment']] if name == 'imagenet' else []
+    transforms_list += [*AVAILABLE_TRANSFORMS[name.lower()]]
     if normalize:
-        transforms_list += [*AVAILABLE_TRANSFORMS[name + "_norm"]]
+        transforms_list += [*AVAILABLE_TRANSFORMS[name.lower() + "_norm"]]
     dataset_transform = transforms.Compose(transforms_list)
 
     # load data-set
@@ -329,13 +335,13 @@ AVAILABLE_TRANSFORMS = {
     ],
     'cifar10_denorm': UnNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     'cifar100_denorm': UnNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-    'CUB2011': [
+    'cub2011': [
         transforms.ToTensor(),
     ],
-    'CUB2011_norm': [
+    'cub2011_norm': [
             transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
     ],
-    'CUB2011_denorm': UnNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    'cub2011_denorm': UnNormalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     'augment': [
         transforms.RandomHorizontalFlip(),
         transforms.RandomCrop(32, padding=4),
@@ -354,11 +360,11 @@ AVAILABLE_TRANSFORMS = {
     'imagenet_test_augment': [
         transforms.Resize((224, 224))
     ],
-    'CUB2011_augment': [
+    'cub2011_augment': [
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
     ],
-    'CUB2011_test_augment': [
+    'cub2011_test_augment': [
         transforms.Resize((224, 224))
     ]
 }
@@ -369,7 +375,7 @@ DATASET_CONFIGS = {
     'mnist28': {'size': 28, 'channels': 1, 'classes': 10},
     'cifar10': {'size': 32, 'channels': 3, 'classes': 10},
     'cifar100': {'size': 32, 'channels': 3, 'classes': 100},
-    'CUB2011': {'size': 32, 'channels': 3, 'classes': 200},
+    'CUB2011': {'size': 224, 'channels': 3, 'classes': 200},
     'imagenet': {'size': 224, 'channels': 3, 'classes': 1000}
 }
 
@@ -539,7 +545,7 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
         if tasks > 10:
             raise ValueError("Experiment 'CUB-200-2011' cannot have more than 10 tasks!")
         # configurations
-        config = DATASET_CONFIGS['CUB2011']
+        config = DATASET_CONFIGS[name.lower()]
         classes_per_task = int(np.floor(200 / tasks))
 
         if not only_config:
@@ -547,9 +553,9 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             permutation = np.random.permutation(list(range(200)))
             target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
             # prepare train and test datasets with all classes
-            cub2011_train = get_dataset('CUB2011', type="train", dir=data_dir, normalize=normalize,
+            cub2011_train = get_dataset(name.lower(), type="train", dir=data_dir, normalize=normalize,
                                         augment=augment, target_transform=target_transform, verbose=verbose)
-            cub2011_test = get_dataset('CUB2011', type="test", dir=data_dir, normalize=normalize,
+            cub2011_test = get_dataset(name.lower(), type="test", dir=data_dir, normalize=normalize,
                                        target_transform=target_transform, verbose=verbose)
             # generate labels-per-task
             labels_per_task = [
