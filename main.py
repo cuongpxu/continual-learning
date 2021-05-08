@@ -94,6 +94,7 @@ gen_params.add_argument('--lr-gen', type=float, help="learning rate generator (d
 cl_params = parser.add_argument_group('Memory Allocation Parameters')
 cl_params.add_argument('--ewc', action='store_true', help="use 'EWC' (Kirkpatrick et al, 2017)")
 cl_params.add_argument('--lambda', type=float, dest="ewc_lambda", help="--> EWC: regularisation strength")
+cl_params.add_argument('--o-lambda', type=float, help="--> online EWC: regularisation strength")
 cl_params.add_argument('--fisher-n', type=int, help="--> EWC: sample size estimating Fisher Information")
 cl_params.add_argument('--online', action='store_true', help="--> EWC: perform 'online EWC'")
 cl_params.add_argument('--gamma', type=float, help="--> EWC: forgetting coefficient (for 'online EWC')")

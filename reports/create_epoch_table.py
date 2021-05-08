@@ -240,13 +240,13 @@ def get_citation(a):
 if __name__ == '__main__':
     args = parser.parse_args()
     form = args.form
-    epochs = [1]
+    epochs = [1, 3]
     scenarios = ['task', 'domain', 'class']
     algorithms = ['EWC', 'o-EWC', 'SI', 'LwF', 'GR', 'GR+distill', 'A-GEM',
                   'ER', 'iCaRL', 'OTR', 'OTR+distill']
 
     table_writer = open('./{}_epoch_table_{}.tex'.format(args.experiment, form), 'w+')
-    table_writer.write('\\begin{table}[!t]\n')
+    table_writer.write('\\begin{table*}[!t]\n')
     table_writer.write('\\renewcommand{\\arraystretch}{1.3}\n')
     table_writer.write('\\caption{Comparison of single-pass and multi-pass over the mini-batch '
                        'on split MNIST dataset}\n')
@@ -322,8 +322,8 @@ if __name__ == '__main__':
                         for m in seed_list:
                             acc.append(DATA[m][1])
 
-                        mean = np.mean(acc)
-                        std = np.std(acc)
+                        mean = np.mean(acc) * 100
+                        std = np.std(acc) * 100
 
                         if ei == len(epochs) - 1 and si == len(scenarios) - 1:
                             if form == 'NIPS':
@@ -362,5 +362,5 @@ if __name__ == '__main__':
             table_writer.write('\\hline\n')
     table_writer.write('\\hline\n')
     table_writer.write('\\end{tabular}\n')
-    table_writer.write('\\end{table}\n')
+    table_writer.write('\\end{table*}\n')
     table_writer.close()

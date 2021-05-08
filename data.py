@@ -414,11 +414,11 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             raise ValueError("Experiment 'splitMNIST' cannot have more than 10 tasks!")
         # configurations
         config = DATASET_CONFIGS['mnist28']
-        classes_per_task = int(np.floor(config['classes'] / tasks))
+        classes_per_task = int(np.floor(10 / tasks))
         if not only_config:
             # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
-            permutation = np.array(list(range(config['classes']))) if exception \
-                else np.random.permutation(list(range(config['classes'])))
+            permutation = np.array(list(range(10))) if exception \
+                else np.random.permutation(list(range(10)))
             target_transform = transforms.Lambda(lambda y, p=permutation: int(p[y]))
             # prepare train and test datasets with all classes
             mnist_train = get_dataset('mnist28', type="train", dir=data_dir, target_transform=target_transform,
@@ -475,11 +475,11 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             raise ValueError("Experiment 'CIFAR10' cannot have more than 10 tasks!")
         # configurations
         config = DATASET_CONFIGS['cifar10']
-        classes_per_task = int(np.floor(config['classes'] / tasks))
+        classes_per_task = int(np.floor(10 / tasks))
 
         if not only_config:
             # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
-            permutation = np.random.permutation(list(range(config['classes'])))
+            permutation = np.random.permutation(list(range(10)))
             target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
             # prepare train and test datasets with all classes
             cifar10_train = get_dataset('cifar10', type="train", dir=data_dir, normalize=normalize,
@@ -504,10 +504,10 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             raise ValueError("Experiment 'CIFAR100' cannot have more than 100 tasks!")
         # configurations
         config = DATASET_CONFIGS['cifar100']
-        classes_per_task = int(np.floor(config['classes'] / tasks))
+        classes_per_task = int(np.floor(100 / tasks))
         if not only_config:
             # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
-            permutation = np.random.permutation(list(range(config['classes'])))
+            permutation = np.random.permutation(list(range(100)))
             target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
             # prepare train and test datasets with all classes
             cifar100_train = get_dataset('cifar100', type="train", dir=data_dir, normalize=normalize,
@@ -533,11 +533,11 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             raise ValueError("Experiment 'CUB-200-2011' cannot have more than 10 tasks!")
         # configurations
         config = DATASET_CONFIGS['CUB2011']
-        classes_per_task = int(np.floor(config['classes'] / tasks))
+        classes_per_task = int(np.floor(200 / tasks))
 
         if not only_config:
             # prepare permutation to shuffle label-ids (to create different class batches for each random seed)
-            permutation = np.random.permutation(list(range(config['classes'])))
+            permutation = np.random.permutation(list(range(200)))
             target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
             # prepare train and test datasets with all classes
             cub2011_train = get_dataset('CUB2011', type="train", dir=data_dir, normalize=normalize,
