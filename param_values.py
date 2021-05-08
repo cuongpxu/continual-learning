@@ -5,7 +5,7 @@ def set_default_values(args, also_hyper_params=True):
     # args.augment = True if args.experiment in ['CIFAR10', 'CIFAR100', 'ImageNet'] else False
 
     args.normalize = True
-    args.augment = False
+    args.augment = True if args.experiment in ['CUB2011', 'ImageNet'] else False
 
     args.tasks = (5 if args.experiment in ['splitMNIST', 'CIFAR10'] else 10) if args.tasks is None else args.tasks
     args.iters = (2000 if args.experiment in ['splitMNIST', 'CIFAR10', 'CIFAR100', 'CUB2011'] else 5000) if args.iters is None else args.iters

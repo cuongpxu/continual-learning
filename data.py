@@ -353,6 +353,13 @@ AVAILABLE_TRANSFORMS = {
     ],
     'imagenet_test_augment': [
         transforms.Resize((224, 224))
+    ],
+    'CUB2011_augment': [
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+    ],
+    'CUB2011_test_augment': [
+        transforms.Resize((224, 224))
     ]
 }
 
@@ -588,7 +595,7 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
 
     # If needed, update number of (total) classes in the config-dictionary
     config['classes'] = classes_per_task if scenario == 'domain' else classes_per_task*tasks
-    config['normalize'] = normalize if name in ['CIFAR10', 'CIFAR100', 'ImageNet'] else False
+    config['normalize'] = normalize if name in ['CUB2011', 'CIFAR10', 'CIFAR100', 'ImageNet'] else False
     if config['normalize']:
         config['denormalize'] = AVAILABLE_TRANSFORMS["{}_denorm".format(name.lower())]
 
