@@ -45,6 +45,7 @@ model_params.add_argument('--teacher_epochs', type=int, default=100, help='numbe
 model_params.add_argument('--teacher_loss', type=str, default='CE', help='teacher loss function')
 model_params.add_argument('--teacher_split', type=float, default=0.8, help='split ratio for teacher training')
 model_params.add_argument('--teacher_opt', type=str, default='Adam', help='teacher optimizer')
+model_params.add_argument('--teacher_lr', type=float, help='teacher learning rate')
 model_params.add_argument('--use_scheduler', action='store_true', help='Using learning rate scheduler for teacher')
 model_params.add_argument('--use_augment', action='store_true', help='Using data augmentation for training teacher')
 model_params.add_argument('--distill_type', type=str, default='T', choices=['T', 'TS', 'E', 'ET', 'ETS'])

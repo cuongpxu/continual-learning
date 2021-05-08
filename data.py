@@ -89,7 +89,6 @@ def get_dataset(name, mode='train', download=True, capacity=None, dir='./dataset
     if normalize:
         transforms_list += [*AVAILABLE_TRANSFORMS[name + "_norm"]]
     dataset_transform = transforms.Compose(transforms_list)
-    print(dataset_transform)
     # load data-set
     if name == 'cub2011':
         dataset = Cub2011(dir, train=False if mode == 'test' else True,
@@ -540,7 +539,6 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
                 test_datasets.append(SubDataset(cifar100_test, labels, target_transform=target_transform))
 
     elif name == 'CUB2011':
-        print(tasks)
         # check for number of tasks
         if tasks > 10:
             raise ValueError("Experiment 'CUB-200-2011' cannot have more than 10 tasks!")
