@@ -89,13 +89,13 @@ def get_dataset(name, type='train', download=True, capacity=None, dir='./dataset
     if normalize:
         transforms_list += [*AVAILABLE_TRANSFORMS[name + "_norm"]]
     dataset_transform = transforms.Compose(transforms_list)
-
+    print(dataset_transform)
     # load data-set
     if name == 'cub2011':
         dataset = Cub2011(dir, train=False if type == 'test' else True,
                           transform=dataset_transform, target_transform=target_transform, download=download)
     elif name != 'imagenet':
-        dataset = dataset_class('{dir}/{name}'.format(dir=dir, name=data_name), train=False if type=='test' else True,
+        dataset = dataset_class('{dir}/{name}'.format(dir=dir, name=data_name), train=False if type == 'test' else True,
                                 download=download, transform=dataset_transform, target_transform=target_transform)
     else:
         dataset = dataset_class('{dir}/{type}'.format(dir=dir, type=type), transform=dataset_transform,
