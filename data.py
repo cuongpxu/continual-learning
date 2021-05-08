@@ -66,7 +66,7 @@ def get_augmentation(name, augment=False):
     return dataset_transform
 
 
-def get_dataset(name, type='train', download=True, capacity=None, dir='./datasets',
+def get_dataset(name, mode='train', download=True, capacity=None, dir='./datasets',
                 verbose=False, augment=False, normalize=False, target_transform=None):
     '''Create [train|valid|test]-dataset.'''
 
@@ -74,7 +74,7 @@ def get_dataset(name, type='train', download=True, capacity=None, dir='./dataset
     dataset_class = AVAILABLE_DATASETS[data_name]
 
     # specify image-transformations to be applied
-    if type == 'train':
+    if mode == 'train':
         if name.lower() in ['imagenet', 'cub2011'] and augment:
             transforms_list = [*AVAILABLE_TRANSFORMS[f'{name}_augment']]
         else:
@@ -92,17 +92,17 @@ def get_dataset(name, type='train', download=True, capacity=None, dir='./dataset
     print(dataset_transform)
     # load data-set
     if name == 'cub2011':
-        dataset = Cub2011(dir, train=False if type == 'test' else True,
+        dataset = Cub2011(dir, train=False if mode == 'test' else True,
                           transform=dataset_transform, target_transform=target_transform, download=download)
     elif name != 'imagenet':
-        dataset = dataset_class('{dir}/{name}'.format(dir=dir, name=data_name), train=False if type == 'test' else True,
+        dataset = dataset_class('{dir}/{name}'.format(dir=dir, name=data_name), train=False if mode == 'test' else True,
                                 download=download, transform=dataset_transform, target_transform=target_transform)
     else:
-        dataset = dataset_class('{dir}/{type}'.format(dir=dir, type=type), transform=dataset_transform,
+        dataset = dataset_class('{dir}/{type}'.format(dir=dir, type=mode), transform=dataset_transform,
                                 target_transform=target_transform)
     # print information about dataset on the screen
     if verbose:
-        print(" --> {}: '{}'-dataset consisting of {} samples".format(name, type, len(dataset)))
+        print(" --> {}: '{}'-dataset consisting of {} samples".format(name, mode, len(dataset)))
 
     # if dataset is (possibly) not large enough, create copies until it is.
     if capacity is not None and len(dataset) < capacity:
@@ -397,9 +397,9 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
         classes_per_task = 10
         if not only_config:
             # prepare dataset
-            train_dataset = get_dataset('mnist', type="train", dir=data_dir,
+            train_dataset = get_dataset('mnist', mode="train", dir=data_dir,
                                         target_transform=None, verbose=verbose)
-            test_dataset = get_dataset('mnist', type="test", dir=data_dir,
+            test_dataset = get_dataset('mnist', mode="test", dir=data_dir,
                                        target_transform=None, verbose=verbose)
             # generate permutations
             if exception:
@@ -434,9 +434,9 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
                 else np.random.permutation(list(range(10)))
             target_transform = transforms.Lambda(lambda y, p=permutation: int(p[y]))
             # prepare train and test datasets with all classes
-            mnist_train = get_dataset('mnist28', type="train", dir=data_dir, target_transform=target_transform,
+            mnist_train = get_dataset('mnist28', mode="train", dir=data_dir, target_transform=target_transform,
                                       verbose=verbose)
-            mnist_test = get_dataset('mnist28', type="test", dir=data_dir, target_transform=target_transform,
+            mnist_test = get_dataset('mnist28', mode="test", dir=data_dir, target_transform=target_transform,
                                      verbose=verbose)
             # generate labels-per-task
             labels_per_task = [
@@ -457,9 +457,9 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
         classes_per_task = 10
         if not only_config:
             # prepare dataset
-            train_dataset = get_dataset('mnist', type="train", dir=data_dir,
+            train_dataset = get_dataset('mnist', mode="train", dir=data_dir,
                                         target_transform=None, verbose=verbose)
-            test_dataset = get_dataset('mnist', type="test", dir=data_dir,
+            test_dataset = get_dataset('mnist', mode="test", dir=data_dir,
                                        target_transform=None, verbose=verbose)
             # generate rotations
             if exception:
@@ -495,10 +495,10 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             permutation = np.random.permutation(list(range(10)))
             target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
             # prepare train and test datasets with all classes
-            cifar10_train = get_dataset('cifar10', type="train", dir=data_dir, normalize=normalize,
-                                             augment=augment, target_transform=target_transform, verbose=verbose)
-            cifar10_test = get_dataset('cifar10', type="test", dir=data_dir, normalize=normalize,
-                                        target_transform=target_transform, verbose=verbose)
+            cifar10_train = get_dataset('cifar10', mode="train", dir=data_dir, normalize=normalize,
+                                        augment=augment, target_transform=target_transform, verbose=verbose)
+            cifar10_test = get_dataset('cifar10', mode="test", dir=data_dir, normalize=normalize,
+                                       target_transform=target_transform, verbose=verbose)
             # generate labels-per-task
             labels_per_task = [
                 list(np.array(range(classes_per_task)) + classes_per_task * task_id) for task_id in range(tasks)
@@ -523,9 +523,9 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             permutation = np.random.permutation(list(range(100)))
             target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
             # prepare train and test datasets with all classes
-            cifar100_train = get_dataset('cifar100', type="train", dir=data_dir, normalize=normalize,
-                                             augment=augment, target_transform=target_transform, verbose=verbose)
-            cifar100_test = get_dataset('cifar100', type="test", dir=data_dir, normalize=normalize,
+            cifar100_train = get_dataset('cifar100', mode="train", dir=data_dir, normalize=normalize,
+                                         augment=augment, target_transform=target_transform, verbose=verbose)
+            cifar100_test = get_dataset('cifar100', mode="test", dir=data_dir, normalize=normalize,
                                         target_transform=target_transform, verbose=verbose)
             # generate labels-per-task
             labels_per_task = [
@@ -553,10 +553,10 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             permutation = np.random.permutation(list(range(200)))
             target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
             # prepare train and test datasets with all classes
-            cub2011_train = get_dataset(name.lower(), type="train", dir=data_dir, normalize=normalize,
+            cub2011_train = get_dataset(name.lower(), mode="train", dir=data_dir, normalize=normalize,
                                         augment=augment, target_transform=target_transform, verbose=verbose)
-            cub2011_test = get_dataset(name.lower(), type="test", dir=data_dir, normalize=normalize,
-                                       target_transform=target_transform, verbose=verbose)
+            cub2011_test = get_dataset(name.lower(), mode="test", dir=data_dir, normalize=normalize,
+                                       augment=augment, target_transform=target_transform, verbose=verbose)
             # generate labels-per-task
             labels_per_task = [
                 list(np.array(range(classes_per_task)) + classes_per_task * task_id) for task_id in range(tasks)
@@ -581,9 +581,9 @@ def get_multitask_experiment(name, scenario, tasks, data_dir="./datasets", norma
             permutation = np.random.permutation(list(range(1000)))
             target_transform = transforms.Lambda(lambda y, x=permutation: int(permutation[y]))
             # prepare train and test datasets with all classes
-            imagenet_train = get_dataset('imagenet', type="train", dir=data_dir, normalize=normalize,
+            imagenet_train = get_dataset('imagenet', mode="train", dir=data_dir, normalize=normalize,
                                          augment=augment, target_transform=target_transform, verbose=verbose)
-            imagenet_test = get_dataset('imagenet', type="test", dir=data_dir, normalize=normalize,
+            imagenet_test = get_dataset('imagenet', mode="test", dir=data_dir, normalize=normalize,
                                         target_transform=target_transform, verbose=verbose)
             # generate labels-per-task
             labels_per_task = [
