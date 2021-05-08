@@ -76,22 +76,22 @@ def get_dataset(name, type='train', download=True, capacity=None, dir='./dataset
     # specify image-transformations to be applied
     if type == 'train':
         if name.lower() in ['imagenet', 'cub2011'] and augment:
-            transforms_list = [*AVAILABLE_TRANSFORMS[f'{name.lower()}_augment']]
+            transforms_list = [*AVAILABLE_TRANSFORMS[f'{name}_augment']]
         else:
             transforms_list = [*AVAILABLE_TRANSFORMS['augment']] if augment else []
     else:
         if name.lower() in ['imagenet', 'cub2011'] and augment:
-            transforms_list = [*AVAILABLE_TRANSFORMS[f'{name.lower()}_test_augment']]
+            transforms_list = [*AVAILABLE_TRANSFORMS[f'{name}_test_augment']]
         else:
             transforms_list = [*AVAILABLE_TRANSFORMS['augment']] if augment else []
         # transforms_list = [*AVAILABLE_TRANSFORMS['imagenet_test_augment']] if name == 'imagenet' else []
-    transforms_list += [*AVAILABLE_TRANSFORMS[name.lower()]]
+    transforms_list += [*AVAILABLE_TRANSFORMS[name]]
     if normalize:
-        transforms_list += [*AVAILABLE_TRANSFORMS[name.lower() + "_norm"]]
+        transforms_list += [*AVAILABLE_TRANSFORMS[name + "_norm"]]
     dataset_transform = transforms.Compose(transforms_list)
 
     # load data-set
-    if name == 'CUB2011':
+    if name == 'cub2011':
         dataset = Cub2011(dir, train=False if type == 'test' else True,
                           transform=dataset_transform, target_transform=target_transform, download=download)
     elif name != 'imagenet':
@@ -305,7 +305,7 @@ AVAILABLE_DATASETS = {
     'mnist': datasets.MNIST,
     'cifar10': datasets.CIFAR10,
     'cifar100': datasets.CIFAR100,
-    'CUB2011': None,
+    'cub2011': None,
     'imagenet': datasets.ImageFolder,
 }
 
@@ -375,7 +375,7 @@ DATASET_CONFIGS = {
     'mnist28': {'size': 28, 'channels': 1, 'classes': 10},
     'cifar10': {'size': 32, 'channels': 3, 'classes': 10},
     'cifar100': {'size': 32, 'channels': 3, 'classes': 100},
-    'CUB2011': {'size': 224, 'channels': 3, 'classes': 200},
+    'cub2011': {'size': 224, 'channels': 3, 'classes': 200},
     'imagenet': {'size': 224, 'channels': 3, 'classes': 1000}
 }
 
