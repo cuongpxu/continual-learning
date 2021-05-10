@@ -256,7 +256,6 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 # print('Training batch: {}'.format(batch_index))
                 # Train the main model with this batch
                 for e in range(params_dict['epochs']):
-                    # TODO: ignore select triplet in epoch > 1
                     loss_dict = model.train_a_batch(x, y, x_=x_, y_=y_, scores=scores, scores_=scores_,
                                                     active_classes=active_classes, task=task, rnt=1. / task,
                                                     scenario=scenario, teacher=teacher,
@@ -443,8 +442,8 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
     torch.autograd.set_detect_anomaly(True)
     teacher_split = params_dict['teacher_split']
     mem_train_size = int(teacher_split * len(teacher_dataset))
-    mem_train_set, mem_val_set = random_split(teacher_dataset, [mem_train_size,
-                                                                len(teacher_dataset) - mem_train_size])
+    mem_train_set, mem_val_set = random_split(teacher_dataset, [mem_train_size, len(teacher_dataset) - mem_train_size],
+                                              torch.Generator().manual_seed(params_dict['seed']))
     if params_dict['teacher_augment'] is not None:
         mem_train_set = TransformedDataset(mem_train_set, transform=params_dict['teacher_augment'])
     mem_train_loader = utils.get_data_loader(mem_train_set, batch_size=params_dict['batch_size'],
@@ -469,8 +468,8 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
         teacher_criterion = torch.nn.BCEWithLogitsLoss()
     id = uuid.uuid1()
     early_stopping = EarlyStopping(model_name=id.hex, verbose=False)
-    utils.make_dirs('%s/board' % params_dict['r_dir'])
-    writer = SummaryWriter('%s/board/%s_%s' % (params_dict['r_dir'], params_dict['stamp'], params_dict['task']))
+    # utils.make_dirs('%s/board' % params_dict['r_dir'])
+    # writer = SummaryWriter('%s/board/%s_%s' % (params_dict['r_dir'], params_dict['stamp'], params_dict['task']))
 
     # Training teacher
     tk = tqdm.tqdm(range(1, params_dict['teacher_epochs']), leave=False)
@@ -478,9 +477,9 @@ def training_teacher(teacher_dataset, teacher, active_classes, params_dict):
     for epoch in tk:
         params_dict['epoch'] = epoch
         tlosses = teacher.train_epoch(mem_train_loader, teacher_criterion, teacher_optimizer,
-                                      active_classes, params_dict, writer)
+                                      active_classes, params_dict)
         vlosses = teacher.valid_epoch(mem_val_loader, teacher_criterion,
-                                      active_classes, params_dict, writer)
+                                      active_classes, params_dict)
         tk.set_description('<Teacher> | training_loss : {:.5f} | validation_loss: {:.5f}'
                            .format(np.average(tlosses), np.average(vlosses)), refresh=True)
         if params_dict['use_scheduler']:
