@@ -193,9 +193,9 @@ def get_citation(a):
 if __name__ == '__main__':
     args = parser.parse_args()
     form = args.form
-    budgets = [2000, 3000, 4000, 5000]
+    budgets = [2000, 5000]
     scenarios = ['class']
-    algorithms = ['OTR+distill']
+    algorithms = ['OTR', 'OTR+distill']
 
     table_writer = open('./{}_budget_table_{}.tex'.format(args.experiment, form), 'w+')
     table_writer.write('\\begin{table}[!t]\n')

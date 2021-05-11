@@ -287,7 +287,6 @@ def train_cl(model, teacher, train_datasets, replay_mode="none", scenario="class
                 for eval_cb in eval_cbs:
                     if eval_cb is not None:
                         eval_cb(model, batch_index, task=task)
-
                 if model.label == "VAE":
                     for sample_cb in sample_cbs:
                         if sample_cb is not None:

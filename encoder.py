@@ -349,7 +349,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
         # Should gradient be computed separately for each task? (needed when a task-mask is combined with replay)
         gradient_per_task = True if ((self.mask_dict is not None) and (x_ is not None)) else False
-        kd_fn = utils.loss_fn_kd_binary if self.binaryCE else utils.loss_fn_kd
         ##--(1)-- REPLAYED DATA --##
 
         if x_ is not None:
@@ -426,28 +425,27 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                         if params_dict['distill_type'] in ['ET', 'ETS']:
                             loss_KD[replay_id] = 0.5 * (F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                                 F.softmax(y_hat_ensemble / self.KD_temp, dim=1),
-                                                                 reduction='batchmean')
+                                                      F.softmax(y_hat_ensemble / self.KD_temp, dim=1))
                                              * (self.KD_temp * self.KD_temp) +
                                              F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                      F.softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                                      reduction='batchmean')
+                                                      F.softmax(y_hat_teacher / self.KD_temp, dim=1))
                                              * (self.KD_temp * self.KD_temp))
+
                         else:  # distill: E, ES
                             loss_KD[replay_id] = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                          F.softmax(y_hat_ensemble / self.KD_temp, dim=1),
-                                                          reduction='batchmean') \
+                                               F.softmax(y_hat_ensemble / self.KD_temp, dim=1)) \
                                       * (self.KD_temp * self.KD_temp)
+
                     else:  # distill: T, TS
                         loss_KD[replay_id] = F.kl_div(F.log_softmax(y_hat / self.KD_temp, dim=1),
-                                                      F.softmax(y_hat_teacher / self.KD_temp, dim=1),
-                                                      reduction='batchmean') \
+                                           F.softmax(y_hat_teacher / self.KD_temp, dim=1)) \
                                   * (self.KD_temp * self.KD_temp)
                         # loss_KD = self.alpha_t * loss_KD + F.cross_entropy(y_hat, y) * (1. - self.alpha_t)
 
                 if (scores_ is not None) and (scores_[replay_id] is not None):
                     # n_classes_to_consider = scores.size(1) #--> with this version, no zeroes are added to [scores]!
                     n_classes_to_consider = y_hat.size(1)  # --> zeros will be added to [scores] to make it this size!
+                    kd_fn = utils.loss_fn_kd_binary if self.binaryCE else utils.loss_fn_kd
                     distilL_r[replay_id] = kd_fn(scores=y_hat[:, :n_classes_to_consider],
                                                  target_scores=scores_[replay_id], T=self.KD_temp)
                 # Weigh losses
@@ -550,7 +548,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         else:
             loss_total = loss_replay if (x is None) else rnt * loss_cur + (1 - rnt) * loss_replay
         if loss_KD is not None:
-            loss_total = loss_total + loss_KD
+            loss_total = rnt * loss_total + (1 - rnt) * loss_KD
 
         ##--(3)-- ALLOCATION LOSSES --##
 

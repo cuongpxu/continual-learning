@@ -242,9 +242,9 @@ def get_citation(a):
 if __name__ == '__main__':
     args = parser.parse_args()
     form = args.form
-    epochs = [1]
+    epochs = [1, 5]
     scenarios = ['task', 'domain', 'class']
-    algorithms = ['EWC', 'o-EWC', 'SI', 'LwF', 'GR', 'GR+distill', 'A-GEM', 'ER', 'iCaRL', 'OTR', 'OTR+distill']
+    algorithms = ['OTR', 'OTR+distill']
 
     table_writer = open('./{}_epoch_table_{}.tex'.format(args.experiment, form), 'w+')
     table_writer.write('\\begin{table*}[!t]\n')
