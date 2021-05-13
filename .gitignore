@@ -23,6 +23,7 @@ benchmark_icarl_online/
 benchmark_updated/
 benchmark_epochs/
 benchmark_CIFAR/
+benchmark_MNIST/
 test_grad.py
 time/
 *.sh

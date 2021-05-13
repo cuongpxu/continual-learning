@@ -72,7 +72,7 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
         lrg=("" if args.lr == args.lr_gen else "-lrG{}".format(args.lr_gen))
         if (hasattr(args, "lr_gen") and args.replay == 'generative') else "",
         lrt=("" if args.teacher_lr == args.lr else "-lrT{}".format(args.teacher_lr))
-        if (hasattr(args, "use_teacher") and args.replay == 'online') else "",
+        if (utils.checkattr(args, 'use_teacher') and args.replay == 'online') else "",
         bsz=args.batch, optim=args.optimizer,
     )
     if verbose:

@@ -548,8 +548,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         else:
             loss_total = loss_replay if (x is None) else rnt * loss_cur + (1 - rnt) * loss_replay
         if loss_KD is not None:
-            loss_total = rnt * loss_total + (1 - rnt) * loss_KD
-
+            loss_total = loss_total + loss_KD
         ##--(3)-- ALLOCATION LOSSES --##
 
         # Add SI-loss (Zenke et al., 2017)
